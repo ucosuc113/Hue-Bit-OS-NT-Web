@@ -79,20 +79,34 @@
 
     /* ── Logo ASCII ── */
     #logo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      opacity: 0;
+      animation: fadeIn 0.6s ease 0.2s forwards;
+    }
+
+    #logo-img {
+      width: 120px;
+      height: 120px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 12px #00ff88aa);
+    }
+
+    #logo-text {
       font-family: 'VT323', monospace;
-      font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+      font-size: clamp(1.4rem, 3.5vw, 2rem);
       line-height: 1.15;
       color: var(--green);
       text-shadow: var(--glow);
       white-space: pre;
       text-align: center;
       letter-spacing: 0.05em;
-      opacity: 0;
-      animation: fadeIn 0.6s ease 0.2s forwards;
     }
 
-    #logo .dim  { color: var(--green-dim); text-shadow: none; }
-    #logo .line { color: var(--green); text-shadow: var(--glow); }
+    #logo-text .dim { color: var(--green-dim); text-shadow: none; }
+    #logo-text .line { color: var(--green); text-shadow: var(--glow); }
 
     /* ── Version badge ── */
     #version {
@@ -273,17 +287,22 @@
 
   <main id="boot-screen">
 
-    <!-- ASCII Logo -->
-    <pre id="logo"><span class="dim">╔══════════════════════════════════════════╗</span>
-<span class="dim">║</span>   <span class="line"> ██╗    ██╗███████╗██████╗  ██████╗ ███████╗</span>  <span class="dim">║</span>
-<span class="dim">║</span>   <span class="line"> ██║    ██║██╔════╝██╔══██╗██╔═══██╗██╔════╝</span>  <span class="dim">║</span>
-<span class="dim">║</span>   <span class="line"> ██║ █╗ ██║█████╗  ██████╔╝██║   ██║███████╗</span>  <span class="dim">║</span>
-<span class="dim">║</span>   <span class="line"> ██║███╗██║██╔══╝  ██╔══██╗██║   ██║╚════██║</span>  <span class="dim">║</span>
-<span class="dim">║</span>   <span class="line"> ╚███╔███╔╝███████╗██████╔╝╚██████╔╝███████║</span>  <span class="dim">║</span>
-<span class="dim">║</span>   <span class="line">  ╚══╝╚══╝ ╚══════╝╚═════╝  ╚═════╝ ╚══════╝</span>  <span class="dim">║</span>
-<span class="dim">╚══════════════════════════════════════════╝</span></pre>
+    <!-- Logo with Image -->
+    <div id="logo">
+      <img id="logo-img" src="public/syslogo.png" alt="WebOS" />
+      <div id="logo-text">
+        <span class="dim">╔══════════════════════════════════════════╗</span><br />
+        <span class="dim">║</span>   <span class="line"> ██╗    ██╗███████╗██████╗  ██████╗ ███████╗</span>  <span class="dim">║</span><br />
+        <span class="dim">║</span>   <span class="line"> ██║    ██║██╔════╝██╔══██╗██╔═══██╗██╔════╝</span>  <span class="dim">║</span><br />
+        <span class="dim">║</span>   <span class="line"> ██║ █╗ ██║█████╗  ██████╔╝██║   ██║███████╗</span>  <span class="dim">║</span><br />
+        <span class="dim">║</span>   <span class="line"> ██║███╗██║██╔══╝  ██╔══██╗██║   ██║╚════██║</span>  <span class="dim">║</span><br />
+        <span class="dim">║</span>   <span class="line"> ╚███╔███╔╝███████╗██████╔╝╚██████╔╝███████║</span>  <span class="dim">║</span><br />
+        <span class="dim">║</span>   <span class="line">  ╚══╝╚══╝ ╚══════╝╚═════╝  ╚═════╝ ╚══════╝</span>  <span class="dim">║</span><br />
+        <span class="dim">╚══════════════════════════════════════════╝</span>
+      </div>
+    </div>
 
-    <div id="version">KERNEL v0.1.0 · FASE 1 · INIT</div>
+    <div id="version">KERNEL v0.2.0 · FASE 3 · INIT</div>
 
     <!-- Log de arranque -->
     <div id="boot-log"></div>
@@ -1046,30 +1065,30 @@
   async function _bootstrapApps() {
     const systemApps = [
       {
-        id       : 'shell',
-        name     : 'Terminal',
-        version  : '0.1.0',
-        entry    : 'shell.html',
-        icon     : '⌨️',
-        category : 'system',
-        singleton: true,
-        meta     : { description: 'Shell de línea de comandos' },
-      },
-      {
         id       : 'files',
         name     : 'Archivos',
         version  : '0.1.0',
-        entry    : 'files.html',
+        entry    : 'apps/files.html',
         icon     : '📁',
         category : 'system',
         singleton: false,
         meta     : { description: 'Explorador de archivos' },
       },
       {
+        id       : 'terminal',
+        name     : 'Terminal',
+        version  : '0.1.0',
+        entry    : 'apps/terminal.html',
+        icon     : '⌨️',
+        category : 'system',
+        singleton: false,
+        meta     : { description: 'Terminal de comandos' },
+      },
+      {
         id       : 'text-editor',
         name     : 'Editor de texto',
         version  : '0.1.0',
-        entry    : 'editor.html',
+        entry    : 'apps/editor.html',
         icon     : '📝',
         category : 'utility',
         singleton: false,

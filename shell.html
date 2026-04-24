@@ -342,12 +342,22 @@
     }
     .start-header {
       display: flex; align-items: baseline; justify-content: space-between;
-      padding: 16px 18px 10px;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--glass-border);
+      gap: 10px;
     }
+
+    .start-header-logo {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 6px #00ff88aa);
+      flex-shrink: 0;
+    }
+
     .start-title {
       font-family: var(--font-display);
-      font-size: 1.8rem; color: var(--green);
+      font-size: 1.6rem; color: var(--green);
       text-shadow: var(--glow);
       letter-spacing: 0.15em;
     }
@@ -578,8 +588,12 @@
   <!-- Start Menu -->
   <div id="start-menu" class="hidden">
     <div class="start-header">
-      <span class="start-title">⊞ WebOS</span>
-      <span class="start-version">v0.1.0</span>
+      <img src="public/syslogo.png" alt="WebOS" class="start-header-logo" />
+      <div>
+        <span class="start-title">WebOS</span>
+        <br />
+        <span class="start-version">v0.1.0 · FASE 3</span>
+      </div>
     </div>
     <div class="start-search-wrap">
       <input id="start-search" type="text" placeholder="Buscar aplicación…" autocomplete="off" spellcheck="false" />
