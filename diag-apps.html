@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apps Diagnostic</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      background: #08110b;
+      color: #8fffc3;
+      font: 14px/1.5 Consolas, monospace;
+    }
+    pre {
+      white-space: pre-wrap;
+      background: #020603;
+      border: 1px solid #1c4;
+      padding: 12px;
+    }
+  </style>
+</head>
+<body>
+  <pre id="log">diagnosticando apps...\n</pre>
+  <script>
+    const logEl = document.getElementById('log');
+    function log(line) {
+      logEl.textContent += line + '\n';
+    }
+
+    (async () => {
+      try {
+        const res = await fetch('./apps/index.json');
+        log(`index.json ok=${res.ok} status=${res.status}`);
+        const data = await res.json();
+        log(`apps en indice=${data.apps.length}`);
+
+        for (const file of data.apps) {
+          try {
+            const htmlRes = await fetch(`./apps/${file}`);
+            log(`${file} fetch ok=${htmlRes.ok} status=${htmlRes.status}`);
+            const html = await htmlRes.text();
+            const match = html.match(
+              /<script[^>]+id=["']wos-manifest["'][^>]*>([\s\S]*?)<\/script>/i
+            );
+            if (!match) {
+              log(`${file} :: sin manifiesto`);
+              continue;
+            }
+            const manifest = JSON.parse(match[1].trim());
+            log(`${file} :: ${manifest.id} :: ${manifest.name}`);
+          } catch (err) {
+            log(`${file} :: ERROR :: ${err.message}`);
+          }
+        }
+      } catch (err) {
+        log(`ERROR GLOBAL :: ${err.message}`);
+      }
+    })();
+  </script>
+</body>
+</html>

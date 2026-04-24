@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebOS · Configuración</title>
+  <script type="application/json" id="wos-manifest">
+  {
+    "id":          "config",
+    "name":        "Configuración",
+    "version":     "0.1.0",
+    "icon":        "⚙️",
+    "category":    "system",
+    "singleton":   true,
+    "description": "Configuración y herramientas del sistema",
+    "winWidth":    680,
+    "winHeight":   500,
+    "author":      "WebOS"
+  }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green       : #00ff88;
+      --green-dim   : #00aa55;
+      --green-faint : #003322;
+      --green-dark  : #001a0e;
+      --amber       : #ffb300;
+      --red-err     : #ff4444;
+      --red-dim     : #aa2222;
+      --blue-acc    : #00ccff;
+      --bg          : #030a05;
+      --glass       : rgba(3, 18, 10, 0.96);
+      --glass-border: rgba(0,255,136,0.18);
+      --glow-sm     : 0 0 4px #00ff8888;
+      --font-mono   : 'Share Tech Mono', monospace;
+      --font-display: 'VT323', monospace;
+      --sidebar-w   : 170px;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    /* CRT scanlines */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 9999;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.08) 0px, rgba(0,0,0,0.08) 1px,
+        transparent 1px, transparent 3px
+      );
+    }
+
+    /* ── Layout ── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      width: 100%; height: 100%;
+    }
+
+    /* ── Header ── */
+    #header {
+      height: 38px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 14px;
+      background: linear-gradient(90deg, rgba(0,30,16,0.97), rgba(0,20,10,0.97));
+      border-bottom: 1px solid var(--glass-border);
+      flex-shrink: 0;
+      user-select: none;
+    }
+    #header .h-icon { font-size: 1rem; }
+    #header .h-title {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      color: var(--green);
+      text-shadow: var(--glow-sm);
+      letter-spacing: 0.1em;
+    }
+    #header .h-ver {
+      font-size: 0.6rem;
+      color: var(--green-dim);
+      margin-left: 4px;
+      opacity: 0.6;
+    }
+
+    /* ── Body split ── */
+    #body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      background: rgba(0,10,5,0.7);
+      border-right: 1px solid rgba(0,255,136,0.10);
+      overflow-y: auto;
+      padding: 10px 0;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      color: var(--green-dim);
+      border-left: 2px solid transparent;
+      transition: color 0.1s, background 0.1s, border-color 0.1s;
+    }
+    .nav-item:hover { background: rgba(0,255,136,0.08); color: var(--green); }
+    .nav-item.active {
+      color: var(--green);
+      border-left-color: var(--green);
+      background: rgba(0,255,136,0.10);
+    }
+    .nav-item .ni-icon { font-size: 0.9rem; }
+    .nav-sep {
+      height: 1px;
+      background: rgba(0,255,136,0.08);
+      margin: 8px 12px;
+    }
+    .nav-group-label {
+      padding: 10px 14px 4px;
+      font-size: 0.58rem;
+      letter-spacing: 0.12em;
+      color: rgba(0,255,136,0.3);
+      text-transform: uppercase;
+    }
+
+    /* ── Content ── */
+    #content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 20px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--green-dim) transparent;
+    }
+    #content::-webkit-scrollbar       { width: 5px; }
+    #content::-webkit-scrollbar-track { background: transparent; }
+    #content::-webkit-scrollbar-thumb { background: var(--green-dim); border-radius: 3px; }
+
+    /* Panels */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* Section heading */
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      color: var(--green);
+      text-shadow: var(--glow-sm);
+      letter-spacing: 0.1em;
+      margin-bottom: 6px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-desc {
+      font-size: 0.68rem;
+      color: var(--green-dim);
+      margin-bottom: 18px;
+      letter-spacing: 0.04em;
+      line-height: 1.6;
+    }
+
+    /* Config card */
+    .cfg-card {
+      background: rgba(0,255,136,0.04);
+      border: 1px solid rgba(0,255,136,0.12);
+      border-radius: 5px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .cfg-card-header {
+      padding: 10px 14px 6px;
+      font-size: 0.68rem;
+      color: rgba(0,255,136,0.5);
+      letter-spacing: 0.1em;
+      border-bottom: 1px solid rgba(0,255,136,0.08);
+      text-transform: uppercase;
+    }
+    .cfg-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(0,255,136,0.06);
+      gap: 12px;
+    }
+    .cfg-row:last-child { border-bottom: none; }
+    .cfg-label {
+      font-size: 0.72rem;
+      color: var(--green);
+      letter-spacing: 0.03em;
+      flex: 1;
+    }
+    .cfg-hint {
+      font-size: 0.6rem;
+      color: rgba(0,255,136,0.35);
+      margin-top: 2px;
+      letter-spacing: 0.03em;
+    }
+    .cfg-control { flex-shrink: 0; }
+
+    /* Inputs */
+    .cfg-select, .cfg-input-num {
+      background: rgba(0,255,136,0.05);
+      border: 1px solid rgba(0,255,136,0.28);
+      border-radius: 3px;
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      padding: 4px 8px;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.12s;
+    }
+    .cfg-select:focus, .cfg-input-num:focus {
+      border-color: rgba(0,255,136,0.6);
+    }
+    .cfg-input-num { width: 70px; text-align: right; }
+
+    /* Toggle switch */
+    .cfg-toggle {
+      position: relative;
+      width: 38px; height: 20px;
+      cursor: pointer;
+    }
+    .cfg-toggle input { opacity: 0; width: 0; height: 0; }
+    .cfg-toggle-track {
+      position: absolute; inset: 0;
+      background: rgba(0,255,136,0.1);
+      border: 1px solid rgba(0,255,136,0.3);
+      border-radius: 20px;
+      transition: background 0.2s;
+    }
+    .cfg-toggle input:checked + .cfg-toggle-track {
+      background: rgba(0,255,136,0.25);
+      border-color: var(--green);
+    }
+    .cfg-toggle-thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 12px; height: 12px;
+      background: var(--green-dim);
+      border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .cfg-toggle input:checked ~ .cfg-toggle-thumb {
+      transform: translateX(18px);
+      background: var(--green);
+      box-shadow: var(--glow-sm);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px;
+      border: 1px solid;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+      transition: background 0.12s, border-color 0.12s, filter 0.1s;
+    }
+    .btn:hover   { filter: brightness(1.25); }
+    .btn:active  { filter: brightness(0.9); }
+    .btn-primary {
+      background: rgba(0,255,136,0.10);
+      border-color: rgba(0,255,136,0.45);
+      color: var(--green);
+    }
+    .btn-amber {
+      background: rgba(255,179,0,0.08);
+      border-color: rgba(255,179,0,0.45);
+      color: var(--amber);
+    }
+    .btn-danger {
+      background: rgba(255,68,68,0.08);
+      border-color: rgba(255,68,68,0.45);
+      color: var(--red-err);
+    }
+    .btn-danger-solid {
+      background: rgba(255,68,68,0.18);
+      border-color: rgba(255,68,68,0.65);
+      color: #ff8888;
+      font-weight: bold;
+    }
+    .btn-danger-solid:hover { background: rgba(255,68,68,0.30); }
+
+    /* Info boxes */
+    .info-box {
+      padding: 10px 14px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      line-height: 1.7;
+      letter-spacing: 0.03em;
+      margin-bottom: 14px;
+    }
+    .info-box.warning {
+      background: rgba(255,179,0,0.07);
+      border: 1px solid rgba(255,179,0,0.3);
+      color: var(--amber);
+    }
+    .info-box.danger {
+      background: rgba(255,68,68,0.07);
+      border: 1px solid rgba(255,68,68,0.3);
+      color: #ff8888;
+    }
+    .info-box.ok {
+      background: rgba(0,255,136,0.06);
+      border: 1px solid rgba(0,255,136,0.25);
+      color: var(--green-dim);
+    }
+
+    /* DB store stats */
+    .db-store-row {
+      display: flex; align-items: center;
+      padding: 8px 14px;
+      border-bottom: 1px solid rgba(0,255,136,0.06);
+      gap: 10px;
+    }
+    .db-store-row:last-child { border-bottom: none; }
+    .db-store-name {
+      flex: 1; font-size: 0.72rem; color: var(--green);
+      font-family: var(--font-mono); letter-spacing: 0.04em;
+    }
+    .db-store-count {
+      font-size: 0.68rem; color: var(--green-dim);
+      min-width: 50px; text-align: right;
+    }
+    .db-store-btn {
+      font-size: 0.62rem;
+      padding: 3px 8px;
+    }
+
+    /* About section */
+    .about-logo {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      color: var(--green);
+      text-shadow: 0 0 12px #00ff88aa;
+      letter-spacing: 0.15em;
+      margin-bottom: 6px;
+    }
+    .about-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .about-item {
+      background: rgba(0,255,136,0.04);
+      border: 1px solid rgba(0,255,136,0.1);
+      border-radius: 4px;
+      padding: 8px 12px;
+    }
+    .about-item .ai-key { font-size: 0.6rem; color: rgba(0,255,136,0.45); letter-spacing: 0.1em; text-transform: uppercase; }
+    .about-item .ai-val { font-size: 0.75rem; color: var(--green-dim); margin-top: 2px; }
+
+    /* ── Confirm modal ── */
+    #confirm-modal {
+      display: none;
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(0,0,0,0.82);
+      align-items: center; justify-content: center;
+    }
+    #confirm-modal.visible { display: flex; }
+    .confirm-box {
+      background: #020d06;
+      border: 1px solid rgba(255,68,68,0.5);
+      border-radius: 6px;
+      padding: 24px;
+      width: 380px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.9), 0 0 24px rgba(255,68,68,0.15);
+    }
+    .confirm-box h3 {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      color: var(--red-err);
+      margin-bottom: 10px;
+      text-shadow: 0 0 8px rgba(255,68,68,0.5);
+    }
+    .confirm-box p {
+      font-size: 0.72rem;
+      color: rgba(255,136,136,0.8);
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+    .confirm-actions {
+      display: flex; gap: 10px; justify-content: flex-end;
+    }
+
+    /* Toast */
+    #toast-container {
+      position: fixed; bottom: 12px; right: 12px;
+      display: flex; flex-direction: column; gap: 5px;
+      z-index: 1000; pointer-events: none;
+    }
+    .toast {
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 0.68rem; letter-spacing: 0.06em;
+      border: 1px solid;
+      animation: toastIn 0.2s ease;
+    }
+    .toast.ok    { background: rgba(0,255,136,0.12); border-color: rgba(0,255,136,0.4); color: var(--green); }
+    .toast.error { background: rgba(255,68,68,0.12);  border-color: rgba(255,68,68,0.4);  color: var(--red-err); }
+    .toast.info  { background: rgba(255,179,0,0.10);  border-color: rgba(255,179,0,0.35); color: var(--amber); }
+    @keyframes toastIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Header -->
+  <div id="header">
+    <span class="h-icon">⚙️</span>
+    <span class="h-title">CONFIGURACIÓN DEL SISTEMA</span>
+    <span class="h-ver">WebOS v0.1.0</span>
+  </div>
+
+  <!-- Body -->
+  <div id="body">
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div class="nav-group-label">General</div>
+      <div class="nav-item active" data-panel="panel-apariencia">
+        <span class="ni-icon">🎨</span> Apariencia
+      </div>
+      <div class="nav-item" data-panel="panel-sistema">
+        <span class="ni-icon">🖥️</span> Sistema
+      </div>
+      <div class="nav-item" data-panel="panel-shell">
+        <span class="ni-icon">⌨️</span> Shell
+      </div>
+      <div class="nav-sep"></div>
+      <div class="nav-group-label">Avanzado</div>
+      <div class="nav-item" data-panel="panel-almacenamiento">
+        <span class="ni-icon">💾</span> Almacenamiento
+      </div>
+      <div class="nav-item" data-panel="panel-formatear">
+        <span class="ni-icon">⚠️</span> Formatear
+      </div>
+      <div class="nav-sep"></div>
+      <div class="nav-group-label">Acerca de</div>
+      <div class="nav-item" data-panel="panel-about">
+        <span class="ni-icon">📋</span> Acerca del sistema
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div id="content">
+
+      <!-- ── APARIENCIA ── -->
+      <div id="panel-apariencia" class="panel active">
+        <div class="section-title">🎨 Apariencia</div>
+        <div class="section-desc">Personaliza el aspecto visual del sistema operativo.</div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Escritorio</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Fondo de escritorio</div>
+              <div class="cfg-hint">Estilo del fondo animado del escritorio</div>
+            </div>
+            <div class="cfg-control">
+              <select class="cfg-select" id="pref-wallpaper">
+                <option value="default">Estrellas + Aurora</option>
+                <option value="solid">Sólido oscuro</option>
+                <option value="grid">Cuadrícula</option>
+              </select>
+            </div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Mostrar cuadrícula</div>
+              <div class="cfg-hint">Alinea íconos en una cuadrícula</div>
+            </div>
+            <div class="cfg-control">
+              <label class="cfg-toggle">
+                <input type="checkbox" id="pref-grid" />
+                <div class="cfg-toggle-track"></div>
+                <div class="cfg-toggle-thumb"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Tipografía</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Tamaño de fuente base</div>
+              <div class="cfg-hint">Afecta terminales y editores</div>
+            </div>
+            <div class="cfg-control">
+              <input type="number" class="cfg-input-num" id="pref-fontsize" min="10" max="24" step="1" value="14" />
+            </div>
+          </div>
+        </div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Tema</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Tema del sistema</div>
+              <div class="cfg-hint">Color dominante de la interfaz</div>
+            </div>
+            <div class="cfg-control">
+              <select class="cfg-select" id="pref-theme">
+                <option value="dark">Oscuro (Verde)</option>
+                <option value="amber">Ámbar retro</option>
+                <option value="blue">Azul cian</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-save-apariencia">💾 GUARDAR CAMBIOS</button>
+      </div>
+
+      <!-- ── SISTEMA ── -->
+      <div id="panel-sistema" class="panel">
+        <div class="section-title">🖥️ Sistema</div>
+        <div class="section-desc">Información real del entorno actual y del arranque del sistema.</div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Información del navegador</div>
+          <div class="db-store-row"><span class="db-store-name">Plataforma</span><span class="db-store-count" id="sys-platform">…</span></div>
+          <div class="db-store-row"><span class="db-store-name">CPU Cores</span><span class="db-store-count" id="sys-cores">…</span></div>
+          <div class="db-store-row"><span class="db-store-name">Memoria RAM</span><span class="db-store-count" id="sys-mem">…</span></div>
+          <div class="db-store-row"><span class="db-store-name">Resolución</span><span class="db-store-count" id="sys-res">…</span></div>
+          <div class="db-store-row"><span class="db-store-name">Motor</span><span class="db-store-count" id="sys-ua" style="font-size:0.6rem;max-width:180px;text-align:right;word-break:break-all;white-space:normal">…</span></div>
+        </div>
+
+      </div>
+
+      <!-- ── SHELL ── -->
+      <div id="panel-shell" class="panel">
+        <div class="section-title">⌨️ Shell</div>
+        <div class="section-desc">Configuración de la terminal y el intérprete de comandos.</div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Prompt</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Símbolo de prompt</div>
+              <div class="cfg-hint">Carácter que precede cada comando</div>
+            </div>
+            <div class="cfg-control">
+              <select class="cfg-select" id="pref-prompt">
+                <option value="$ ">$ (bash)</option>
+                <option value="# "># (root)</option>
+                <option value="> ">&gt; (chevron)</option>
+                <option value="→ ">→ (flecha)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Historial</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Limpiar historial de comandos</div>
+              <div class="cfg-hint">Borra todos los comandos anteriores guardados</div>
+            </div>
+            <div class="cfg-control">
+              <button class="btn btn-amber" id="btn-clear-history">🗑️ LIMPIAR</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-save-shell">💾 GUARDAR CAMBIOS</button>
+      </div>
+
+      <!-- ── ALMACENAMIENTO ── -->
+      <div id="panel-almacenamiento" class="panel">
+        <div class="section-title">💾 Almacenamiento</div>
+        <div class="section-desc">Estadísticas e información de los almacenes de datos IndexedDB.</div>
+
+        <div class="info-box ok">
+          Los datos se guardan localmente en tu navegador mediante IndexedDB. No se envían a ningún servidor.
+        </div>
+
+        <div class="cfg-card" id="db-stats-card">
+          <div class="cfg-card-header">Stores · IndexedDB (<span id="db-total-records">…</span> registros totales)</div>
+          <div id="db-stores-list">
+            <div class="db-store-row"><span class="db-store-name">Cargando…</span></div>
+          </div>
+        </div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Acciones por store</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Limpiar caché de Apps</div>
+              <div class="cfg-hint">Borra apps duplicadas del registro. Se re-registran al reiniciar.</div>
+            </div>
+            <div class="cfg-control">
+              <button class="btn btn-amber" id="btn-clear-apps">🗑️ LIMPIAR</button>
+            </div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Limpiar preferencias</div>
+              <div class="cfg-hint">Restablece todas las preferencias a valores por defecto.</div>
+            </div>
+            <div class="cfg-control">
+              <button class="btn btn-amber" id="btn-clear-prefs">🗑️ LIMPIAR</button>
+            </div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Limpiar archivos temporales</div>
+              <div class="cfg-hint">Borra el contenido de /tmp</div>
+            </div>
+            <div class="cfg-control">
+              <button class="btn btn-amber" id="btn-clear-tmp">🗑️ /TMP</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-refresh-stats">🔄 ACTUALIZAR ESTADÍSTICAS</button>
+      </div>
+
+      <!-- ── FORMATEAR ── -->
+      <div id="panel-formatear" class="panel">
+        <div class="section-title" style="color:var(--red-err);text-shadow:0 0 8px rgba(255,68,68,0.5)">⚠️ Formatear sistema</div>
+        <div class="section-desc" style="color:rgba(255,136,136,0.7)">
+          Zona de operaciones destructivas. Úsala cuando el sistema tenga problemas por cache corrupto, apps duplicadas u otros errores de IndexedDB.
+        </div>
+
+        <div class="info-box danger">
+          ⚠️ <strong>ADVERTENCIA</strong> — Estas operaciones son irreversibles.<br>
+          Se recomienda exportar tus archivos importantes antes de formatear.
+        </div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header" style="color:rgba(255,100,100,0.7)">Reparación rápida</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Limpiar registro de apps (apps_meta)</div>
+              <div class="cfg-hint">Soluciona apps duplicadas tras actualizaciones. El Kernel las re-registra al reiniciar.</div>
+            </div>
+            <div class="cfg-control">
+              <button class="btn btn-amber" id="btn-fix-apps">🔧 REPARAR</button>
+            </div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Limpiar preferencias (prefs)</div>
+              <div class="cfg-hint">Restablece configuración a valores por defecto.</div>
+            </div>
+            <div class="cfg-control">
+              <button class="btn btn-amber" id="btn-fix-prefs">🔧 REPARAR</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="cfg-card" style="border-color:rgba(255,68,68,0.25)">
+          <div class="cfg-card-header" style="color:rgba(255,100,100,0.7)">Formato completo</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Formatear todo el sistema</div>
+              <div class="cfg-hint">
+                Elimina TODA la base de datos IndexedDB (<code style="color:#ff8888">webos_db</code>) y recarga.<br>
+                <span style="color:rgba(255,68,68,0.7)">Se perderán TODOS los archivos, preferencias y datos.</span>
+              </div>
+            </div>
+            <div class="cfg-control">
+              <button class="btn btn-danger-solid" id="btn-format-all">💥 FORMATEAR</button>
+            </div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Formatear solo sistema de archivos</div>
+              <div class="cfg-hint">
+                Borra únicamente el store <code style="color:#ff8888">fs</code>. Mantiene preferencias y apps.
+              </div>
+            </div>
+            <div class="cfg-control">
+              <button class="btn btn-danger" id="btn-format-fs">🗂️ BORRAR FS</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-box warning" style="margin-top:6px">
+          💡 <strong>Tip:</strong> Si el sistema funciona bien, no necesitas formatear. Usa "Reparación rápida" primero para resolver problemas menores de caché.
+        </div>
+      </div>
+
+      <!-- ── ABOUT ── -->
+      <div id="panel-about" class="panel">
+        <div class="section-title">📋 Acerca de WebOS</div>
+
+        <div class="cfg-card" style="padding:18px;text-align:center">
+          <div class="about-logo">W E B O S</div>
+          <div style="font-size:0.7rem;color:var(--green-dim);letter-spacing:0.08em">Sistema Operativo de Navegador · FASE 3</div>
+        </div>
+
+        <div class="about-grid" id="about-grid">
+          <div class="about-item"><div class="ai-key">Kernel</div><div class="ai-val">v0.1.0</div></div>
+          <div class="about-item"><div class="ai-key">Fase</div><div class="ai-val">3 · Core Apps</div></div>
+          <div class="about-item"><div class="ai-key">Motor DB</div><div class="ai-val">IndexedDB</div></div>
+          <div class="about-item"><div class="ai-key">Último boot</div><div class="ai-val" id="ab-lastboot">…</div></div>
+          <div class="about-item"><div class="ai-key">Plataforma</div><div class="ai-val" id="ab-platform">…</div></div>
+          <div class="about-item"><div class="ai-key">CPU Cores</div><div class="ai-val" id="ab-cores">…</div></div>
+        </div>
+
+        <div class="cfg-card" style="margin-top:14px">
+          <div class="cfg-card-header">Apps del sistema</div>
+          <div id="about-apps-list">
+            <div class="db-store-row"><span class="db-store-name">Cargando…</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /body -->
+</div>
+
+<!-- Confirm modal -->
+<div id="confirm-modal">
+  <div class="confirm-box">
+    <h3 id="confirm-title">⚠️ ¿CONFIRMAR?</h3>
+    <p id="confirm-body">Esta acción es irreversible.</p>
+    <div class="confirm-actions">
+      <button class="btn btn-primary" id="confirm-cancel">CANCELAR</button>
+      <button class="btn btn-danger-solid" id="confirm-ok">CONFIRMAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-container"></div>
+
+<script>
+/* ══════════════════════════════════════════════
+   WebOS · Configuración del Sistema
+   config.html · v0.1.0
+══════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+
+  /* ── Toast ── */
+  const Toast = {
+    show(msg, type = 'ok', dur = 2600) {
+      const t = document.createElement('div');
+      t.className = `toast ${type}`;
+      t.textContent = msg;
+      $('toast-container').appendChild(t);
+      setTimeout(() => t.remove(), dur);
+    }
+  };
+
+  /* ── Confirm modal ── */
+  let _confirmCb = null;
+  const Confirm = {
+    show(title, body, cb) {
+      $('confirm-title').textContent = title;
+      $('confirm-body').textContent  = body;
+      $('confirm-modal').classList.add('visible');
+      _confirmCb = cb;
+    }
+  };
+  $('confirm-cancel').addEventListener('click', () => {
+    $('confirm-modal').classList.remove('visible');
+    _confirmCb = null;
+  });
+  $('confirm-ok').addEventListener('click', () => {
+    $('confirm-modal').classList.remove('visible');
+    if (_confirmCb) { _confirmCb(); _confirmCb = null; }
+  });
+
+  /* ── Kernel ── */
+  let K = null;
+
+  function getKernel() {
+    if (window.parent && window.parent !== window && window.parent.Kernel?.isReady) return window.parent.Kernel;
+    if (window.Kernel?.isReady) return window.Kernel;
+    return null;
+  }
+
+  function waitForKernel(cb) {
+    const k = getKernel();
+    if (k) { cb(k); return; }
+    const check = () => {
+      const k2 = getKernel();
+      if (k2) { cb(k2); return; }
+      setTimeout(check, 100);
+    };
+    setTimeout(check, 100);
+  }
+
+  function rebootSystem(delay = 900) {
+    const target = new URL('../index.html', window.location.href);
+    target.searchParams.set('_ts', String(Date.now()));
+    setTimeout(() => {
+      // Cannot navigate window.top directly from a sandboxed iframe.
+      // Ask the shell (parent frame) to perform the navigation via postMessage.
+      const msg = { type: 'wos:reboot', url: target.toString() };
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(msg, window.location.origin);
+      } else {
+        // Running standalone (outside shell), navigate self.
+        window.location.href = target.toString();
+      }
+    }, delay);
+  }
+
+  /* ── Navigation ── */
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      item.classList.add('active');
+      $(item.dataset.panel).classList.add('active');
+      // Load data for panel
+      if (item.dataset.panel === 'panel-almacenamiento') loadStorageStats();
+      if (item.dataset.panel === 'panel-about')          loadAbout();
+    });
+  });
+
+  /* ── Prefs loading ── */
+  async function loadPrefs() {
+    const all = await K.prefs.all();
+    // Apariencia
+    if (all['desktop.wallpaper']) $('pref-wallpaper').value = all['desktop.wallpaper'];
+    if (all['desktop.grid'] !== undefined) $('pref-grid').checked = all['desktop.grid'];
+    if (all['system.fontSize']) $('pref-fontsize').value = all['system.fontSize'];
+    if (all['system.theme']) $('pref-theme').value = all['system.theme'];
+    // Shell
+    if (all['shell.prompt']) $('pref-prompt').value = all['shell.prompt'];
+  }
+
+  /* ── Save apariencia ── */
+  $('btn-save-apariencia').addEventListener('click', async () => {
+    await K.prefs.set('desktop.wallpaper', $('pref-wallpaper').value);
+    await K.prefs.set('desktop.grid',      $('pref-grid').checked);
+    await K.prefs.set('system.fontSize',   parseInt($('pref-fontsize').value) || 14);
+    await K.prefs.set('system.theme',      $('pref-theme').value);
+    Toast.show('Apariencia guardada ✓', 'ok');
+  });
+
+  /* ── Save shell ── */
+  $('btn-save-shell').addEventListener('click', async () => {
+    await K.prefs.set('shell.prompt', $('pref-prompt').value);
+    Toast.show('Shell guardado ✓', 'ok');
+  });
+
+  /* ── Clear shell history ── */
+  $('btn-clear-history').addEventListener('click', () => {
+    Confirm.show(
+      '⚠️ LIMPIAR HISTORIAL',
+      'Se borrarán todos los comandos guardados del historial de la terminal.',
+      async () => {
+        await K.prefs.set('shell.history', []);
+        Toast.show('Historial limpiado', 'ok');
+      }
+    );
+  });
+
+  /* ── Storage stats ── */
+  async function loadStorageStats() {
+    const STORES = K.STORES;
+    const storeNames = Object.values(STORES);
+    const listEl = $('db-stores-list');
+    listEl.innerHTML = '';
+    let total = 0;
+    for (const name of storeNames) {
+      const records = await K.db.list(name);
+      total += records.length;
+      const row = document.createElement('div');
+      row.className = 'db-store-row';
+      row.innerHTML = `
+        <span class="db-store-name">${name}</span>
+        <span class="db-store-count">${records.length} registros</span>
+      `;
+      listEl.appendChild(row);
+    }
+    $('db-total-records').textContent = total;
+  }
+
+  $('btn-refresh-stats').addEventListener('click', () => loadStorageStats());
+
+  /* ── Clear apps ── */
+  $('btn-clear-apps').addEventListener('click', () => {
+    Confirm.show(
+      '⚠️ LIMPIAR apps_meta',
+      'Se borrará el registro de aplicaciones. El Kernel las re-registrará la próxima vez que recargues la página.',
+      async () => {
+        await K.db.clear(K.STORES.APPS_META);
+        Toast.show('Registro de apps limpiado. Reiniciando sistema…', 'info', 2600);
+        loadStorageStats();
+        rebootSystem(1200);
+      }
+    );
+  });
+
+  /* ── Clear prefs ── */
+  $('btn-clear-prefs').addEventListener('click', () => {
+    Confirm.show(
+      '⚠️ LIMPIAR prefs',
+      'Se borrarán todas las preferencias. El sistema usará valores por defecto al reiniciar.',
+      async () => {
+        await K.db.clear(K.STORES.PREFS);
+        Toast.show('Preferencias limpiadas. Reiniciando sistema…', 'info', 2600);
+        loadStorageStats();
+        rebootSystem(1200);
+      }
+    );
+  });
+
+  /* ── Clear /tmp ── */
+  $('btn-clear-tmp').addEventListener('click', () => {
+    Confirm.show(
+      '⚠️ LIMPIAR /tmp',
+      'Se borrarán todos los archivos en /tmp.',
+      async () => {
+        try {
+          await K.fs.remove('/tmp', { recursive: true });
+          await K.fs.mkdir('/tmp');
+          K.emit('fs:change', { path: '/tmp' });
+          Toast.show('/tmp limpiado ✓', 'ok');
+          loadStorageStats();
+        } catch (e) {
+          Toast.show(`Error: ${e.message}`, 'error');
+        }
+      }
+    );
+  });
+
+  /* ── Fix apps (formatear panel) ── */
+  $('btn-fix-apps').addEventListener('click', () => {
+    Confirm.show(
+      '🔧 REPARAR apps_meta',
+      'Se borrará el registro de apps_meta para eliminar duplicados. Se recargarán automáticamente al reiniciar.',
+      async () => {
+        await K.db.clear(K.STORES.APPS_META);
+        Toast.show('apps_meta reparado. Reiniciando sistema…', 'info', 2600);
+        rebootSystem(1200);
+      }
+    );
+  });
+
+  /* ── Fix prefs (formatear panel) ── */
+  $('btn-fix-prefs').addEventListener('click', () => {
+    Confirm.show(
+      '🔧 REPARAR prefs',
+      'Se borrarán las preferencias. El sistema reiniciará con valores por defecto.',
+      async () => {
+        await K.db.clear(K.STORES.PREFS);
+        Toast.show('Preferencias reseteadas. Reiniciando sistema…', 'info', 2600);
+        rebootSystem(1200);
+      }
+    );
+  });
+
+  /* ── FORMAT ALL — el botón más importante ── */
+  $('btn-format-all').addEventListener('click', () => {
+    Confirm.show(
+      '💥 FORMATEAR SISTEMA COMPLETO',
+      '⚠️ ACCIÓN IRREVERSIBLE: Se eliminará toda la base de datos webos_db de IndexedDB. ' +
+      'Perderás TODOS tus archivos, preferencias y datos guardados. ' +
+      'El sistema arrancará limpio al recargar. ¿Estás completamente seguro?',
+      () => {
+        // Segundo confirm de seguridad
+        Confirm.show(
+          '🔴 ÚLTIMA ADVERTENCIA',
+          'Todos tus datos serán eliminados permanentemente. Esta es tu última oportunidad de cancelar.',
+          performFullFormat
+        );
+      }
+    );
+  });
+
+  async function performFullFormat() {
+    Toast.show('Formateando sistema…', 'error', 5000);
+    try {
+      // Limpiar todos los stores mientras la conexión sigue abierta
+      const storeNames = Object.values(K.STORES);
+      for (const store of storeNames) {
+        try { await K.db.clear(store); } catch (_) {}
+      }
+
+      // IMPORTANTE: cerrar la conexión antes de deleteDatabase.
+      // Si la conexión permanece abierta el browser dispara onblocked
+      // en lugar de onsuccess y la base de datos nunca se elimina.
+      K.db.close();
+
+      const req = indexedDB.deleteDatabase('webos_db');
+      req.onsuccess = () => {
+        Toast.show('Base de datos eliminada. Reiniciando sistema…', 'ok', 2000);
+        rebootSystem(1200);
+      };
+      req.onerror = () => {
+        Toast.show('Error al eliminar DB. Intentando reinicio forzado…', 'error', 3000);
+        rebootSystem(2000);
+      };
+      req.onblocked = () => {
+        // La DB está bloqueada por otra pestaña
+        Toast.show('⚠️ DB bloqueada. Cierra otras pestañas de WebOS y se intentará reiniciar.', 'error', 6000);
+        rebootSystem(3000);
+      };
+    } catch (err) {
+      Toast.show(`Error: ${err.message}`, 'error', 4000);
+    }
+  }
+
+  /* ── Format FS only ── */
+  $('btn-format-fs').addEventListener('click', () => {
+    Confirm.show(
+      '⚠️ BORRAR SISTEMA DE ARCHIVOS',
+      'Se eliminarán todos los archivos del store "fs". Las preferencias y apps se conservan. El Kernel recreará el FS base al recargar.',
+      async () => {
+        await K.db.clear(K.STORES.FS);
+        K.emit('fs:change', { path: '/' });
+        Toast.show('Sistema de archivos borrado. Reiniciando sistema…', 'info', 2500);
+        rebootSystem(1400);
+      }
+    );
+  });
+
+  /* ── System info (panel Sistema) ── */
+  function fillSysInfo() {
+    $('sys-platform').textContent = navigator.platform || 'N/D';
+    $('sys-cores').textContent    = navigator.hardwareConcurrency || 'N/D';
+    $('sys-mem').textContent      = navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'N/D';
+    $('sys-res').textContent      = `${screen.width}×${screen.height}`;
+    $('sys-ua').textContent       = navigator.userAgent.split(' ').slice(-1)[0];
+  }
+
+  /* ── About ── */
+  async function loadAbout() {
+    $('ab-platform').textContent = navigator.platform || 'N/D';
+    $('ab-cores').textContent    = navigator.hardwareConcurrency || 'N/D';
+
+    const lastBoot = await K.prefs.get('boot.lastBoot');
+    $('ab-lastboot').textContent = lastBoot
+      ? new Date(lastBoot).toLocaleString('es')
+      : 'N/D';
+
+    const apps = await K.apps.list();
+    const listEl = $('about-apps-list');
+    listEl.innerHTML = apps.map(a => `
+      <div class="db-store-row">
+        <span class="db-store-name">${a.icon} ${a.name}</span>
+        <span class="db-store-count" style="color:var(--green-dim);font-size:0.62rem">${a.id} v${a.version}</span>
+      </div>
+    `).join('');
+  }
+
+  /* ── Init ── */
+  function init(kernel) {
+    K = kernel;
+    fillSysInfo();
+    loadPrefs();
+  }
+
+  waitForKernel(init);
+
+})();
+</script>
+</body>
+</html>

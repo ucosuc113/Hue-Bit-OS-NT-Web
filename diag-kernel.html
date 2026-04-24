@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kernel Diagnostic</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      background: #08110b;
+      color: #8fffc3;
+      font: 14px/1.5 Consolas, monospace;
+    }
+    h1 { margin: 0 0 12px; font-size: 20px; }
+    pre {
+      white-space: pre-wrap;
+      background: #020603;
+      border: 1px solid #1c4;
+      padding: 12px;
+      min-height: 240px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Kernel Diagnostic</h1>
+  <pre id="log">esperando Kernel.js...\n</pre>
+  <script>
+    const logEl = document.getElementById('log');
+    function log(line) {
+      logEl.textContent += line + '\n';
+    }
+    window.addEventListener('error', (event) => {
+      log(`window.error: ${event.message}`);
+    });
+  </script>
+  <script src="Kernel.js"></script>
+  <script>
+    function attach(kernel) {
+      log('Kernel detectado');
+      log(`isReady inicial: ${kernel.isReady}`);
+
+      kernel.on('boot:step', ({ step, label }) => {
+        log(`boot:step ${step} :: ${label}`);
+      });
+      kernel.on('boot:error', ({ error }) => {
+        log(`boot:error :: ${error}`);
+      });
+      kernel.on('ready', ({ version }) => {
+        log(`ready :: version=${version}`);
+      });
+
+      setTimeout(async () => {
+        try {
+          const apps = await kernel.apps.list();
+          log(`apps.list :: ${apps.length}`);
+          apps.forEach(app => log(`app :: ${app.id} -> ${app.entry}`));
+        } catch (err) {
+          log(`apps.list error :: ${err.message}`);
+        }
+      }, 3000);
+    }
+
+    if (window.Kernel) {
+      attach(window.Kernel);
+    } else {
+      log('Kernel no disponible en window');
+    }
+  </script>
+</body>
+</html>

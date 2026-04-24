@@ -94,6 +94,14 @@
       gap: 12px;
       align-items: center;
     }
+    #desktop-icons.grid-layout {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+      grid-auto-rows: minmax(88px, auto);
+      width: min(520px, calc(100vw - 36px));
+      align-items: start;
+      justify-items: center;
+    }
     .desktop-icon {
       display: flex; flex-direction: column;
       align-items: center; gap: 4px;
@@ -514,6 +522,19 @@
       display: none;
     }
 
+    /*
+      Escudo transparente que se activa durante drag/resize.
+      Se superpone a todos los iframes para que el shell siga
+      recibiendo mousemove/mouseup aunque el cursor entre en una app.
+    */
+    #drag-shield {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9997;
+      cursor: inherit;
+    }
+
     /* ── Drop zone indicator ── */
     .drop-zone-hint {
       position: absolute;
@@ -584,6 +605,7 @@
 
   <!-- Drag select -->
   <div id="drag-select"></div>
+  <div id="drag-shield"></div>
 
   <!-- Start Menu -->
   <div id="start-menu" class="hidden">
@@ -624,6 +646,54 @@
   ;(function () {
     'use strict';
 
+    const DEFAULT_PREFS = {
+      'system.theme': 'dark',
+      'system.fontSize': 14,
+      'desktop.wallpaper': 'default',
+      'desktop.grid': true,
+    };
+
+    const THEME_PALETTES = {
+      dark: {
+        green: '#00ff88',
+        greenDim: '#00aa55',
+        greenFaint: '#003322',
+        greenDark: '#001a0e',
+        amber: '#ffb300',
+        red: '#ff4444',
+        blue: '#00ccff',
+        bg: '#030a05',
+        glass: 'rgba(3, 18, 10, 0.82)',
+        border: 'rgba(0,255,136,0.18)',
+      },
+      amber: {
+        green: '#ffbf47',
+        greenDim: '#c98a18',
+        greenFaint: '#3a2300',
+        greenDark: '#221300',
+        amber: '#ffd36b',
+        red: '#ff6868',
+        blue: '#ffd36b',
+        bg: '#0b0601',
+        glass: 'rgba(20, 12, 3, 0.86)',
+        border: 'rgba(255,191,71,0.22)',
+      },
+      blue: {
+        green: '#6ee7ff',
+        greenDim: '#2ea9d6',
+        greenFaint: '#062433',
+        greenDark: '#041824',
+        amber: '#7de3ff',
+        red: '#ff6b6b',
+        blue: '#00ccff',
+        bg: '#020912',
+        glass: 'rgba(3, 13, 24, 0.84)',
+        border: 'rgba(110,231,255,0.18)',
+      },
+    };
+
+    let currentPalette = THEME_PALETTES.dark;
+
     /* ═══════════════════════════════════════════════
        BACKGROUND: Stars + Aurora
     ═══════════════════════════════════════════════ */
@@ -631,6 +701,7 @@
       const canvas = document.getElementById('bg-canvas');
       const ctx    = canvas.getContext('2d');
       let W = 0, H = 0, stars = [];
+      let mode = DEFAULT_PREFS['desktop.wallpaper'];
 
       function resize() {
         W = canvas.width  = window.innerWidth;
@@ -648,16 +719,32 @@
         }));
       }
 
+      function rgba(hex, alpha) {
+        const raw = String(hex || '#00ff88').replace('#', '');
+        const full = raw.length === 3
+          ? raw.split('').map(ch => ch + ch).join('')
+          : raw.padEnd(6, '0').slice(0, 6);
+        const n = parseInt(full, 16);
+        return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+      }
+
+      function drawBaseBackground() {
+        const bg = ctx.createRadialGradient(W / 2, H * 0.4, 0, W / 2, H * 0.5, Math.max(W, H) * 0.75);
+        bg.addColorStop(0, currentPalette.greenDark);
+        bg.addColorStop(1, currentPalette.bg);
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+      }
+
       function drawAurora(t) {
-        [[140, 0.5, 0.008, 0.15], [170, 0.35, 0.005, 0.1], [200, 0.6, 0.011, 0.07]]
-          .forEach(([hue, speed, freq, alpha], b) => {
+        [[0.5, 0.008, 0.18], [0.35, 0.005, 0.12], [0.6, 0.011, 0.08]]
+          .forEach(([speed, freq, alpha], b) => {
             const yBase = H * 0.18 + b * H * 0.07;
             const grad = ctx.createLinearGradient(0, yBase - 70, 0, yBase + 90);
-            const h = (hue + Math.sin(t * 0.25 + b) * 15) % 360;
-            grad.addColorStop(0,   `hsla(${h},100%,55%,0)`);
-            grad.addColorStop(0.4, `hsla(${h},100%,55%,${alpha})`);
-            grad.addColorStop(0.7, `hsla(${(h+40)%360},100%,60%,${alpha*0.5})`);
-            grad.addColorStop(1,   `hsla(${h},100%,50%,0)`);
+            grad.addColorStop(0, rgba(currentPalette.green, 0));
+            grad.addColorStop(0.4, rgba(currentPalette.green, alpha));
+            grad.addColorStop(0.7, rgba(currentPalette.blue, alpha * 0.55));
+            grad.addColorStop(1, rgba(currentPalette.green, 0));
 
             ctx.beginPath();
             ctx.moveTo(0, yBase);
@@ -666,10 +753,42 @@
                               + Math.sin(x * freq * 0.4 + t * speed * 0.6 + b) * 25;
               ctx.lineTo(x, y);
             }
-            ctx.lineTo(W, 0); ctx.lineTo(0, 0); ctx.closePath();
+            ctx.lineTo(W, 0);
+            ctx.lineTo(0, 0);
+            ctx.closePath();
             ctx.fillStyle = grad;
             ctx.fill();
           });
+      }
+
+      function drawGrid(t) {
+        ctx.save();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = rgba(currentPalette.green, 0.14);
+        const spacing = 38;
+        const drift = (t * 18) % spacing;
+
+        for (let x = -spacing; x <= W + spacing; x += spacing) {
+          ctx.beginPath();
+          ctx.moveTo(x + drift, 0);
+          ctx.lineTo(x + drift, H);
+          ctx.stroke();
+        }
+
+        for (let y = -spacing; y <= H + spacing; y += spacing) {
+          ctx.beginPath();
+          ctx.moveTo(0, y + drift * 0.35);
+          ctx.lineTo(W, y + drift * 0.35);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      function setMode(nextMode) {
+        mode = ['default', 'solid', 'grid'].includes(nextMode)
+          ? nextMode
+          : DEFAULT_PREFS['desktop.wallpaper'];
       }
 
       let raf;
@@ -677,23 +796,24 @@
         const t = ts * 0.001;
         ctx.clearRect(0, 0, W, H);
 
-        // deep background
-        const bg = ctx.createRadialGradient(W/2, H*0.4, 0, W/2, H*0.5, Math.max(W,H)*0.75);
-        bg.addColorStop(0, '#030f08');
-        bg.addColorStop(1, '#010503');
-        ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+        drawBaseBackground();
 
-        drawAurora(t);
+        if (mode === 'default') {
+          drawAurora(t);
+        } else if (mode === 'grid') {
+          drawGrid(t);
+        }
 
-        // stars
-        stars.forEach(s => {
-          s.a += s.da;
-          if (s.a <= 0.05 || s.a >= 1) s.da *= -1;
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
-          ctx.fillStyle = `rgba(190,255,210,${s.a * 0.85})`;
-          ctx.fill();
-        });
+        if (mode !== 'solid') {
+          stars.forEach(s => {
+            s.a += s.da;
+            if (s.a <= 0.05 || s.a >= 1) s.da *= -1;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.fillStyle = rgba(currentPalette.green, s.a * (mode === 'grid' ? 0.45 : 0.85));
+            ctx.fill();
+          });
+        }
 
         raf = requestAnimationFrame(frame);
       }
@@ -701,7 +821,51 @@
       window.addEventListener('resize', resize);
       resize();
       requestAnimationFrame(frame);
+      return { setMode };
     })();
+
+    function applyTheme(theme) {
+      const palette = THEME_PALETTES[theme] || THEME_PALETTES[DEFAULT_PREFS['system.theme']];
+      currentPalette = palette;
+      const root = document.documentElement.style;
+      root.setProperty('--green', palette.green);
+      root.setProperty('--green-dim', palette.greenDim);
+      root.setProperty('--green-faint', palette.greenFaint);
+      root.setProperty('--green-dark', palette.greenDark);
+      root.setProperty('--amber', palette.amber);
+      root.setProperty('--red-err', palette.red);
+      root.setProperty('--blue-acc', palette.blue);
+      root.setProperty('--bg', palette.bg);
+      root.setProperty('--glass', palette.glass);
+      root.setProperty('--glass-border', palette.border);
+    }
+
+    function applyFontSize(size) {
+      const nextSize = Math.max(10, Math.min(24, Number(size) || DEFAULT_PREFS['system.fontSize']));
+      document.documentElement.style.fontSize = `${nextSize}px`;
+    }
+
+    function applyDesktopGrid(enabled) {
+      document.getElementById('desktop-icons').classList.toggle('grid-layout', enabled !== false);
+    }
+
+    function applyWallpaper(mode) {
+      BG.setMode(mode || DEFAULT_PREFS['desktop.wallpaper']);
+    }
+
+    function applyShellPref(key, value) {
+      if (key === 'system.theme') applyTheme(value);
+      if (key === 'system.fontSize') applyFontSize(value);
+      if (key === 'desktop.grid') applyDesktopGrid(value);
+      if (key === 'desktop.wallpaper') applyWallpaper(value);
+    }
+
+    async function applyShellPrefs(kernel) {
+      const all = await kernel.prefs.all();
+      Object.entries(DEFAULT_PREFS).forEach(([key, fallback]) => {
+        applyShellPref(key, all[key] !== undefined ? all[key] : fallback);
+      });
+    }
 
     /* ═══════════════════════════════════════════════
        TOAST SYSTEM
@@ -820,6 +984,7 @@
       // ── drag ──
       function makeDraggable(titlebar, win, pidRef) {
         let ox, oy, isDragging = false;
+        const shield = document.getElementById('drag-shield');
         titlebar.addEventListener('mousedown', e => {
           if (e.button !== 0) return;
           if (e.target.classList.contains('wm-btn')) return;
@@ -830,6 +995,8 @@
           ox = e.clientX - rect.left;
           oy = e.clientY - rect.top;
           focus(pidRef.pid);
+          shield.style.display = 'block';
+          shield.style.cursor  = 'grabbing';
           e.preventDefault();
         });
         document.addEventListener('mousemove', e => {
@@ -842,7 +1009,10 @@
           const wdata = _windows[pidRef.pid];
           if (wdata) { wdata.state.x = nx; wdata.state.y = ny; }
         });
-        document.addEventListener('mouseup', () => { isDragging = false; });
+        document.addEventListener('mouseup', () => {
+          isDragging = false;
+          shield.style.display = 'none';
+        });
 
         // double-click titlebar = maximize toggle
         titlebar.addEventListener('dblclick', e => {
@@ -853,6 +1023,7 @@
 
       // ── resize ──
       function makeResizable(win, pidRef) {
+        const shield = document.getElementById('drag-shield');
         HANDLES.forEach(dir => {
           const h = document.createElement('div');
           h.className = `wm-resize ${dir}`;
@@ -868,6 +1039,8 @@
             startW = rect.width; startH = rect.height;
             startL = rect.left;  startT = rect.top;
             focus(pidRef.pid);
+            shield.style.display = 'block';
+            shield.style.cursor  = h.style.cursor || getComputedStyle(h).cursor;
             e.preventDefault(); e.stopPropagation();
 
             const onMove = ev => {
@@ -899,6 +1072,7 @@
               }
             };
             const onUp = () => {
+              shield.style.display = 'none';
               document.removeEventListener('mousemove', onMove);
               document.removeEventListener('mouseup', onUp);
             };
@@ -1008,7 +1182,7 @@
         if (opts.url) {
           const iframe = document.createElement('iframe');
           iframe.src = opts.url;
-          iframe.sandbox = 'allow-scripts allow-same-origin allow-forms';
+          iframe.sandbox = 'allow-scripts allow-same-origin allow-forms allow-modals';
           content.appendChild(iframe);
         } else {
           const ph = document.createElement('div');
@@ -1274,7 +1448,7 @@
     ═══════════════════════════════════════════════ */
     const _singletons = {}; // appId → pid
 
-    function launchApp(app) {
+    function launchApp(app, opts = {}) {
       // Singleton check
       if (app.singleton && _singletons[app.id]) {
         const existingPid = _singletons[app.id];
@@ -1303,10 +1477,36 @@
         height : app.meta?.winHeight || 460,
       };
       if (app.entry && app.entry !== 'shell.html') {
-        winOpts.url = app.entry;
+        const url = new URL(app.entry, window.location.href);
+        const params = new URLSearchParams();
+        if (opts.filePath) params.set('path', opts.filePath);
+        if (opts.startPath) params.set('startPath', opts.startPath);
+        params.set('_ts', String(Date.now()));
+        url.search = params.toString();
+        winOpts.url = url.toString();
       }
 
-      WM.createWindow(proc, winOpts);
+      const wdata = WM.createWindow(proc, winOpts);
+
+      // Si viene con filePath/startPath, se lo mandamos al iframe cuando cargue
+      if ((opts.filePath || opts.startPath) && winOpts.url) {
+        const iframe = wdata.el.querySelector('iframe');
+        if (iframe) {
+          iframe.addEventListener('load', () => {
+            if (opts.filePath) {
+              iframe.contentWindow.postMessage(
+                { type: 'editor:open', path: opts.filePath }, '*'
+              );
+            }
+            if (opts.startPath) {
+              iframe.contentWindow.postMessage(
+                { type: 'files:navigate', path: opts.startPath }, '*'
+              );
+            }
+          }, { once: true });
+        }
+      }
+
       Toast.show(`${app.name} iniciada`, 'ok');
     }
 
@@ -1314,33 +1514,18 @@
        BUILT-IN MINI APPS (ventanas de sistema)
     ═══════════════════════════════════════════════ */
     function openPrefsWindow() {
-      const proc = Kernel.procs.spawn('prefs-ui', { title: 'Preferencias del Sistema', icon: '⚙️' });
-      const div  = document.createElement('div');
-      div.className = 'wm-placeholder';
-      div.innerHTML = `
-        <h2>⚙️ Preferencias</h2>
-        <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px;">
-          <label style="display:flex;justify-content:space-between;align-items:center">
-            <span>Fondo de escritorio</span>
-            <select id="pref-wallpaper" style="background:#001a0e;color:#00ff88;border:1px solid #00aa55;padding:3px 6px;font-size:0.7rem;border-radius:3px">
-              <option value="default">Estrellas + Aurora</option>
-              <option value="solid">Sólido oscuro</option>
-            </select>
-          </label>
-          <label style="display:flex;justify-content:space-between;align-items:center">
-            <span>Idioma del sistema</span>
-            <select id="pref-lang" style="background:#001a0e;color:#00ff88;border:1px solid #00aa55;padding:3px 6px;font-size:0.7rem;border-radius:3px">
-              <option value="es">Español</option>
-              <option value="en">English</option>
-            </select>
-          </label>
-          <button onclick="Kernel.prefs.set('saved','true').then(()=>window.__toast&&window.__toast('Preferencias guardadas','ok'))"
-            style="margin-top:8px;background:rgba(0,255,136,0.1);border:1px solid #00aa55;color:#00ff88;padding:6px 14px;cursor:pointer;font-size:0.72rem;border-radius:3px;">
-            Guardar
-          </button>
-        </div>
-      `;
-      WM.createWindow(proc, { content: div, width: 380, height: 280 });
+      const app = _runtimeApps.get('config');
+      if (app) {
+        launchApp(app);
+        return;
+      }
+      Promise.resolve(window.Kernel?.apps?.get('config')).then(fallback => {
+        if (!fallback) {
+          Toast.show('Configuracion no disponible', 'error');
+          return;
+        }
+        launchApp(fallback);
+      });
     }
 
     function openSysInfoWindow() {
@@ -1366,23 +1551,143 @@
     /* ═══════════════════════════════════════════════
        KERNEL INTEGRATION — escucha 'ready'
     ═══════════════════════════════════════════════ */
+    let _shellReady = false;
+    let _runtimeApps = new Map();
+
+    async function loadAppsFromIndex() {
+      const res = await fetch('./apps/index.json', { cache: 'no-store' });
+      if (!res.ok) throw new Error('No se pudo leer apps/index.json');
+
+      const data = await res.json();
+      const loadedApps = [];
+
+      for (const file of data.apps || []) {
+        const htmlRes = await fetch(`./apps/${file}`, { cache: 'no-store' });
+        if (!htmlRes.ok) continue;
+
+        const html = await htmlRes.text();
+        const match = html.match(
+          /<script[^>]+id=["']wos-manifest["'][^>]*>([\s\S]*?)<\/script>/i
+        );
+        if (!match) continue;
+
+        const manifest = JSON.parse(match[1].trim());
+        loadedApps.push({
+          id       : manifest.id,
+          name     : manifest.name || manifest.id,
+          version  : manifest.version || '0.1.0',
+          icon     : manifest.icon || '▪',
+          category : manifest.category || 'utility',
+          singleton: manifest.singleton ?? false,
+          entry    : `./apps/${file}`,
+          meta     : {
+            description : manifest.description || '',
+            winWidth    : manifest.winWidth || 640,
+            winHeight   : manifest.winHeight || 460,
+            author      : manifest.author || '',
+            sourceFile  : file,
+          },
+        });
+      }
+
+      return loadedApps;
+    }
+
+    async function resolveShellApps(kernel) {
+      try {
+        const appsFromDisk = await loadAppsFromIndex();
+        if (appsFromDisk.length) return appsFromDisk;
+      } catch (_) {}
+
+      const appsFromKernel = await kernel.apps.list();
+      return appsFromKernel.filter(app => app?.entry && app.entry.startsWith('./apps/'));
+    }
+
+    function renderRegisteredApps(apps) {
+      _runtimeApps = new Map(apps.map(app => [app.id, app]));
+      document.getElementById('desktop-icons').innerHTML = '';
+      StartMenu.setApps(apps);
+      apps.forEach(app => Desktop.addIcon(app));
+    }
+
     function shellInit(kernel) {
+      if (_shellReady) return;
+      _shellReady = true;
+
       // Expose toast globally for mini-apps
       window.__toast = Toast.show.bind(Toast);
+
+      // Handle privileged actions requested by sandboxed app iframes via postMessage.
+      // Apps cannot navigate window.top directly (no allow-top-navigation in sandbox),
+      // so they postMessage here and the shell acts on their behalf.
+      window.addEventListener('message', (event) => {
+        // Only accept messages from the same origin to prevent spoofing.
+        if (event.origin !== window.location.origin) return;
+        const { type, url } = event.data || {};
+        if (type === 'wos:reboot' && typeof url === 'string') {
+          // Validate the URL stays on the same origin before navigating.
+          try {
+            const parsed = new URL(url);
+            if (parsed.origin === window.location.origin) {
+              window.location.href = url;
+            }
+          } catch {
+            console.warn('[shell] wos:reboot: URL inválida ignorada', url);
+          }
+        }
+      });
+
+      // API pública para que los iframes hijos lancen apps
+      window.__wos = {
+        launch(appId, opts = {}) {
+          Promise.resolve(_runtimeApps.get(appId))
+            .then(app => app || kernel.apps.get(appId))
+            .then(app => {
+            if (!app) { Toast.show(`App "${appId}" no encontrada`, 'error'); return; }
+            launchApp(app, opts);
+            });
+        },
+        toast: Toast.show.bind(Toast),
+      };
+
+      // Escucha lanzamientos pedidos desde cualquier app vía Kernel.emit
+      kernel.on('shell:launch', async ({ appId, filePath, startPath }) => {
+        const app = _runtimeApps.get(appId) || await kernel.apps.get(appId);
+        if (!app) { Toast.show(`App "${appId}" no encontrada`, 'error'); return; }
+        launchApp(app, { filePath, startPath });
+      });
+
+      applyShellPrefs(kernel).catch(() => {
+        Object.entries(DEFAULT_PREFS).forEach(([key, value]) => applyShellPref(key, value));
+      });
+
+      kernel.on('prefs:change', ({ key, value }) => {
+        applyShellPref(key, value);
+      });
+
+      kernel.on('prefs:delete', ({ key }) => {
+        if (Object.prototype.hasOwnProperty.call(DEFAULT_PREFS, key)) {
+          applyShellPref(key, DEFAULT_PREFS[key]);
+        }
+      });
 
       // Hide loading screen
       document.getElementById('shell-loading').classList.add('hidden');
 
       // Load registered apps into start menu + desktop
-      kernel.apps.list().then(apps => {
-        StartMenu.setApps(apps);
-        apps.forEach(app => Desktop.addIcon(app));
+      resolveShellApps(kernel).then(renderRegisteredApps).catch(() => {
+        Toast.show('No se pudieron cargar las apps del sistema', 'error', 'APPS');
       });
 
       // Listen for future app registrations
-      kernel.on('apps:registered', async ({ id }) => {
-        const apps = await kernel.apps.list();
-        StartMenu.setApps(apps);
+      kernel.on('apps:registered', async () => {
+        const apps = await resolveShellApps(kernel);
+        renderRegisteredApps(apps);
+      });
+
+      kernel.on('apps:unregistered', async () => {
+        const apps = await resolveShellApps(kernel);
+        renderRegisteredApps(apps);
       });
 
       // Listen for process events (external spawns, e.g. from CLI)

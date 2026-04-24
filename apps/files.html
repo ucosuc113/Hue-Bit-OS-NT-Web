@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>WebOS · Archivos</title>
+  <script type="application/json" id="wos-manifest">
+  {
+    "id":          "files",
+    "name":        "Archivos",
+    "version":     "0.1.0",
+    "icon":        "📁",
+    "category":    "system",
+    "singleton":   false,
+    "description": "Explorador de archivos del sistema",
+    "winWidth":    580,
+    "winHeight":   440,
+    "author":      "WebOS"
+  }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green: #00ff88; --green-dim: #00aa55; --green-faint: #003322;
+      --green-dark: #001a0e; --amber: #ffb300; --red-err: #ff4444;
+      --blue: #00ccff; --bg: #030a05; --border: rgba(0,255,136,0.18);
+      --font: 'Share Tech Mono', monospace;
+    }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg); color: var(--green);
+      font-family: var(--font); font-size: 13px;
+      display: flex; flex-direction: column;
+      user-select: none;
+    }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      display: flex; align-items: center; gap: 4px;
+      padding: 5px 8px; border-bottom: 1px solid var(--border);
+      background: var(--green-dark); flex-shrink: 0;
+    }
+    .tb-btn {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--green-dim); padding: 3px 8px; cursor: pointer;
+      font-family: var(--font); font-size: 11px; border-radius: 2px;
+      transition: all 0.12s; white-space: nowrap;
+    }
+    .tb-btn:hover { border-color: var(--green-dim); color: var(--green); background: var(--green-faint); }
+    .tb-btn:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+    .tb-sep { width: 1px; height: 16px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+
+    /* ── Breadcrumb ── */
+    #breadcrumb {
+      padding: 5px 10px; font-size: 11px; color: var(--green-dim);
+      border-bottom: 1px solid var(--border); background: rgba(0,255,136,0.03);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      flex-shrink: 0;
+    }
+    .crumb { cursor: pointer; color: var(--green-dim); transition: color 0.1s; }
+    .crumb:hover { color: var(--green); text-decoration: underline; }
+    .crumb-sep { margin: 0 3px; opacity: 0.4; }
+
+    /* ── File List ── */
+    #filelist { flex: 1; overflow-y: auto; overflow-x: hidden; }
+    #empty-state {
+      display: none; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%; color: var(--green-dim);
+      opacity: 0.45; gap: 8px;
+    }
+    #empty-state.visible { display: flex; }
+    #empty-state .ei { font-size: 28px; }
+    #empty-state .et { font-size: 11px; }
+
+    .file-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 10px; cursor: pointer;
+      border-bottom: 1px solid rgba(0,255,136,0.04);
+      transition: background 0.1s;
+    }
+    .file-item:hover { background: rgba(0,255,136,0.06); }
+    .file-item.selected {
+      background: rgba(0,255,136,0.12);
+      border-left: 2px solid var(--green);
+      padding-left: 8px;
+    }
+    .fi-icon { font-size: 15px; width: 22px; text-align: center; flex-shrink: 0; }
+    .fi-name { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fi-name.is-dir { color: var(--green); }
+    .fi-meta { display: flex; gap: 14px; font-size: 10px; color: var(--green-dim); opacity: 0.65; white-space: nowrap; }
+
+    /* ── Status bar ── */
+    #statusbar {
+      display: flex; gap: 16px; padding: 3px 10px;
+      border-top: 1px solid var(--border); background: var(--green-dark);
+      font-size: 10px; color: var(--green-dim); flex-shrink: 0;
+    }
+    #status-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Context Menu ── */
+    #ctx-menu {
+      position: fixed; background: #020d06; border: 1px solid var(--border);
+      z-index: 9999; min-width: 168px; display: none;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    }
+    .ctx-item {
+      padding: 6px 14px; cursor: pointer; font-size: 11px;
+      color: var(--green-dim); display: flex; align-items: center; gap: 8px;
+    }
+    .ctx-item:hover { background: var(--green-faint); color: var(--green); }
+    .ctx-item .cx-icon { font-size: 12px; width: 14px; text-align: center; }
+    .ctx-sep { height: 1px; background: var(--border); margin: 3px 0; }
+    .ctx-label { padding: 4px 12px; font-size: 9px; color: var(--green-dim); opacity: 0.5; letter-spacing: 0.1em; text-transform: uppercase; }
+
+    /* ── Rename input ── */
+    .rename-input {
+      background: var(--green-faint); border: 1px solid var(--green-dim);
+      color: var(--green); font-family: var(--font); font-size: 12px;
+      padding: 1px 4px; width: 140px; outline: none; border-radius: 1px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--green-faint); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--green-dim); }
+  </style>
+</head>
+<body>
+
+<div id="toolbar">
+  <button class="tb-btn" id="btn-up" title="Directorio padre (Alt+↑)">↑ Arriba</button>
+  <button class="tb-btn" id="btn-home" title="Directorio home">⌂ Inicio</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="btn-newdir">+ Carpeta</button>
+  <button class="tb-btn" id="btn-newfile">+ Archivo</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="btn-rename" disabled>✎ Renombrar</button>
+  <button class="tb-btn" id="btn-delete" disabled>✕ Eliminar</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="btn-refresh" title="Actualizar (F5)">↺</button>
+</div>
+
+<div id="breadcrumb"></div>
+
+<div id="filelist"></div>
+<div id="empty-state">
+  <span class="ei">📂</span>
+  <span class="et">Directorio vacío</span>
+</div>
+
+<div id="statusbar">
+  <span id="status-path">/home</span>
+  <span id="status-count">0 elementos</span>
+  <span id="status-sel"></span>
+</div>
+
+<div id="ctx-menu"></div>
+
+<script>
+;(function () {
+  'use strict';
+
+  /* ── Kernel ref ── */
+  let K = null;
+
+  let cwd      = '/home';
+  let selected = null;
+  let items    = [];
+
+  /* ── DOM refs ── */
+  const filelistEl  = document.getElementById('filelist');
+  const emptyEl     = document.getElementById('empty-state');
+  const breadcrumbEl= document.getElementById('breadcrumb');
+  const statusPath  = document.getElementById('status-path');
+  const statusCount = document.getElementById('status-count');
+  const statusSel   = document.getElementById('status-sel');
+  const ctxMenu     = document.getElementById('ctx-menu');
+
+  function getKernel() {
+    if (window.parent && window.parent !== window && window.parent.Kernel && window.parent.Kernel.isReady) {
+      return window.parent.Kernel;
+    }
+    if (window.Kernel && window.Kernel.isReady) {
+      return window.Kernel;
+    }
+    return null;
+  }
+
+  function waitForKernel(cb) {
+    const k = getKernel();
+    if (k) { cb(k); return; }
+
+    const check = () => {
+      const nextKernel = getKernel();
+      if (nextKernel) {
+        cb(nextKernel);
+        return;
+      }
+      setTimeout(check, 80);
+    };
+
+    if (window.parent !== window && window.parent.Kernel && window.parent.Kernel.once) {
+      window.parent.Kernel.once('ready', () => cb(window.parent.Kernel));
+      return;
+    }
+
+    setTimeout(check, 100);
+  }
+
+  function getStartPath() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('startPath') || params.get('path') || null;
+  }
+
+  /* ═══════════════════════ NAVIGATION ═══════════════════════ */
+
+  function navigate(path) {
+    cwd = K.fs._normalize(path) || '/';
+    selected = null;
+    updateSelBtns();
+    refresh();
+  }
+
+  /* ═══════════════════════ BREADCRUMB ═══════════════════════ */
+
+  function renderBreadcrumb() {
+    if (cwd === '/') {
+      breadcrumbEl.innerHTML = `<span class="crumb" data-path="/">╱</span>`;
+    } else {
+      const parts = cwd.split('/').filter(Boolean);
+      let acc = '';
+      let html = `<span class="crumb" data-path="/">╱</span>`;
+      parts.forEach(p => {
+        acc += '/' + p;
+        const path = acc;
+        html += `<span class="crumb-sep">›</span><span class="crumb" data-path="${path}">${p}</span>`;
+      });
+      breadcrumbEl.innerHTML = html;
+    }
+    breadcrumbEl.querySelectorAll('.crumb').forEach(el => {
+      el.addEventListener('click', () => navigate(el.dataset.path));
+    });
+  }
+
+  /* ═══════════════════════ REFRESH ═══════════════════════ */
+
+  async function refresh() {
+    try {
+      const stat = await K.fs.stat(cwd);
+      if (!stat || stat.type !== 'dir') cwd = '/home';
+      items = await K.fs.readdir(cwd);
+    } catch {
+      cwd = '/home';
+      try { items = await K.fs.readdir(cwd); }
+      catch { items = []; }
+    }
+
+    /* Sort: dirs first, then alpha */
+    items.sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    renderBreadcrumb();
+    renderList();
+    statusPath.textContent  = cwd;
+    statusCount.textContent = `${items.length} elemento${items.length !== 1 ? 's' : ''}`;
+    document.getElementById('btn-up').disabled = (cwd === '/');
+  }
+
+  /* ═══════════════════════ RENDER LIST ═══════════════════════ */
+
+  function renderList() {
+    filelistEl.innerHTML = '';
+    selected = null;
+    statusSel.textContent = '';
+    updateSelBtns();
+
+    if (!items.length) {
+      filelistEl.style.display = 'none';
+      emptyEl.classList.add('visible');
+      return;
+    }
+    filelistEl.style.display = 'block';
+    emptyEl.classList.remove('visible');
+
+    items.forEach(item => {
+      const row = document.createElement('div');
+      row.className  = 'file-item';
+      row.dataset.id = item.id;
+
+      const icon    = item.type === 'dir' ? '📁' : getIcon(item.name);
+      const sizeStr = item.type === 'file' ? fmtSize(item.size) : '—';
+      const dateStr = fmtDate(item.mtime);
+
+      row.innerHTML = `
+        <span class="fi-icon">${icon}</span>
+        <span class="fi-name ${item.type === 'dir' ? 'is-dir' : ''}">${item.name}${item.type === 'dir' ? '/' : ''}</span>
+        <div class="fi-meta">
+          <span>${sizeStr}</span>
+          <span>${dateStr}</span>
+        </div>
+      `;
+
+      /* Click → select */
+      row.addEventListener('click', e => {
+        deselectAll();
+        row.classList.add('selected');
+        selected = item;
+        statusSel.textContent = item.name;
+        updateSelBtns();
+        e.stopPropagation();
+      });
+
+      /* Double-click → open */
+      row.addEventListener('dblclick', () => openItem(item));
+
+      /* Right-click → context menu */
+      row.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        deselectAll();
+        row.classList.add('selected');
+        selected = item;
+        updateSelBtns();
+        showCtx(e.clientX, e.clientY, item);
+      });
+
+      filelistEl.appendChild(row);
+    });
+  }
+
+  /* ═══════════════════════ OPEN ITEM ═══════════════════════ */
+
+  function openItem(item) {
+    if (item.type === 'dir') { navigate(item.id); return; }
+    const ext = item.name.split('.').pop().toLowerCase();
+    const textExts = new Set(['txt','md','js','ts','html','css','json','csv','log','sh','py','xml','yaml','yml','ini','cfg','conf','env','gitignore']);
+    if (textExts.has(ext)) {
+      launchEditor(item.id);
+    } else {
+      showProps(item);
+    }
+  }
+
+  function launchEditor(filePath) {
+    if (window.parent.__wos) {
+      window.parent.__wos.launch('text-editor', { filePath });
+    } else {
+      K.emit('shell:launch', { appId: 'text-editor', filePath });
+    }
+  }
+
+  /* ═══════════════════════ CONTEXT MENU ═══════════════════════ */
+
+  function showCtx(x, y, item) {
+    const menuItems = [];
+
+    if (item.type === 'dir') {
+      menuItems.push({ icon:'📂', text:'Abrir', action: () => navigate(item.id) });
+    } else {
+      const ext = item.name.split('.').pop().toLowerCase();
+      const editorExts = new Set(['txt','md','js','html','css','json','sh','py','xml','yaml','yml','log','ini','cfg','env']);
+      if (editorExts.has(ext)) {
+        menuItems.push({ icon:'📝', text:'Abrir en Editor', action: () => launchEditor(item.id) });
+      }
+      menuItems.push({ icon:'👁', text:'Ver contenido', action: () => previewFile(item) });
+    }
+
+    menuItems.push('sep');
+    menuItems.push({ icon:'✎', text:'Renombrar', action: () => startRename(item) });
+    menuItems.push({ icon:'📋', text:'Copiar ruta', action: () => copyPath(item.id) });
+    menuItems.push('sep');
+    menuItems.push({ icon:'🗑', text:'Eliminar', action: () => { selected = item; deleteSelected(); } });
+    menuItems.push('sep');
+    menuItems.push({ icon:'ℹ', text:'Propiedades', action: () => showProps(item) });
+
+    ctxMenu.innerHTML = '';
+    ctxMenu.appendChild(Object.assign(document.createElement('div'), { className: 'ctx-label', textContent: item.name }));
+
+    menuItems.forEach(mi => {
+      if (mi === 'sep') {
+        ctxMenu.appendChild(document.createElement('div')).className = 'ctx-sep';
+        return;
+      }
+      const d = document.createElement('div');
+      d.className = 'ctx-item';
+      d.innerHTML = `<span class="cx-icon">${mi.icon}</span>${mi.text}`;
+      d.addEventListener('click', () => { hideCtx(); mi.action(); });
+      ctxMenu.appendChild(d);
+    });
+
+    ctxMenu.style.display = 'block';
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let lx = x, ly = y;
+    if (lx + 180 > vw) lx = vw - 182;
+    if (ly + ctxMenu.offsetHeight + 10 > vh) ly = Math.max(0, vh - ctxMenu.offsetHeight - 10);
+    ctxMenu.style.left = lx + 'px';
+    ctxMenu.style.top  = ly + 'px';
+  }
+
+  function hideCtx() { ctxMenu.style.display = 'none'; }
+
+  document.addEventListener('click', hideCtx);
+  filelistEl.addEventListener('click', e => {
+    if (e.target === filelistEl) { deselectAll(); selected = null; statusSel.textContent = ''; updateSelBtns(); }
+  });
+
+  /* ═══════════════════════ OPERATIONS ═══════════════════════ */
+
+  async function previewFile(item) {
+    try {
+      const content = await K.fs.read(item.id);
+      const preview = content.split('\n').slice(0, 30).join('\n');
+      const truncated = content.split('\n').length > 30;
+      alert(`── ${item.name} ──\n\n${preview}${truncated ? '\n\n…(archivo truncado, abre en Editor para ver completo)' : ''}`);
+    } catch (e) { alert('No se puede leer el archivo: ' + e.message); }
+  }
+
+  function copyPath(path) {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(path).catch(() => {});
+    }
+    if (window.parent.__wos) window.parent.__wos.toast(`Ruta copiada: ${path}`, 'info', 'FILES');
+  }
+
+  function startRename(item) {
+    const row = filelistEl.querySelector(`[data-id="${item.id}"]`);
+    if (!row) return;
+    const nameEl = row.querySelector('.fi-name');
+    const oldName = item.name;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'rename-input';
+    input.value = oldName;
+    nameEl.innerHTML = '';
+    nameEl.appendChild(input);
+    input.focus();
+    input.select();
+
+    const commit = async () => {
+      const newName = input.value.trim().replace(/\//g, '');
+      if (newName && newName !== oldName) {
+        const parentDir = K.fs._dirname(item.id);
+        const newPath   = parentDir === '/' ? '/' + newName : parentDir + '/' + newName;
+        try {
+          await K.fs.move(item.id, newPath);
+        } catch (e) { alert('Error al renombrar: ' + e.message); }
+      }
+      refresh();
+    };
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+      if (e.key === 'Escape') { refresh(); }
+    });
+  }
+
+  async function deleteSelected() {
+    if (!selected) return;
+    const msg = selected.type === 'dir'
+      ? `¿Eliminar carpeta "${selected.name}" y todo su contenido?`
+      : `¿Eliminar "${selected.name}"?`;
+    if (!confirm(msg)) return;
+    try {
+      await K.fs.remove(selected.id, { recursive: selected.type === 'dir' });
+      selected = null;
+      updateSelBtns();
+      if (window.parent.__wos) window.parent.__wos.toast(`Eliminado: ${selected?.name || 'elemento'}`, 'ok', 'FILES');
+      refresh();
+    } catch (e) { alert('Error: ' + e.message); }
+  }
+
+  function showProps(item) {
+    alert([
+      `Nombre:     ${item.name}`,
+      `Tipo:       ${item.type === 'dir' ? 'Directorio' : 'Archivo'}`,
+      `Ruta:       ${item.id}`,
+      `Tamaño:     ${fmtSize(item.size)}`,
+      `Creado:     ${new Date(item.ctime).toLocaleString('es')}`,
+      `Modificado: ${new Date(item.mtime).toLocaleString('es')}`,
+    ].join('\n'));
+  }
+
+  /* ═══════════════════════ TOOLBAR ACTIONS ═══════════════════════ */
+
+  document.getElementById('btn-up').addEventListener('click', () => {
+    const p = K.fs._dirname(cwd);
+    navigate((p && p !== cwd) ? p : '/');
+  });
+  document.getElementById('btn-home').addEventListener('click', () => navigate('/home'));
+  document.getElementById('btn-refresh').addEventListener('click', refresh);
+
+  document.getElementById('btn-newdir').addEventListener('click', async () => {
+    const name = prompt('Nombre de la nueva carpeta:');
+    if (!name) return;
+    try {
+      await K.fs.mkdir(cwd + '/' + name.replace(/\//g, ''));
+      refresh();
+    } catch (e) { alert('Error: ' + e.message); }
+  });
+
+  document.getElementById('btn-newfile').addEventListener('click', async () => {
+    const name = prompt('Nombre del nuevo archivo:');
+    if (!name) return;
+    try {
+      await K.fs.write(cwd + '/' + name.replace(/\//g, ''), '');
+      refresh();
+    } catch (e) { alert('Error: ' + e.message); }
+  });
+
+  document.getElementById('btn-delete').addEventListener('click', deleteSelected);
+  document.getElementById('btn-rename').addEventListener('click', () => { if (selected) startRename(selected); });
+
+  /* ═══════════════════════ KEYBOARD ═══════════════════════ */
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'F5')          { e.preventDefault(); refresh(); }
+    if (e.key === 'Delete' && selected) deleteSelected();
+    if (e.key === 'F2'    && selected) startRename(selected);
+    if (e.key === 'Backspace')   { e.preventDefault(); document.getElementById('btn-up').click(); }
+    if (e.key === 'Enter' && selected) openItem(selected);
+  });
+
+  /* ═══════════════════════ HELPERS ═══════════════════════ */
+
+  function deselectAll() {
+    document.querySelectorAll('.file-item').forEach(r => r.classList.remove('selected'));
+  }
+
+  function updateSelBtns() {
+    const has = !!selected;
+    document.getElementById('btn-delete').disabled = !has;
+    document.getElementById('btn-rename').disabled = !has;
+  }
+
+  function getIcon(name) {
+    const ext = name.split('.').pop().toLowerCase();
+    const map = {
+      txt:'📄', md:'📄', js:'📜', ts:'📜', html:'🌐', css:'🎨',
+      json:'📋', py:'🐍', sh:'⚙️', png:'🖼', jpg:'🖼', jpeg:'🖼',
+      gif:'🖼', svg:'🖼', mp3:'🎵', mp4:'🎬', pdf:'📕',
+      zip:'📦', tar:'📦', gz:'📦', log:'📋', xml:'📋',
+      yaml:'📋', yml:'📋', ini:'⚙️', cfg:'⚙️', env:'⚙️',
+    };
+    return map[ext] || '📄';
+  }
+
+  function fmtSize(b) {
+    if (!b || b === 0) return '0B';
+    if (b < 1024)     return b + 'B';
+    if (b < 1048576)  return (b / 1024).toFixed(1) + 'KB';
+    return (b / 1048576).toFixed(1) + 'MB';
+  }
+
+  function fmtDate(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts);
+    const mo  = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][d.getMonth()];
+    const day = String(d.getDate()).padStart(2, '0');
+    const hh  = String(d.getHours()).padStart(2, '0');
+    const mm  = String(d.getMinutes()).padStart(2, '0');
+    return `${mo} ${day}, ${hh}:${mm}`;
+  }
+
+  /* ═══════════════════════ FS EVENT LISTENERS ═══════════════════════ */
+
+  function bindKernelEvents() {
+    K.on('fs:write',  () => refresh());
+    K.on('fs:remove', () => refresh());
+    K.on('fs:mkdir',  () => refresh());
+    K.on('fs:move',   () => refresh());
+  }
+
+  window.addEventListener('message', e => {
+    const { type, path } = e.data || {};
+    if (type === 'files:navigate' && path) navigate(path);
+  });
+
+  /* ── Init ── */
+  waitForKernel(kernel => {
+    K = kernel;
+    bindKernelEvents();
+
+    const startPath = getStartPath();
+    if (startPath) {
+      cwd = K.fs._normalize(startPath) || '/home';
+    }
+
+    refresh();
+  });
+
+})();
+</script>
+</body>
+</html>

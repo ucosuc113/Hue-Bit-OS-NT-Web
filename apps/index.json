@@ -1,0 +1,8 @@
+{
+  "apps": [
+    "files.html",
+    "terminal.html",
+    "editor.html",
+    "config.html"
+  ]
+}

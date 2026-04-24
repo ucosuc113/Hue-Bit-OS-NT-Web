@@ -1044,6 +1044,60 @@
    * Registra las apps del sistema.
    */
   async function _bootstrapApps() {
+    try {
+      const existingApps = await Apps.list();
+      for (const app of existingApps) {
+        await Apps.unregister(app.id);
+      }
+
+      const res = await fetch('./apps/index.json');
+      if (res.ok) {
+        const { apps: appFiles } = await res.json();
+        console.info(`[Kernel:apps] ${appFiles.length} app(s) en indice`);
+
+        for (const file of appFiles) {
+          try {
+            const htmlRes = await fetch(`./apps/${file}`);
+            if (!htmlRes.ok) continue;
+
+            const html = await htmlRes.text();
+            const match = html.match(
+              /<script[^>]+id=["']wos-manifest["'][^>]*>([\s\S]*?)<\/script>/i
+            );
+            if (!match) continue;
+
+            const manifest = JSON.parse(match[1].trim());
+            const entry = `./apps/${file}`;
+
+            await Apps.register({
+              id       : manifest.id,
+              name     : manifest.name || manifest.id,
+              version  : manifest.version || '0.1.0',
+              entry,
+              icon     : manifest.icon || '▪',
+              category : manifest.category || 'utility',
+              singleton: manifest.singleton ?? false,
+              meta     : {
+                description : manifest.description || '',
+                winWidth    : manifest.winWidth || 640,
+                winHeight   : manifest.winHeight || 460,
+                author      : manifest.author || '',
+                sourceFile  : file,
+              },
+            });
+          } catch (appErr) {
+            console.warn(`[Kernel:apps] Error procesando ${file}:`, appErr);
+          }
+        }
+
+        console.info('[Kernel:boot] Apps del sistema registradas');
+        return;
+      }
+    } catch (err) {
+      console.error('[Kernel:apps] Fallo cargando apps dinamicas:', err);
+      return;
+    }
+
     const systemApps = [
       {
         id       : 'shell',

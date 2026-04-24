@@ -194,6 +194,18 @@
         req.onerror   = () => reject(req.error);
       });
     },
+
+    /**
+     * Cierra la conexión activa con IndexedDB.
+     * Necesario antes de llamar indexedDB.deleteDatabase() para evitar
+     * que la solicitud quede bloqueada (onblocked) indefinidamente.
+     */
+    close() {
+      if (_db) {
+        _db.close();
+        _db = null;
+      }
+    },
   };
 
   /* ═══════════════════════════════════════════════════
@@ -734,44 +746,69 @@
   /**
    * Registra las apps del sistema.
    */
-  async function _bootstrapApps() {
-    const systemApps = [
-      {
-        id       : 'shell',
-        name     : 'Terminal',
-        version  : '0.1.0',
-        entry    : 'shell.html',
-        icon     : '⌨️',
-        category : 'system',
-        singleton: true,
-        meta     : { description: 'Shell de línea de comandos' },
-      },
-      {
-        id       : 'files',
-        name     : 'Archivos',
-        version  : '0.1.0',
-        entry    : 'files.html',
-        icon     : '📁',
-        category : 'system',
-        singleton: false,
-        meta     : { description: 'Explorador de archivos' },
-      },
-      {
-        id       : 'text-editor',
-        name     : 'Editor de texto',
-        version  : '0.1.0',
-        entry    : 'editor.html',
-        icon     : '📝',
-        category : 'utility',
-        singleton: false,
-        meta     : { description: 'Editor de texto plano' },
-      },
-    ];
+async function _bootstrapApps() {
+    try {
+      const existingApps = await Apps.list();
+      for (const app of existingApps) {
+        await Apps.unregister(app.id);
+      }
 
-    for (const app of systemApps) {
-      await Apps.register(app);
+      const res = await fetch('./apps/index.json');
+      if (!res.ok) throw new Error('No se encontró apps/index.json');
+
+      const { apps: appFiles } = await res.json();
+      console.info(`[Kernel:apps] ${appFiles.length} app(s) en índice`);
+
+      for (const file of appFiles) {
+        try {
+          const htmlRes = await fetch(`./apps/${file}`);
+          if (!htmlRes.ok) {
+            console.warn(`[Kernel:apps] No se pudo cargar: ${file}`);
+            continue;
+          }
+
+          const html  = await htmlRes.text();
+          const match = html.match(
+            /<script[^>]+id=["']wos-manifest["'][^>]*>([\s\S]*?)<\/script>/i
+          );
+
+          if (!match) {
+            console.warn(`[Kernel:apps] Sin manifiesto wos-manifest en: ${file}`);
+            continue;
+          }
+
+          const manifest = JSON.parse(match[1].trim());
+          const entry = `./apps/${file}`;
+
+          // Construir el objeto de registro normalizado
+          const record = {
+            id       : manifest.id,
+            name     : manifest.name     || manifest.id,
+            version  : manifest.version  || '0.1.0',
+            icon     : manifest.icon     || '▪',
+            category : manifest.category || 'utility',
+            singleton: manifest.singleton ?? false,
+            entry,
+            meta     : {
+              description : manifest.description || '',
+              winWidth    : manifest.winWidth    || 640,
+              winHeight   : manifest.winHeight   || 460,
+              author      : manifest.author      || '',
+              sourceFile  : file,
+            },
+          };
+
+          await Apps.register(record);
+          console.info(`[Kernel:apps] ✓ ${record.id}  (${file})`);
+
+        } catch (appErr) {
+          console.warn(`[Kernel:apps] Error procesando ${file}:`, appErr);
+        }
+      }
+
+    } catch (err) {
+      console.error('[Kernel:apps] Fallo cargando apps dinámicas:', err);
     }
-    console.info('[Kernel:boot] Apps del sistema registradas');
   }
 
   /**

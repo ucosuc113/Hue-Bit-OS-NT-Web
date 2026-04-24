@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebOS · Editor</title>
+  <script type="application/json" id="wos-manifest">
+  {
+    "id":          "text-editor",
+    "name":        "Editor de Texto",
+    "version":     "0.1.0",
+    "icon":        "📝",
+    "category":    "utility",
+    "singleton":   false,
+    "description": "Editor de texto plano con numeración de líneas",
+    "winWidth":    700,
+    "winHeight":   500,
+    "author":      "WebOS"
+  }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green       : #00ff88;
+      --green-dim   : #00aa55;
+      --green-faint : #003322;
+      --green-dark  : #001a0e;
+      --amber       : #ffb300;
+      --red-err     : #ff4444;
+      --blue-acc    : #00ccff;
+      --bg          : #030a05;
+      --glass       : rgba(3, 18, 10, 0.96);
+      --glass-border: rgba(0,255,136,0.18);
+      --glow-sm     : 0 0 4px #00ff8888;
+      --font-mono   : 'Share Tech Mono', monospace;
+      --font-display: 'VT323', monospace;
+      --toolbar-h   : 36px;
+      --statusbar-h : 24px;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    /* CRT scanlines */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 9999;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.08) 0px, rgba(0,0,0,0.08) 1px,
+        transparent 1px, transparent 3px
+      );
+    }
+
+    /* ── Layout ── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      width: 100%; height: 100%;
+    }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      height: var(--toolbar-h);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 8px;
+      background: linear-gradient(90deg, rgba(0,30,16,0.95), rgba(0,20,10,0.95));
+      border-bottom: 1px solid var(--glass-border);
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .tb-btn {
+      display: flex; align-items: center; gap: 5px;
+      padding: 3px 9px;
+      border: 1px solid rgba(0,255,136,0.25);
+      border-radius: 3px;
+      background: rgba(0,255,136,0.06);
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      transition: background 0.12s, border-color 0.12s;
+      white-space: nowrap;
+    }
+    .tb-btn:hover  { background: rgba(0,255,136,0.14); border-color: rgba(0,255,136,0.45); }
+    .tb-btn:active { background: rgba(0,255,136,0.22); }
+    .tb-btn.accent {
+      border-color: rgba(0,255,136,0.5);
+      background: rgba(0,255,136,0.12);
+    }
+    .tb-btn.danger {
+      border-color: rgba(255,68,68,0.4);
+      background: rgba(255,68,68,0.07);
+      color: var(--red-err);
+    }
+    .tb-btn.danger:hover { background: rgba(255,68,68,0.15); }
+
+    .tb-sep {
+      width: 1px; height: 18px;
+      background: rgba(0,255,136,0.15);
+      margin: 0 4px;
+    }
+
+    #file-path-label {
+      flex: 1;
+      font-size: 0.68rem;
+      color: var(--green-dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 0 8px;
+      letter-spacing: 0.04em;
+    }
+    #dirty-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 6px var(--amber);
+      display: none;
+      flex-shrink: 0;
+    }
+    #dirty-dot.visible { display: block; }
+
+    /* ── Editor area ── */
+    #editor-wrap {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Line numbers */
+    #line-numbers {
+      width: 46px;
+      flex-shrink: 0;
+      background: rgba(0,10,5,0.6);
+      border-right: 1px solid rgba(0,255,136,0.10);
+      overflow: hidden;
+      padding: 8px 0;
+      color: rgba(0,255,136,0.28);
+      font-size: 12px;
+      line-height: 1.6;
+      text-align: right;
+      padding-right: 8px;
+      font-family: var(--font-mono);
+      user-select: none;
+      pointer-events: none;
+    }
+
+    #editor {
+      flex: 1;
+      background: transparent;
+      color: var(--green);
+      border: none;
+      outline: none;
+      resize: none;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 8px 12px;
+      overflow-y: auto;
+      overflow-x: auto;
+      white-space: pre;
+      tab-size: 2;
+      caret-color: var(--green);
+      scrollbar-width: thin;
+      scrollbar-color: var(--green-dim) transparent;
+    }
+    #editor::selection {
+      background: rgba(0,255,136,0.22);
+      color: #fff;
+    }
+    #editor::-webkit-scrollbar       { width: 6px; height: 6px; }
+    #editor::-webkit-scrollbar-track { background: transparent; }
+    #editor::-webkit-scrollbar-thumb { background: var(--green-dim); border-radius: 3px; }
+
+    /* ── Status bar ── */
+    #statusbar {
+      height: var(--statusbar-h);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      background: linear-gradient(90deg, rgba(0,20,10,0.95), rgba(0,15,8,0.95));
+      border-top: 1px solid var(--glass-border);
+      flex-shrink: 0;
+      font-size: 0.62rem;
+      color: var(--green-dim);
+      letter-spacing: 0.06em;
+      user-select: none;
+    }
+    #statusbar .sb-left  { display: flex; gap: 14px; }
+    #statusbar .sb-right { display: flex; gap: 14px; }
+    .sb-item { display: flex; align-items: center; gap: 4px; }
+    .sb-label { color: rgba(0,255,136,0.4); }
+    .sb-val   { color: var(--green-dim); }
+
+    /* ── Open file dialog overlay ── */
+    #open-dialog {
+      display: none;
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.7);
+      align-items: center;
+      justify-content: center;
+    }
+    #open-dialog.visible { display: flex; }
+    .dialog-box {
+      background: #020d06;
+      border: 1px solid rgba(0,255,136,0.35);
+      border-radius: 6px;
+      padding: 20px;
+      width: 380px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.8), 0 0 20px rgba(0,255,136,0.1);
+    }
+    .dialog-box h3 {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      color: var(--green);
+      text-shadow: var(--glow-sm);
+      margin-bottom: 14px;
+    }
+    .dialog-input {
+      width: 100%;
+      background: rgba(0,255,136,0.05);
+      border: 1px solid rgba(0,255,136,0.3);
+      border-radius: 3px;
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      padding: 7px 10px;
+      outline: none;
+      margin-bottom: 12px;
+    }
+    .dialog-input:focus { border-color: rgba(0,255,136,0.6); }
+    .dialog-actions {
+      display: flex; gap: 8px; justify-content: flex-end;
+    }
+    .dialog-file-list {
+      max-height: 160px;
+      overflow-y: auto;
+      margin-bottom: 12px;
+      border: 1px solid rgba(0,255,136,0.12);
+      border-radius: 3px;
+    }
+    .dialog-file-item {
+      padding: 5px 10px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      color: var(--green-dim);
+      transition: background 0.1s;
+    }
+    .dialog-file-item:hover { background: rgba(0,255,136,0.1); color: var(--green); }
+    .dialog-file-item .fi-icon { font-size: 0.9rem; }
+
+    /* ── Empty state ── */
+    #empty-state {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 10px;
+      color: rgba(0,255,136,0.2);
+      pointer-events: none;
+    }
+    #empty-state .es-icon { font-size: 2.5rem; opacity: 0.4; }
+    #empty-state .es-title {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      letter-spacing: 0.12em;
+    }
+    #empty-state .es-hint {
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      opacity: 0.7;
+    }
+    #empty-state.hidden { display: none; }
+
+    /* ── Toast ── */
+    #toast-container {
+      position: fixed; bottom: 32px; right: 12px;
+      display: flex; flex-direction: column; gap: 6px;
+      z-index: 500; pointer-events: none;
+    }
+    .toast {
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 0.68rem; letter-spacing: 0.06em;
+      border: 1px solid;
+      animation: toastIn 0.2s ease;
+      max-width: 260px;
+    }
+    .toast.ok    { background: rgba(0,255,136,0.12); border-color: rgba(0,255,136,0.4); color: var(--green); }
+    .toast.error { background: rgba(255,68,68,0.12);  border-color: rgba(255,68,68,0.4);  color: var(--red-err); }
+    .toast.info  { background: rgba(0,204,255,0.10);  border-color: rgba(0,204,255,0.35); color: var(--blue-acc); }
+    @keyframes toastIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Toolbar -->
+  <div id="toolbar">
+    <button class="tb-btn accent" id="btn-new">✦ NUEVO</button>
+    <button class="tb-btn" id="btn-open">📂 ABRIR</button>
+    <button class="tb-btn" id="btn-save">💾 GUARDAR</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-save-as">GUARDAR COMO…</button>
+    <div class="tb-sep"></div>
+    <div id="dirty-dot" title="Cambios sin guardar"></div>
+    <div id="file-path-label">— sin título —</div>
+  </div>
+
+  <!-- Editor area -->
+  <div id="editor-wrap">
+    <div id="line-numbers"></div>
+    <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+    <div id="empty-state">
+      <div class="es-icon">📝</div>
+      <div class="es-title">EDITOR DE TEXTO</div>
+      <div class="es-hint">ABRIR ARCHIVO · CTRL+O &nbsp;|&nbsp; NUEVO · CTRL+N</div>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div id="statusbar">
+    <div class="sb-left">
+      <div class="sb-item"><span class="sb-label">LN</span><span class="sb-val" id="sb-line">1</span></div>
+      <div class="sb-item"><span class="sb-label">COL</span><span class="sb-val" id="sb-col">1</span></div>
+      <div class="sb-item"><span class="sb-label">CHARS</span><span class="sb-val" id="sb-chars">0</span></div>
+    </div>
+    <div class="sb-right">
+      <div class="sb-item"><span class="sb-label">ENC</span><span class="sb-val">UTF-8</span></div>
+      <div class="sb-item"><span class="sb-label">LF</span><span class="sb-val">UNIX</span></div>
+      <div class="sb-item"><span class="sb-val" id="sb-status">LISTO</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Open file dialog -->
+<div id="open-dialog">
+  <div class="dialog-box">
+    <h3>📂 ABRIR ARCHIVO</h3>
+    <input type="text" class="dialog-input" id="open-path-input" placeholder="/home/docs/readme.txt" />
+    <div class="dialog-file-list" id="dialog-file-list"></div>
+    <div class="dialog-actions">
+      <button class="tb-btn" id="dlg-cancel">CANCELAR</button>
+      <button class="tb-btn accent" id="dlg-open">ABRIR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Save As dialog -->
+<div id="saveas-dialog" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;">
+  <div class="dialog-box">
+    <h3>💾 GUARDAR COMO</h3>
+    <input type="text" class="dialog-input" id="saveas-path-input" placeholder="/home/docs/mi-archivo.txt" />
+    <div class="dialog-actions">
+      <button class="tb-btn" id="saveas-cancel">CANCELAR</button>
+      <button class="tb-btn accent" id="saveas-confirm">GUARDAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+/* ══════════════════════════════════════════════
+   WebOS · Editor de Texto
+   Usa exclusivamente Kernel.* (via window.parent o self)
+   Versión: 0.1.0
+══════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  /* ── Helpers ── */
+  const $ = id => document.getElementById(id);
+
+  const Toast = {
+    show(msg, type = 'info', dur = 2400) {
+      const t = document.createElement('div');
+      t.className = `toast ${type}`;
+      t.textContent = msg;
+      $('toast-container').appendChild(t);
+      setTimeout(() => t.remove(), dur);
+    }
+  };
+
+  /* ── Estado ── */
+  let K         = null;   // Kernel reference
+  let filePath  = null;   // ruta actual
+  let dirty     = false;  // cambios sin guardar
+  let lastSaved = '';     // contenido guardado
+
+  const DEFAULT_PREFS = {
+    'system.theme': 'dark',
+    'system.fontSize': 14,
+  };
+
+  const THEME_PALETTES = {
+    dark: {
+      green: '#00ff88',
+      greenDim: '#00aa55',
+      greenFaint: '#003322',
+      greenDark: '#001a0e',
+      amber: '#ffb300',
+      red: '#ff4444',
+      blue: '#00ccff',
+      bg: '#030a05',
+      border: 'rgba(0,255,136,0.18)',
+    },
+    amber: {
+      green: '#ffbf47',
+      greenDim: '#c98a18',
+      greenFaint: '#3a2300',
+      greenDark: '#221300',
+      amber: '#ffd36b',
+      red: '#ff6868',
+      blue: '#ffd36b',
+      bg: '#0b0601',
+      border: 'rgba(255,191,71,0.22)',
+    },
+    blue: {
+      green: '#6ee7ff',
+      greenDim: '#2ea9d6',
+      greenFaint: '#062433',
+      greenDark: '#041824',
+      amber: '#7de3ff',
+      red: '#ff6b6b',
+      blue: '#00ccff',
+      bg: '#020912',
+      border: 'rgba(110,231,255,0.18)',
+    },
+  };
+
+  /* ── DOM ── */
+  const editor      = $('editor');
+  const lineNums    = $('line-numbers');
+  const emptyState  = $('empty-state');
+  const dirtyDot    = $('dirty-dot');
+  const pathLabel   = $('file-path-label');
+  const sbLine      = $('sb-line');
+  const sbCol       = $('sb-col');
+  const sbChars     = $('sb-chars');
+  const sbStatus    = $('sb-status');
+
+  /* ── Kernel bootstrap ── */
+  function getKernel() {
+    // Prioridad: Kernel del padre (iframe dentro de shell), luego propio
+    if (window.parent && window.parent !== window && window.parent.Kernel && window.parent.Kernel.isReady) {
+      return window.parent.Kernel;
+    }
+    if (window.Kernel && window.Kernel.isReady) {
+      return window.Kernel;
+    }
+    return null;
+  }
+
+  function waitForKernel(cb) {
+    const k = getKernel();
+    if (k) { cb(k); return; }
+
+    const check = () => {
+      const k2 = getKernel();
+      if (k2) { cb(k2); return; }
+      setTimeout(check, 100);
+    };
+
+    if (window.parent !== window && window.parent.Kernel && window.parent.Kernel.once) {
+      window.parent.Kernel.once('ready', () => cb(window.parent.Kernel));
+      return;
+    }
+
+    setTimeout(check, 100);
+  }
+
+  function applyTheme(theme) {
+    const palette = THEME_PALETTES[theme] || THEME_PALETTES[DEFAULT_PREFS['system.theme']];
+    const root = document.documentElement.style;
+    root.setProperty('--green', palette.green);
+    root.setProperty('--green-dim', palette.greenDim);
+    root.setProperty('--green-faint', palette.greenFaint);
+    root.setProperty('--green-dark', palette.greenDark);
+    root.setProperty('--amber', palette.amber);
+    root.setProperty('--red-err', palette.red);
+    root.setProperty('--blue-acc', palette.blue);
+    root.setProperty('--bg', palette.bg);
+    root.setProperty('--glass-border', palette.border);
+  }
+
+  function applyFontSize(size) {
+    const nextSize = Math.max(10, Math.min(24, Number(size) || DEFAULT_PREFS['system.fontSize']));
+    document.documentElement.style.fontSize = `${nextSize}px`;
+    editor.style.fontSize = `${nextSize}px`;
+    lineNums.style.fontSize = `${Math.max(nextSize - 1, 10)}px`;
+  }
+
+  async function applyPrefs() {
+    const all = await K.prefs.all();
+    applyTheme(all['system.theme'] ?? DEFAULT_PREFS['system.theme']);
+    applyFontSize(all['system.fontSize'] ?? DEFAULT_PREFS['system.fontSize']);
+  }
+
+  /* ── Line numbers ── */
+  function updateLineNumbers() {
+    const lines = editor.value.split('\n');
+    lineNums.innerHTML = lines.map((_, i) => `<div>${i + 1}</div>`).join('');
+    // Sync scroll
+    lineNums.scrollTop = editor.scrollTop;
+  }
+
+  /* ── Status bar ── */
+  function updateStatus() {
+    const val   = editor.value;
+    const start = editor.selectionStart;
+    const lines = val.substring(0, start).split('\n');
+    sbLine.textContent  = lines.length;
+    sbCol.textContent   = lines[lines.length - 1].length + 1;
+    sbChars.textContent = val.length;
+  }
+
+  /* ── Dirty state ── */
+  function setDirty(d) {
+    dirty = d;
+    dirtyDot.classList.toggle('visible', d);
+    document.title = d
+      ? `● ${filePath ? filePath.split('/').pop() : 'sin título'} · Editor`
+      : `${filePath ? filePath.split('/').pop() : 'Editor'} · WebOS`;
+  }
+
+  function setPath(path) {
+    filePath = path;
+    pathLabel.textContent = path || '— sin título —';
+  }
+
+  /* ── File operations ── */
+  async function newFile() {
+    if (dirty && !confirm('¿Descartar cambios sin guardar?')) return;
+    editor.value = '';
+    lastSaved    = '';
+    setPath(null);
+    setDirty(false);
+    updateLineNumbers();
+    updateStatus();
+    emptyState.classList.remove('hidden');
+    sbStatus.textContent = 'NUEVO';
+    editor.focus();
+  }
+
+  async function openFile(path) {
+    if (!path) return;
+    sbStatus.textContent = 'CARGANDO…';
+    try {
+      const content = await K.fs.read(path);
+      editor.value  = content;
+      lastSaved     = content;
+      setPath(path);
+      setDirty(false);
+      emptyState.classList.add('hidden');
+      updateLineNumbers();
+      updateStatus();
+      sbStatus.textContent = 'LISTO';
+      editor.focus();
+      Toast.show(`Abierto: ${path}`, 'ok');
+    } catch (err) {
+      sbStatus.textContent = 'ERROR';
+      Toast.show(`Error: ${err.message}`, 'error', 3500);
+    }
+  }
+
+  async function saveFile(path) {
+    const target = path || filePath;
+    if (!target) {
+      showSaveAsDialog();
+      return;
+    }
+    sbStatus.textContent = 'GUARDANDO…';
+    try {
+      await K.fs.write(target, editor.value);
+      lastSaved = editor.value;
+      setPath(target);
+      setDirty(false);
+      sbStatus.textContent = 'GUARDADO';
+      Toast.show(`Guardado: ${target}`, 'ok');
+      // Notificar al sistema que el FS cambió
+      K.emit('fs:change', { path: target });
+    } catch (err) {
+      sbStatus.textContent = 'ERROR';
+      Toast.show(`Error al guardar: ${err.message}`, 'error', 3500);
+    }
+  }
+
+  /* ── Open dialog ── */
+  const openDialog  = $('open-dialog');
+  const openInput   = $('open-path-input');
+  const fileListEl  = $('dialog-file-list');
+
+  async function showOpenDialog() {
+    openInput.value = filePath || '/home/docs/';
+    openDialog.classList.add('visible');
+    openInput.focus();
+    openInput.select();
+    await populateFileList('/home/docs');
+  }
+
+  async function populateFileList(dir) {
+    fileListEl.innerHTML = '';
+    try {
+      const entries = await K.fs.readdir(dir);
+      const sorted  = entries.sort((a, b) => {
+        if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+      if (!sorted.length) {
+        fileListEl.innerHTML = '<div class="dialog-file-item" style="opacity:0.4">— directorio vacío —</div>';
+        return;
+      }
+      sorted.forEach(e => {
+        const item = document.createElement('div');
+        item.className = 'dialog-file-item';
+        item.innerHTML = `<span class="fi-icon">${e.type === 'dir' ? '📁' : '📄'}</span><span>${e.name}</span>`;
+        item.addEventListener('click', () => {
+          if (e.type === 'dir') {
+            openInput.value = e.id + '/';
+            populateFileList(e.id);
+          } else {
+            openInput.value = e.id;
+          }
+        });
+        item.addEventListener('dblclick', () => {
+          if (e.type === 'file') {
+            closeOpenDialog();
+            openFile(e.id);
+          }
+        });
+        fileListEl.appendChild(item);
+      });
+    } catch (_) {
+      // Try root
+      try {
+        const all = await K.fs.readdir('/');
+        fileListEl.innerHTML = all.map(e =>
+          `<div class="dialog-file-item">
+            <span class="fi-icon">${e.type === 'dir' ? '📁' : '📄'}</span>
+            <span>${e.name}</span>
+          </div>`
+        ).join('');
+      } catch(e2) {
+        fileListEl.innerHTML = '<div class="dialog-file-item" style="opacity:0.4">Error listando archivos</div>';
+      }
+    }
+  }
+
+  function closeOpenDialog() {
+    openDialog.classList.remove('visible');
+  }
+
+  $('btn-open').addEventListener('click', showOpenDialog);
+  $('dlg-cancel').addEventListener('click', closeOpenDialog);
+  $('dlg-open').addEventListener('click', () => {
+    const p = openInput.value.trim();
+    if (p) { closeOpenDialog(); openFile(p); }
+  });
+  openInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { closeOpenDialog(); openFile(openInput.value.trim()); }
+    if (e.key === 'Escape') closeOpenDialog();
+  });
+  openDialog.addEventListener('click', e => {
+    if (e.target === openDialog) closeOpenDialog();
+  });
+
+  /* ── Save As dialog ── */
+  const saveAsDialog = $('saveas-dialog');
+  const saveAsInput  = $('saveas-path-input');
+
+  function showSaveAsDialog() {
+    saveAsInput.value = filePath || '/home/docs/nuevo.txt';
+    saveAsDialog.style.display = 'flex';
+    saveAsInput.focus();
+    saveAsInput.select();
+  }
+
+  $('btn-save-as').addEventListener('click', showSaveAsDialog);
+  $('saveas-cancel').addEventListener('click', () => saveAsDialog.style.display = 'none');
+  $('saveas-confirm').addEventListener('click', () => {
+    const p = saveAsInput.value.trim();
+    if (p) { saveAsDialog.style.display = 'none'; saveFile(p); }
+  });
+  saveAsInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { saveAsDialog.style.display = 'none'; saveFile(saveAsInput.value.trim()); }
+    if (e.key === 'Escape') saveAsDialog.style.display = 'none';
+  });
+
+  /* ── Toolbar buttons ── */
+  $('btn-new').addEventListener('click', newFile);
+  $('btn-save').addEventListener('click', () => saveFile());
+
+  /* ── Editor events ── */
+  editor.addEventListener('input', () => {
+    updateLineNumbers();
+    updateStatus();
+    if (editor.value !== lastSaved) setDirty(true);
+    else setDirty(false);
+    emptyState.classList.add('hidden');
+  });
+
+  editor.addEventListener('keydown', e => {
+    // Ctrl+S → save
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      saveFile();
+    }
+    // Ctrl+O → open
+    if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+      e.preventDefault();
+      showOpenDialog();
+    }
+    // Ctrl+N → new
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+      e.preventDefault();
+      newFile();
+    }
+    // Tab → insert spaces
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = editor.selectionStart;
+      const end   = editor.selectionEnd;
+      editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+      editor.selectionStart = editor.selectionEnd = start + 2;
+      editor.dispatchEvent(new Event('input'));
+    }
+  });
+
+  editor.addEventListener('scroll', () => {
+    lineNums.scrollTop = editor.scrollTop;
+  });
+
+  editor.addEventListener('click', updateStatus);
+  editor.addEventListener('keyup', updateStatus);
+
+  /* ── postMessage API (para que files.html abra archivos) ── */
+  window.addEventListener('message', e => {
+    const { type, path } = e.data || {};
+    if (type === 'editor:open' && path) openFile(path);
+    if (type === 'editor:new')         newFile();
+  });
+
+  /* ── URL params: ?path=... ── */
+  function getUrlPath() {
+    const p = new URLSearchParams(window.location.search).get('path');
+    return p || null;
+  }
+
+  /* ── Init ── */
+  async function init(kernel) {
+    K = kernel;
+    await applyPrefs();
+
+    // Sync scroll for line numbers
+    updateLineNumbers();
+    updateStatus();
+
+    // Check URL param
+    const urlPath = getUrlPath();
+    if (urlPath) {
+      openFile(urlPath);
+    }
+
+    // Listen for external open requests via Kernel event
+    K.on('editor:open', ({ path }) => {
+      if (path) openFile(path);
+    });
+
+    K.on('prefs:change', ({ key, value }) => {
+      if (key === 'system.theme') applyTheme(value);
+      if (key === 'system.fontSize') applyFontSize(value);
+    });
+
+    K.on('prefs:delete', ({ key }) => {
+      if (key === 'system.theme') applyTheme(DEFAULT_PREFS['system.theme']);
+      if (key === 'system.fontSize') applyFontSize(DEFAULT_PREFS['system.fontSize']);
+    });
+
+    // Keyboard shortcuts when NOT inside editor (global)
+    document.addEventListener('keydown', e => {
+      if (e.target !== editor) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveFile(); }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'o') { e.preventDefault(); showOpenDialog(); }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); newFile(); }
+      }
+    });
+  }
+
+  waitForKernel(init);
+
+})();
+</script>
+</body>
+</html>
