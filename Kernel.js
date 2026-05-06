@@ -1,62 +1,26 @@
-/**
- * ╔══════════════════════════════════════════════════════╗
- * ║               W E B O S  —  K E R N E L             ║
- * ║           Kernel.js  ·  ALPHA 1.0 · v0.2.0          ║
- * ╚══════════════════════════════════════════════════════╝
- *
- * Responsabilidades:
- *   - IndexedDB (stores: fs, prefs, social, apps_meta, crashes)
- *   - Kernel.db.*      → acceso raw a stores
- *   - Kernel.fs.*      → abstracción de sistema de archivos
- *   - Kernel.on/emit   → event bus interno
- *   - Kernel.apps      → registro de aplicaciones
- *   - Kernel.procs     → administrador de procesos (stub)
- *   - Kernel.crash.*   → crash reporter                [Alpha 1.0]
- *   - Kernel.uptime    → ms desde el boot              [Alpha 1.0]
- *   - Kernel.session   → info de sesión actual          [Alpha 1.0]
- *   - Boot sequence    → emite 'ready' al terminar
- *   - Migration system → onupgradeneeded por versión   [Alpha 1.0]
- *   - Watchdog         → detecta boots fallidos         [Alpha 1.0]
- *
- * Changelog Alpha 1.0:
- *   - DB_VERSION 1 → 2  (añade store 'crashes')
- *   - Sistema de migraciones por versión de DB
- *   - Watchdog de boot con detección de fallo previo
- *   - CrashReporter: captura window:error + unhandledrejection
- *   - Session tracker: uptime real, sessionCount, sessionId
- */
-
 ;(function (global) {
   'use strict';
 
   /* ═══════════════════════════════════════════════════
      CONSTANTES
   ═══════════════════════════════════════════════════ */
-  const DB_NAME    = 'webos_db';
-  const DB_VERSION = 2;           // Alpha 1.0: era 1
+  const DB_NAME    = 'huebos_db';
+  const DB_VERSION = 3;           // v0.3.0: añade binary_blobs
 
   const STORES = {
-    FS        : 'fs',
-    PREFS     : 'prefs',
-    SOCIAL    : 'social',
-    APPS_META : 'apps_meta',
-    CRASHES   : 'crashes',        // Alpha 1.0
+    FS           : 'fs',
+    PREFS        : 'prefs',
+    SOCIAL       : 'social',
+    APPS_META    : 'apps_meta',
+    CRASHES      : 'crashes',        // Alpha 1.0
+    BINARY_BLOBS : 'binary_blobs',   // v0.3.0
   };
 
   /* ═══════════════════════════════════════════════════
      MIGRATION SYSTEM                          [Alpha 1.0]
-     Cada clave es la versión destino.
-     La función recibe (db, transaction) y aplica
-     los cambios de schema necesarios para llegar
-     a esa versión desde la anterior.
   ═══════════════════════════════════════════════════ */
   const MIGRATIONS = {
 
-    /**
-     * v1 → v2: Añade el store 'crashes'.
-     * El store 'fs', 'prefs', 'social' y 'apps_meta'
-     * ya existen desde v1 y no requieren cambios.
-     */
     2: (db /*, tx */) => {
       if (!db.objectStoreNames.contains(STORES.CRASHES)) {
         db.createObjectStore(STORES.CRASHES, { keyPath: 'id' });
@@ -64,18 +28,14 @@
       }
     },
 
-    /**
-     * Plantilla para futuras migraciones.
-     * Descomenta y ajusta cuando se necesite:
-     *
-     * 3: (db, tx) => {
-     *   // Ejemplo: añadir índice al store 'fs' por campo 'parent'
-     *   if (!db.objectStoreNames.contains('sessions')) {
-     *     db.createObjectStore('sessions', { keyPath: 'id' });
-     *   }
-     * },
-     */
-  };
+    3: (db /*, tx */) => {
+      if (!db.objectStoreNames.contains(STORES.BINARY_BLOBS)) {
+        db.createObjectStore(STORES.BINARY_BLOBS, { keyPath: 'id' });
+        console.info('[Kernel:db] migración v3: store "binary_blobs" creado');
+      }
+    },
+
+  };  // ← ESTE ERA EL CIERRE QUE FALTABA
 
   /* ═══════════════════════════════════════════════════
      EVENT BUS
@@ -83,12 +43,6 @@
   const _listeners = {};
 
   const EventBus = {
-    /**
-     * Suscribe un handler a un evento.
-     * @param {string}   event
-     * @param {Function} handler
-     * @returns {Function} unsub — llama para desuscribir
-     */
     on(event, handler) {
       if (!_listeners[event]) _listeners[event] = [];
       _listeners[event].push(handler);
@@ -97,11 +51,6 @@
       };
     },
 
-    /**
-     * Emite un evento con payload opcional.
-     * @param {string} event
-     * @param {*}      payload
-     */
     emit(event, payload) {
       const now = Date.now();
       console.debug(`[Kernel:emit] ${event}`, payload ?? '');
@@ -111,7 +60,6 @@
       });
     },
 
-    /** Suscribe handler que se ejecuta sólo una vez. */
     once(event, handler) {
       const unsub = this.on(event, (payload, ts) => {
         handler(payload, ts);
@@ -127,16 +75,14 @@
   let _db = null;
 
   const DB = {
-    /** Abre / inicializa la base de datos y aplica migraciones. */
     open() {
       return new Promise((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, DB_VERSION);
 
         req.onupgradeneeded = (e) => {
           const db         = e.target.result;
-          const oldVersion = e.oldVersion;   // 0 en instalación limpia
+          const oldVersion = e.oldVersion;
 
-          // 1. Crear stores base que no existan (instalación limpia o stores nuevos)
           Object.values(STORES).forEach(name => {
             if (!db.objectStoreNames.contains(name)) {
               db.createObjectStore(name, { keyPath: 'id' });
@@ -144,7 +90,6 @@
             }
           });
 
-          // 2. Ejecutar migraciones desde oldVersion + 1 hasta DB_VERSION
           for (let v = oldVersion + 1; v <= DB_VERSION; v++) {
             if (MIGRATIONS[v]) {
               try {
@@ -152,8 +97,6 @@
                 console.info(`[Kernel:db] ✓ migración v${v} aplicada`);
               } catch (migErr) {
                 console.error(`[Kernel:db] ✗ migración v${v} falló:`, migErr);
-                // No rechazamos: preferimos un sistema arriba con un store faltante
-                // a un sistema que no arranca. El CrashReporter lo registrará luego.
               }
             }
           }
@@ -172,12 +115,6 @@
       });
     },
 
-    /**
-     * Lee un registro de un store.
-     * @param {string} store
-     * @param {string} id
-     * @returns {Promise<*>}
-     */
     get(store, id) {
       return new Promise((resolve, reject) => {
         const tx  = _db.transaction(store, 'readonly');
@@ -187,12 +124,6 @@
       });
     },
 
-    /**
-     * Escribe (put) un registro. El objeto debe tener `id`.
-     * @param {string} store
-     * @param {Object} record — debe incluir { id, ...data }
-     * @returns {Promise<void>}
-     */
     put(store, record) {
       return new Promise((resolve, reject) => {
         const tx  = _db.transaction(store, 'readwrite');
@@ -202,12 +133,6 @@
       });
     },
 
-    /**
-     * Elimina un registro.
-     * @param {string} store
-     * @param {string} id
-     * @returns {Promise<void>}
-     */
     delete(store, id) {
       return new Promise((resolve, reject) => {
         const tx  = _db.transaction(store, 'readwrite');
@@ -217,11 +142,6 @@
       });
     },
 
-    /**
-     * Lista todos los registros de un store.
-     * @param {string} store
-     * @returns {Promise<Array>}
-     */
     list(store) {
       return new Promise((resolve, reject) => {
         const tx      = _db.transaction(store, 'readonly');
@@ -231,11 +151,6 @@
       });
     },
 
-    /**
-     * Lista todos los IDs (keys) de un store.
-     * @param {string} store
-     * @returns {Promise<Array<string>>}
-     */
     keys(store) {
       return new Promise((resolve, reject) => {
         const tx      = _db.transaction(store, 'readonly');
@@ -245,11 +160,6 @@
       });
     },
 
-    /**
-     * Limpia todos los registros de un store.
-     * @param {string} store
-     * @returns {Promise<void>}
-     */
     clear(store) {
       return new Promise((resolve, reject) => {
         const tx  = _db.transaction(store, 'readwrite');
@@ -259,11 +169,6 @@
       });
     },
 
-    /**
-     * Cierra la conexión activa con IndexedDB.
-     * Necesario antes de llamar indexedDB.deleteDatabase() para evitar
-     * que la solicitud quede bloqueada (onblocked) indefinidamente.
-     */
     close() {
       if (_db) {
         _db.close();
@@ -275,25 +180,7 @@
   /* ═══════════════════════════════════════════════════
      SISTEMA DE ARCHIVOS  (sobre store 'fs')
   ═══════════════════════════════════════════════════ */
-
-  /**
-   * Esquema de un nodo FS:
-   * {
-   *   id       : string  (path normalizado, ej. '/home/docs/readme.txt')
-   *   type     : 'dir' | 'file'
-   *   name     : string  (componente final del path)
-   *   parent   : string  (path del directorio padre, '' para root)
-   *   content  : string  (sólo si type === 'file')
-   *   ctime    : number  (timestamp creación)
-   *   mtime    : number  (timestamp última modificación)
-   *   size     : number  (bytes de content o 0 si dir)
-   *   meta     : Object  (campo libre para extensiones)
-   * }
-   */
-
   const FS = {
-    /* ── helpers internos ── */
-
     _normalize(path) {
       let p = path.replace(/\/+/g, '/');
       if (p !== '/' && p.endsWith('/')) p = p.slice(0, -1);
@@ -313,13 +200,6 @@
       return parts.join('/') || '/';
     },
 
-    /* ── API pública ── */
-
-    /**
-     * Crea un directorio (y sus padres si no existen).
-     * @param {string} path
-     * @returns {Promise<Object>} nodo creado
-     */
     async mkdir(path) {
       path = this._normalize(path);
       const existing = await DB.get(STORES.FS, path);
@@ -351,12 +231,6 @@
       return node;
     },
 
-    /**
-     * Escribe un archivo (lo crea o sobreescribe).
-     * @param {string} path
-     * @param {string} content
-     * @returns {Promise<Object>} nodo
-     */
     async write(path, content = '') {
       path = this._normalize(path);
       const parent = this._dirname(path);
@@ -382,11 +256,6 @@
       return node;
     },
 
-    /**
-     * Lee el contenido de un archivo.
-     * @param {string} path
-     * @returns {Promise<string>}
-     */
     async read(path) {
       path = this._normalize(path);
       const node = await DB.get(STORES.FS, path);
@@ -395,11 +264,6 @@
       return node.content ?? '';
     },
 
-    /**
-     * Stat de un nodo (sin devolver contenido para archivos grandes).
-     * @param {string} path
-     * @returns {Promise<Object|null>}
-     */
     async stat(path) {
       path = this._normalize(path);
       const node = await DB.get(STORES.FS, path);
@@ -408,11 +272,6 @@
       return stat;
     },
 
-    /**
-     * Lista el contenido de un directorio.
-     * @param {string} path
-     * @returns {Promise<Array<Object>>}  array de stats de hijos
-     */
     async readdir(path) {
       path = this._normalize(path);
       const node = await DB.get(STORES.FS, path);
@@ -425,13 +284,6 @@
         .map(({ content, ...stat }) => stat);
     },
 
-    /**
-     * Elimina un archivo o directorio vacío.
-     * @param {string} path
-     * @param {Object} [opts]
-     * @param {boolean} [opts.recursive=false]
-     * @returns {Promise<void>}
-     */
     async remove(path, { recursive = false } = {}) {
       path = this._normalize(path);
       const node = await DB.get(STORES.FS, path);
@@ -448,21 +300,21 @@
         const descendants = all
           .filter(n => n.id.startsWith(path + '/') || n.id === path)
           .map(n => n.id);
-        for (const id of descendants) await DB.delete(STORES.FS, id);
+        for (const id of descendants) {
+          await DB.delete(STORES.FS, id);
+          await DB.delete(STORES.BINARY_BLOBS, id).catch(() => {});
+        }
       } else {
         await DB.delete(STORES.FS, path);
+        if (node.encoding === 'binary') {
+          await DB.delete(STORES.BINARY_BLOBS, path).catch(() => {});
+        }
       }
 
       EventBus.emit('fs:remove', { path });
       console.debug(`[Kernel:fs] remove ${path}`);
     },
 
-    /**
-     * Mueve / renombra un nodo.
-     * @param {string} src
-     * @param {string} dst
-     * @returns {Promise<void>}
-     */
     async move(src, dst) {
       src = this._normalize(src);
       dst = this._normalize(dst);
@@ -498,57 +350,116 @@
       console.debug(`[Kernel:fs] move ${src} → ${dst}`);
     },
 
-    /**
-     * Verifica si existe un path.
-     * @param {string} path
-     * @returns {Promise<boolean>}
-     */
     async exists(path) {
       return (await DB.get(STORES.FS, this._normalize(path))) !== null;
+    },
+
+    /* ── FS Binario (v0.3.0) ── */
+
+    async writeBinary(path, data, mime = 'application/octet-stream') {
+      path = this._normalize(path);
+      const parent = this._dirname(path);
+      if (parent) await this.mkdir(parent);
+
+      let blob;
+      let size;
+
+      if (data instanceof Blob) {
+        blob = data;
+        size = data.size;
+        if (mime === 'application/octet-stream' && data.type) mime = data.type;
+      } else if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
+        blob = new Blob([data], { type: mime });
+        size = blob.size;
+      } else {
+        throw new TypeError('FS.writeBinary: data debe ser Blob o ArrayBuffer');
+      }
+
+      const existing = await DB.get(STORES.FS, path);
+      const now      = Date.now();
+      const node     = {
+        id       : path,
+        type     : 'file',
+        name     : this._basename(path),
+        parent,
+        content  : null,
+        encoding : 'binary',
+        mime,
+        ctime    : existing?.ctime ?? now,
+        mtime    : now,
+        size,
+        meta     : existing?.meta ?? {},
+      };
+
+      await DB.put(STORES.FS, node);
+      await DB.put(STORES.BINARY_BLOBS, { id: path, data: blob, mtime: now });
+
+      EventBus.emit('fs:write', { path, size, encoding: 'binary', mime });
+      console.debug(`[Kernel:fs] writeBinary ${path} (${size}B, ${mime})`);
+      return node;
+    },
+
+    async readBlob(path) {
+      path = this._normalize(path);
+      const record = await DB.get(STORES.BINARY_BLOBS, path);
+      if (!record) {
+        const node = await DB.get(STORES.FS, path);
+        if (node && node.type === 'file' && node.content !== null) {
+          return new Blob([node.content], { type: 'text/plain' });
+        }
+        throw new Error(`FS.readBlob: '${path}' no existe o no es binario`);
+      }
+      return record.data;
+    },
+
+    async readArrayBuffer(path) {
+      const blob = await this.readBlob(path);
+      return blob.arrayBuffer();
+    },
+
+    async readDataURL(path) {
+      const blob = await this.readBlob(path);
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+    },
+
+    async isBinary(path) {
+      path = this._normalize(path);
+      const node = await DB.get(STORES.FS, path);
+      return node?.encoding === 'binary';
+    },
+
+    async getMime(path) {
+      path = this._normalize(path);
+      const node = await DB.get(STORES.FS, path);
+      if (!node) return null;
+      return node.mime || (node.encoding === 'binary' ? 'application/octet-stream' : 'text/plain');
     },
   };
 
   /* ═══════════════════════════════════════════════════
      PREFERENCIAS DEL SISTEMA
   ═══════════════════════════════════════════════════ */
-
   const Prefs = {
-    /**
-     * Lee una preferencia. Devuelve defaultValue si no existe.
-     * @param {string} key
-     * @param {*}      defaultValue
-     * @returns {Promise<*>}
-     */
     async get(key, defaultValue = null) {
       const record = await DB.get(STORES.PREFS, key);
       return record !== null ? record.value : defaultValue;
     },
 
-    /**
-     * Escribe una preferencia.
-     * @param {string} key
-     * @param {*}      value
-     * @returns {Promise<void>}
-     */
     async set(key, value) {
       await DB.put(STORES.PREFS, { id: key, value, mtime: Date.now() });
       EventBus.emit('prefs:change', { key, value });
     },
 
-    /**
-     * Elimina una preferencia.
-     * @param {string} key
-     * @returns {Promise<void>}
-     */
     async delete(key) {
       await DB.delete(STORES.PREFS, key);
       EventBus.emit('prefs:delete', { key });
     },
 
-    /**
-     * Devuelve todas las preferencias como objeto plano.
-     * @returns {Promise<Object>}
-     */
     async all() {
       const records = await DB.list(STORES.PREFS);
       return Object.fromEntries(records.map(r => [r.id, r.value]));
@@ -558,21 +469,6 @@
   /* ═══════════════════════════════════════════════════
      REGISTRO DE APLICACIONES
   ═══════════════════════════════════════════════════ */
-
-  /**
-   * Esquema de una app registrada:
-   * {
-   *   id       : string   (slug único, ej. 'text-editor')
-   *   name     : string   (nombre display)
-   *   version  : string
-   *   entry    : string   (URL o path del HTML de la app)
-   *   icon     : string   (emoji o URL)
-   *   category : string   ('system' | 'utility' | 'media' | 'social' | ...)
-   *   singleton: boolean  (sólo una instancia permitida)
-   *   meta     : Object
-   * }
-   */
-
   const Apps = {
     _registry: {},
 
@@ -609,28 +505,45 @@
   };
 
   /* ═══════════════════════════════════════════════════
-     ADMINISTRADOR DE PROCESOS  (stub)
+     ADMINISTRADOR DE PROCESOS  (v0.3.0)
   ═══════════════════════════════════════════════════ */
-
   const Procs = (() => {
     let _nextPid = 1;
     const _table = {};
 
+    function _record(pid, appId, opts) {
+      return {
+        pid,
+        appId,
+        title    : opts.title     || appId,
+        icon     : opts.icon      || '▪',
+        state    : 'running',
+        window   : null,
+        parentPid: opts.parentPid ?? null,
+        children : new Set(),
+        cwd      : opts.cwd       || '/home',
+        spawnedAt: Date.now(),
+      };
+    }
+
     return {
       spawn(appId, opts = {}) {
         const pid  = _nextPid++;
-        const proc = {
-          pid,
-          appId,
-          title     : opts.title || appId,
-          state     : 'running',
-          window    : null,
-          spawnedAt : Date.now(),
-          ...opts,
-        };
+        const proc = _record(pid, appId, opts);
         _table[pid] = proc;
-        EventBus.emit('procs:spawn', { pid, appId });
-        console.debug(`[Kernel:procs] spawn pid=${pid} app=${appId}`);
+
+        if (proc.parentPid !== null) {
+          const parent = _table[proc.parentPid];
+          if (parent) {
+            parent.children.add(pid);
+          } else {
+            console.warn(`[Kernel:procs] spawn: parentPid=${proc.parentPid} no encontrado`);
+            proc.parentPid = null;
+          }
+        }
+
+        EventBus.emit('procs:spawn', { pid, appId, parentPid: proc.parentPid });
+        console.debug(`[Kernel:procs] spawn pid=${pid} app=${appId} parent=${proc.parentPid ?? 'none'} cwd=${proc.cwd}`);
         return proc;
       },
 
@@ -638,12 +551,23 @@
         const proc = _table[pid];
         if (!proc) {
           console.warn(`[Kernel:procs] kill: pid=${pid} no encontrado`);
-          return;
+          return false;
         }
+
+        for (const childPid of [...proc.children]) {
+          this.kill(childPid);
+        }
+
+        if (proc.parentPid !== null) {
+          const parent = _table[proc.parentPid];
+          if (parent) parent.children.delete(pid);
+        }
+
         proc.state = 'zombie';
         delete _table[pid];
-        EventBus.emit('procs:kill', { pid });
-        console.debug(`[Kernel:procs] kill pid=${pid}`);
+        EventBus.emit('procs:kill', { pid, appId: proc.appId });
+        console.debug(`[Kernel:procs] kill pid=${pid} app=${proc.appId}`);
+        return true;
       },
 
       suspend(pid) {
@@ -660,12 +584,53 @@
         }
       },
 
+      setCwd(pid, newCwd) {
+        if (_table[pid]) {
+          _table[pid].cwd = newCwd;
+          EventBus.emit('procs:cwd', { pid, cwd: newCwd });
+        }
+      },
+
       list() {
         return Object.values(_table);
       },
 
       get(pid) {
-        return _table[pid];
+        return _table[pid] ?? null;
+      },
+
+      getChildren(pid) {
+        const proc = _table[pid];
+        if (!proc) return [];
+        return [...proc.children]
+          .map(cpid => _table[cpid])
+          .filter(Boolean);
+      },
+
+      getTree(pid) {
+        const proc = _table[pid];
+        if (!proc) return null;
+        const { children, ...rest } = proc;
+        return {
+          ...rest,
+          children: [...children]
+            .map(cpid => this.getTree(cpid))
+            .filter(Boolean),
+        };
+      },
+
+      ancestry(pid) {
+        const chain = [];
+        let current = _table[pid];
+        while (current) {
+          chain.push(current);
+          current = current.parentPid !== null ? _table[current.parentPid] : null;
+        }
+        return chain;
+      },
+
+      roots() {
+        return Object.values(_table).filter(p => p.parentPid === null);
       },
 
       get count() { return Object.keys(_table).length; },
@@ -674,12 +639,7 @@
 
   /* ═══════════════════════════════════════════════════
      WATCHDOG                                  [Alpha 1.0]
-     Detecta si el boot anterior falló a mitad.
-     Usa sessionStorage (síncrono, disponible antes de
-     que IndexedDB esté abierto, se limpia entre sesiones
-     de navegador — comportamiento correcto para un watchdog).
   ═══════════════════════════════════════════════════ */
-
   const Watchdog = (() => {
     const SS_KEY = 'wos_boot_state';
 
@@ -690,16 +650,10 @@
 
     function _write(obj) {
       try { sessionStorage.setItem(SS_KEY, JSON.stringify(obj)); }
-      catch { /* sessionStorage lleno o bloqueado: continuar sin watchdog */ }
+      catch { /* sessionStorage lleno o bloqueado */ }
     }
 
     return {
-      /**
-       * Llama al inicio del boot, antes de abrir la DB.
-       * Si el boot anterior quedó marcado como 'started' en algún
-       * paso, significa que terminó de forma anormal.
-       * @returns {{ recovered: boolean, failedStep: string|null }}
-       */
       checkPreviousBoot() {
         const prev = _read();
         if (prev && prev.status === 'started') {
@@ -713,26 +667,15 @@
         return { recovered: false, failedStep: null };
       },
 
-      /**
-       * Marca el inicio de un paso de boot.
-       * Si el proceso muere aquí, checkPreviousBoot lo detectará.
-       * @param {string} step  identificador del paso (ej. 'db', 'fs', 'apps')
-       */
       markStep(step) {
         _write({ step, status: 'started', ts: Date.now() });
       },
 
-      /**
-       * Marca el paso actual como completado exitosamente.
-       */
       completeStep() {
         const prev = _read();
         if (prev) _write({ ...prev, status: 'done' });
       },
 
-      /**
-       * Limpia el estado del watchdog al finalizar el boot correctamente.
-       */
       clearAll() {
         try { sessionStorage.removeItem(SS_KEY); }
         catch { /* ignorar */ }
@@ -742,27 +685,20 @@
 
   /* ═══════════════════════════════════════════════════
      CRASH REPORTER                            [Alpha 1.0]
-     Captura errores globales no manejados y los persiste
-     en /sys/crashes/ con metadata completa.
-     Máximo MAX_CRASHES reportes; los más viejos se purgan.
   ═══════════════════════════════════════════════════ */
-
   const CrashReporter = (() => {
     const MAX_CRASHES   = 20;
     const CRASHES_DIR   = '/sys/crashes';
     let   _installed    = false;
 
-    /** Genera un ID único para el reporte. */
     function _uid() {
       return 'crash_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
     }
 
-    /** Persiste el reporte en FS y emite evento. */
     async function _persist(report) {
       try {
         await FS.write(`${CRASHES_DIR}/${report.id}.json`, JSON.stringify(report, null, 2));
 
-        // Purgar reportes si superamos el límite
         const entries = await FS.readdir(CRASHES_DIR);
         if (entries.length > MAX_CRASHES) {
           const sorted = [...entries].sort((a, b) => a.ctime - b.ctime);
@@ -779,24 +715,22 @@
           ts      : report.ts,
         });
       } catch (writeErr) {
-        // No podemos hacer nada si el FS tampoco funciona; al menos logueamos
         console.error('[Kernel:crash] No se pudo persistir el reporte:', writeErr);
       }
     }
 
-    /** Construye y guarda un reporte de error. */
     function _capture(source, message, stack, extra = {}) {
       if (!_installed) return;
 
       const report = {
-        id          : _uid(),
-        ts          : Date.now(),
+        id           : _uid(),
+        ts           : Date.now(),
         source,
-        message     : String(message || 'sin mensaje'),
-        stack       : String(stack   || ''),
-        url         : location.href,
-        userAgent   : navigator.userAgent,
-        kernelVersion: '0.2.0',
+        message      : String(message || 'sin mensaje'),
+        stack        : String(stack   || ''),
+        url          : location.href,
+        userAgent    : navigator.userAgent,
+        kernelVersion: '0.3.0',
         ...extra,
       };
 
@@ -805,15 +739,10 @@
     }
 
     return {
-      /**
-       * Instala los listeners globales de error.
-       * Llamar sólo después de que el FS esté listo.
-       */
       install() {
         if (_installed) return;
         _installed = true;
 
-        // Errores síncronos no capturados
         window.addEventListener('error', (e) => {
           _capture('window:error', e.message, e.error?.stack, {
             filename : e.filename,
@@ -822,7 +751,6 @@
           });
         });
 
-        // Promesas rechazadas sin .catch()
         window.addEventListener('unhandledrejection', (e) => {
           _capture(
             'unhandledrejection',
@@ -834,20 +762,10 @@
         console.info('[Kernel:crash] CrashReporter instalado');
       },
 
-      /**
-       * Reporta un error manualmente desde cualquier parte del sistema.
-       * @param {string} message
-       * @param {Error}  [error]
-       * @param {Object} [extra]
-       */
       report(message, error, extra = {}) {
         _capture('manual', message, error?.stack, extra);
       },
 
-      /**
-       * Lista los reportes existentes (stats, sin contenido).
-       * @returns {Promise<Array<Object>>}
-       */
       async list() {
         try {
           return await FS.readdir(CRASHES_DIR);
@@ -856,11 +774,6 @@
         }
       },
 
-      /**
-       * Lee el contenido completo de un reporte.
-       * @param {string} id  — el campo `id` del reporte (sin extensión .json)
-       * @returns {Promise<Object|null>}
-       */
       async read(id) {
         try {
           const raw = await FS.read(`${CRASHES_DIR}/${id}.json`);
@@ -870,10 +783,6 @@
         }
       },
 
-      /**
-       * Borra todos los reportes de crashes.
-       * @returns {Promise<void>}
-       */
       async clear() {
         try {
           const entries = await FS.readdir(CRASHES_DIR);
@@ -888,14 +797,9 @@
 
   /* ═══════════════════════════════════════════════════
      SESSION TRACKER                           [Alpha 1.0]
-     Registra el instante real de boot y lleva cuenta
-     de cuántas veces ha arrancado el sistema.
   ═══════════════════════════════════════════════════ */
-
-  // Se inicializa al comienzo de boot(), antes de cualquier await.
   let _bootStartedAt = Date.now();
 
-  // Info de sesión actual, se popula en _bootstrapSession().
   let _session = {
     id           : null,
     count        : 0,
@@ -903,10 +807,6 @@
     recoveredBoot: false,
   };
 
-  /**
-   * Inicializa y persiste los datos de sesión.
-   * @param {boolean} recoveredBoot
-   */
   async function _bootstrapSession(recoveredBoot = false) {
     const sessionId    = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
     const prevCount    = await Prefs.get('boot.sessionCount', 0);
@@ -930,7 +830,6 @@
   /* ═══════════════════════════════════════════════════
      BOOT HELPERS
   ═══════════════════════════════════════════════════ */
-
   async function _bootstrapFS() {
     await FS.mkdir('/');
     await FS.mkdir('/home');
@@ -939,32 +838,37 @@
     await FS.mkdir('/home/media');
     await FS.mkdir('/tmp');
     await FS.mkdir('/sys');
-    await FS.mkdir('/sys/crashes');   // Alpha 1.0: directorio para crash reports
+    await FS.mkdir('/sys/crashes');
 
     const alreadyBooted = await FS.exists('/home/docs/readme.txt');
     if (!alreadyBooted) {
       await FS.write('/home/docs/readme.txt', [
         '╔══════════════════════════════════════════╗',
-        '║         W E B O S  —  v0.2.0            ║',
-        '║              Alpha 1.0                   ║',
+        '║         H U E B O S  —  v0.3.0          ║',
+        '║              Alpha 2.0                   ║',
         '╚══════════════════════════════════════════╝',
         '',
-        'Bienvenido a WebOS.',
+        'Bienvenido a HUEBOS.',
         '',
         'Este es tu espacio de trabajo personal.',
         'Todos los archivos se almacenan localmente',
         'en tu navegador mediante IndexedDB.',
         '',
+        'Novedades v0.3.0:',
+        '  - FS binario: Blob/ArrayBuffer (imágenes, audio)',
+        '  - Árbol de procesos parent/child real',
+        '  - Terminal integrada nativa en el shell',
+        '',
         'Directorios disponibles:',
         '  /home        → tu espacio personal',
         '  /home/docs   → documentos',
         '  /home/apps   → datos de aplicaciones',
-        '  /home/media  → imágenes y media',
+        '  /home/media  → imágenes y media (binarios)',
         '  /tmp         → archivos temporales',
         '  /sys         → configuración del sistema',
         '  /sys/crashes → reportes de errores del sistema',
         '',
-        'Kernel version : 0.2.0 (Alpha 1.0)',
+        'Kernel version : 0.3.0 (Alpha 2.0)',
         `Boot time      : ${new Date().toISOString()}`,
       ].join('\n'));
       console.info('[Kernel:boot] FS inicial creado');
@@ -1053,70 +957,56 @@
   /* ═══════════════════════════════════════════════════
      BOOT SEQUENCE
   ═══════════════════════════════════════════════════ */
-
   async function boot() {
-    // El timestamp de boot se captura aquí, antes de cualquier await,
-    // para que Kernel.uptime sea preciso desde el primer instante.
     _bootStartedAt = Date.now();
 
-    console.group('[Kernel] ══ BOOT SEQUENCE (Alpha 1.0) ══');
+    console.group('[Kernel] ══ BOOT SEQUENCE (v0.3.0) ══');
 
-    // ── Watchdog: detectar boot fallido anterior ──────────────────
     const { recovered, failedStep } = Watchdog.checkPreviousBoot();
     if (recovered) {
       console.warn(`[Kernel:boot] Recuperación detectada. Boot anterior falló en: "${failedStep}"`);
     }
 
     try {
-      // 1. Abrir base de datos (con migraciones automáticas)
       EventBus.emit('boot:step', { step: 'db', label: 'Iniciando IndexedDB…' });
       Watchdog.markStep('db');
       await DB.open();
       Watchdog.completeStep();
 
-      // 2. Bootstrap FS
       EventBus.emit('boot:step', { step: 'fs', label: 'Montando sistema de archivos…' });
       Watchdog.markStep('fs');
       await _bootstrapFS();
       Watchdog.completeStep();
 
-      // 3. Crash Reporter — instalar ahora que el FS está disponible
-      //    Cualquier error a partir de este punto queda registrado en /sys/crashes/
       CrashReporter.install();
 
-      // 4. Session tracker
       EventBus.emit('boot:step', { step: 'session', label: 'Iniciando sesión…' });
       Watchdog.markStep('session');
       await _bootstrapSession(recovered);
       Watchdog.completeStep();
 
-      // 5. Preferencias
       EventBus.emit('boot:step', { step: 'prefs', label: 'Cargando preferencias…' });
       Watchdog.markStep('prefs');
       await _bootstrapPrefs();
       Watchdog.completeStep();
 
-      // 6. Apps
       EventBus.emit('boot:step', { step: 'apps', label: 'Registrando aplicaciones…' });
       Watchdog.markStep('apps');
       await Apps._hydrate();
       await _bootstrapApps();
       Watchdog.completeStep();
 
-      // 7. Marcar estado del sistema
       await Prefs.set('boot.firstRun', false);
 
-      // Boot completado sin errores: limpiar watchdog
       Watchdog.clearAll();
 
       console.groupEnd();
       console.info('[Kernel] ✓ Sistema listo');
 
-      // Señal de sistema listo
       EventBus.emit('boot:step', { step: 'ready', label: 'Sistema listo.' });
       EventBus.emit('ready', {
         ts           : Date.now(),
-        version      : '0.2.0',
+        version      : '0.3.0',
         sessionId    : _session.id,
         sessionCount : _session.count,
         recoveredBoot: recovered,
@@ -1125,12 +1015,7 @@
     } catch (err) {
       console.groupEnd();
       console.error('[Kernel] ✗ Fallo en el boot:', err);
-
-      // El watchdog ya tiene el paso que falló marcado como 'started'.
-      // En el próximo boot, checkPreviousBoot() lo detectará.
-      // Intentar loguear el crash si el FS ya estaba operativo.
       CrashReporter.report('Boot failure: ' + err.message, err, { phase: 'boot' });
-
       EventBus.emit('boot:error', { error: err.message });
       throw err;
     }
@@ -1139,64 +1024,43 @@
   /* ═══════════════════════════════════════════════════
      API PÚBLICA  — global.Kernel
   ═══════════════════════════════════════════════════ */
-
   const Kernel = {
-    version : '0.2.0',
+    version : '0.3.0',
 
-    // Event Bus
     on   : EventBus.on.bind(EventBus),
     once : EventBus.once.bind(EventBus),
     emit : EventBus.emit.bind(EventBus),
 
-    // Subsistemas
     db    : DB,
     fs    : FS,
     prefs : Prefs,
     apps  : Apps,
     procs : Procs,
-
-    // Alpha 1.0: nuevos subsistemas
     crash : CrashReporter,
 
-    // Stores disponibles (para acceso externo)
     STORES,
 
-    /** Arranca el kernel. Devuelve Promise. */
     boot,
 
-    /** Devuelve true si el kernel ya está listo. */
     get isReady() {
       return _db !== null;
     },
 
-    /**
-     * Milisegundos transcurridos desde que inició el boot.
-     * Valor real, no fabricado. [Alpha 1.0]
-     */
     get uptime() {
       return Date.now() - _bootStartedAt;
     },
 
-    /**
-     * Segundos enteros de uptime. [Alpha 1.0]
-     */
     get uptimeSeconds() {
       return Math.floor((Date.now() - _bootStartedAt) / 1000);
     },
 
-    /**
-     * Información de la sesión actual. [Alpha 1.0]
-     * { id, count, startedAt, recoveredBoot }
-     */
     get session() {
       return { ..._session };
     },
   };
 
-  // Exponer globalmente
   global.Kernel = Kernel;
 
-  // Auto-boot cuando el DOM esté listo
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => Kernel.boot());
   } else {

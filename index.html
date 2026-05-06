@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WebOS · Iniciando…</title>
+  <title>HUEBOS · Iniciando…</title>
   <style>
     /* ── Google Fonts ── */
     @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
@@ -283,7 +283,7 @@
 <span class="dim">║</span>   <span class="line">╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚══════╝</span>  <span class="dim">║</span>
 <span class="dim">╚═══════════════════════════════════════════════════════╝</span></pre>
 
-    <div id="version">KERNEL v0.2.0 · ALPHA 1.0 · INIT</div>
+    <div id="version">KERNEL v0.3.0 · ALPHA 2.0 · INIT</div>
 
     <!-- Log de arranque -->
     <div id="boot-log"></div>
@@ -311,10 +311,8 @@
 
   <script>
   /* ══════════════════════════════════════════
-     BOOT UI CONTROLLER  — Alpha 1.0
-     Actualizado para los pasos nuevos del kernel:
-       db → fs → session → prefs → apps → ready
-     Añade soporte para boot:recovery.
+     BOOT UI CONTROLLER  — v0.3.0
+     Pasos del kernel: db → fs → session → prefs → apps → ready
   ══════════════════════════════════════════ */
   ;(function () {
     'use strict';
@@ -402,8 +400,10 @@
     Kernel.once('ready', ({ version, sessionCount, recoveredBoot }) => {
       addLog('OK', `Kernel v${version} · sesión #${sessionCount ?? '?'}`);
       addLog('OK', `FS montado · /home /tmp /sys /sys/crashes`);
+      addLog('OK', `FS Binario activo · Blob/ArrayBuffer habilitado`);
       if (recoveredBoot) addLog('OK', 'CrashReporter activo · boot anterior recuperado');
       else               addLog('OK', 'CrashReporter instalado · /sys/crashes/ listo');
+      addLog('OK', 'Árbol de procesos parent/child activo');
       addLog('OK', 'Apps registradas · cargando shell…');
 
       logDelay += 120;
@@ -423,7 +423,7 @@
     setTimeout(() => {
       addLog('OK',   'BIOS POST completado.');
       addLog('OK',   'CPU: WebWorker x1 · RAM: Session Storage');
-      addLog('OK',   'Watchdog de boot activo · Alpha 1.0');
+      addLog('OK',   'HUEBOS Kernel v0.3.0 · Alpha 2.0');
       addLog('WAIT', 'Iniciando subsistemas…');
     }, 600);
 
