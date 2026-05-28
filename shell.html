@@ -10,7 +10,7 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      /* ── Blend palette: green primary + cyan/violet accents ── */
+      /* Cyberhacker + aero glass: green terminal core with cold signal accents */
       --g          : #00ff88;
       --g-dim      : #00bb66;
       --g-faint    : #002e18;
@@ -19,10 +19,11 @@
       --violet     : #7b4fff;
       --pink       : #ff2d78;
       --amber      : #ffcc44;
+      --acid       : #baff29;
       --red        : #ff4466;
       --bg         : #020c06;
 
-      /* Glass — green-tinted, heavier blur than original */
+      /* Glass: dark green, dense, terminal-tinted */
       --glass      : rgba(4, 20, 12, 0.60);
       --glass2     : rgba(2, 12, 6, 0.82);
       --glass-menu : rgba(3, 14, 8, 0.90);
@@ -46,7 +47,7 @@
         transparent 60%
       );
 
-      /* Holo border: green→cyan→violet→green */
+      /* Holo border: green -> cyan -> violet -> green */
       --holo       : linear-gradient(135deg,
         #00ff88cc, #00d4ffcc, #7b4fffcc, #ff2d78aa, #00ff88cc
       );
@@ -69,7 +70,7 @@
       user-select: none;
     }
 
-    /* ── CRT scanlines (original feel) ── */
+    /* CRT scanlines (base cyberhacker, kept subtle over wallpaper) */
     body::before {
       content: '';
       position: fixed; inset: 0; z-index: 9999;
@@ -97,13 +98,34 @@
     #chrome-overlay {
       position: fixed; inset: 0; z-index: 9997; pointer-events: none;
       background:
-        radial-gradient(ellipse 35% 35% at 0% 0%,   rgba(0,255,136,0.05) 0%, transparent 70%),
-        radial-gradient(ellipse 35% 35% at 100% 0%,  rgba(0,212,255,0.04) 0%, transparent 70%),
-        radial-gradient(ellipse 35% 35% at 100% 100%,rgba(123,79,255,0.04) 0%, transparent 70%),
-        radial-gradient(ellipse 35% 35% at 0% 100%,  rgba(0,255,136,0.03) 0%, transparent 70%);
+        radial-gradient(ellipse 35% 35% at 0% 0%, rgba(0,255,136,0.075) 0%, transparent 70%),
+        radial-gradient(ellipse 35% 35% at 100% 0%, rgba(0,212,255,0.055) 0%, transparent 70%),
+        radial-gradient(ellipse 35% 35% at 100% 100%, rgba(123,79,255,0.045) 0%, transparent 70%),
+        radial-gradient(ellipse 35% 35% at 0% 100%, rgba(0,255,136,0.045) 0%, transparent 70%);
     }
 
     #bg-canvas { position: fixed; inset: 0; z-index: 0; width: 100%; height: 100%; }
+    #hacker-svg-layer {
+      position: fixed; inset: 0; z-index: 2;
+      pointer-events: none; overflow: hidden;
+      opacity: 0.76;
+    }
+    .hud-bracket {
+      position:absolute; width:96px; height:96px;
+      border-color: rgba(0,255,136,0.34);
+      border-style: solid;
+      filter: drop-shadow(0 0 10px rgba(0,255,136,0.30));
+      animation: bracketFlicker 4.8s steps(2,end) infinite;
+    }
+    .hud-bracket.tl { top:18px; left:18px; border-width:2px 0 0 2px; }
+    .hud-bracket.tr { top:18px; right:18px; border-width:2px 2px 0 0; animation-delay:-0.9s; }
+    .hud-bracket.bl { bottom:calc(var(--taskbar-h) + 18px); left:18px; border-width:0 0 2px 2px; animation-delay:-1.8s; }
+    .hud-bracket.br { bottom:calc(var(--taskbar-h) + 18px); right:18px; border-width:0 2px 2px 0; animation-delay:-2.7s; }
+    @keyframes bracketFlicker {
+      0%, 92%, 100% { opacity:0.70; transform:none; }
+      94% { opacity:0.18; transform:translateX(2px); }
+      96% { opacity:0.88; transform:translateX(-1px); }
+    }
 
     /* ════════════════════════════
        ANIMATION 1 · ICON FLOAT
@@ -205,6 +227,28 @@
       /* ANIMATION 1 — float idle */
       animation: iconFloat 3.6s ease-in-out infinite;
     }
+    .desktop-icon .icon-wrap {
+      width: 48px; height: 48px;
+      display: grid; place-items: center;
+      position: relative;
+      border: 1px solid rgba(0,255,136,0.12);
+      border-radius: 11px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.06), transparent 48%),
+        radial-gradient(circle at 50% 18%, rgba(0,255,136,0.13), rgba(0,0,0,0.16) 68%);
+      box-shadow: inset 0 0 18px rgba(0,255,136,0.035);
+    }
+    .desktop-icon .icon-wrap::before,
+    .desktop-icon .icon-wrap::after {
+      content: '';
+      position: absolute; inset: 5px;
+      border-color: rgba(0,255,136,0.36);
+      border-style: solid;
+      opacity: 0;
+      transition: opacity 0.18s, transform 0.18s;
+    }
+    .desktop-icon .icon-wrap::before { border-width: 1px 0 0 1px; transform: translate(-2px,-2px); }
+    .desktop-icon .icon-wrap::after { border-width: 0 1px 1px 0; transform: translate(2px,2px); }
     /* Stagger float per child */
     .desktop-icon:nth-child(2)  { animation-delay: -0.7s; }
     .desktop-icon:nth-child(3)  { animation-delay: -1.4s; }
@@ -224,15 +268,17 @@
       opacity: 0; transition: opacity 0.22s;
       pointer-events: none;
     }
-    /* Holo border pseudo — green-cyan-violet */
+    /* Signal border pseudo — green/cyan only */
     .desktop-icon::after {
       content: ''; position: absolute; inset: -1px;
       border-radius: 17px;
-      background: var(--holo);
-      background-size: 300% 300%;
+      background: linear-gradient(135deg,
+        rgba(0,255,136,0.68),
+        rgba(0,212,255,0.42),
+        rgba(0,255,136,0.34)
+      );
       opacity: 0; z-index: -1;
       transition: opacity 0.22s;
-      animation: holoBorderSpin 4s linear infinite;
     }
     .desktop-icon:hover {
       /* override float, keep hover lift */
@@ -259,8 +305,15 @@
       font-size: 2.15rem; line-height: 1;
       filter: drop-shadow(0 4px 10px rgba(0,0,0,0.65));
       transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1);
+      position: relative; z-index: 1;
     }
     .desktop-icon:hover .icon { transform: scale(1.16); }
+    .desktop-icon:hover .icon-wrap {
+      border-color: rgba(0,255,136,0.32);
+      box-shadow: inset 0 0 22px rgba(0,255,136,0.06), var(--glow-sm);
+    }
+    .desktop-icon:hover .icon-wrap::before,
+    .desktop-icon:hover .icon-wrap::after { opacity: 1; transform: none; }
     .desktop-icon .label {
       font-size: 0.60rem; color: rgba(220,255,238,0.92);
       text-shadow: 0 1px 8px #000a, 0 0 12px rgba(0,255,136,0.28);
@@ -343,6 +396,10 @@
       cursor: move; flex-shrink: 0; gap: 8px;
       position: relative; z-index: 1;
     }
+    .wm-titlebar .win-icon,
+    .wm-titlebar .win-title,
+    .wm-titlebar .win-meta,
+    .wm-controls { position: relative; z-index: 1; }
     /* Top reflection bar */
     .wm-titlebar::before {
       content: '';
@@ -361,6 +418,16 @@
         rgba(0,212,255,0.25) 70%,
         transparent
       );
+    }
+    .wm-titlebar .win-title::after {
+      content:'';
+      display:inline-block;
+      width:6px; height:1em;
+      margin-left:6px;
+      vertical-align:-0.16em;
+      background:var(--g);
+      box-shadow:var(--glow-sm);
+      animation: titleCursor 1.2s steps(1,end) infinite;
     }
     .wm-window.focused .wm-titlebar {
       background: linear-gradient(180deg,
@@ -381,6 +448,25 @@
       letter-spacing: 0.13em;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       text-shadow: 0 0 14px rgba(0,255,136,0.5), 0 1px 2px rgba(0,0,0,0.8);
+    }
+    .win-meta {
+      flex-shrink: 0;
+      display: flex; align-items: center; gap: 5px;
+      padding: 2px 7px;
+      border: 1px solid rgba(0,255,136,0.14);
+      border-radius: 5px;
+      background: rgba(0,0,0,0.20);
+      color: rgba(0,212,255,0.74);
+      font-size: 0.52rem;
+      letter-spacing: 0.12em;
+      text-shadow: 0 0 8px rgba(0,212,255,0.28);
+    }
+    .win-meta::before {
+      content: '';
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--g);
+      box-shadow: var(--glow-sm);
+      animation: dotPulse 2s ease-in-out infinite;
     }
     .wm-controls { display: flex; gap: 6px; flex-shrink: 0; }
     .wm-btn {
@@ -414,6 +500,18 @@
     }
 
     .wm-content { flex:1; overflow:auto; position:relative; z-index:1; }
+    .wm-content::before {
+      content: '';
+      position: absolute; inset: 0; pointer-events: none; z-index: 2;
+      background:
+        linear-gradient(90deg, rgba(0,255,136,0.025) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(0,255,136,0.018) 1px, transparent 1px);
+      background-size: 34px 34px;
+      opacity: 0;
+      transition: opacity 0.22s;
+      mask-image: linear-gradient(180deg, rgba(0,0,0,0.55), transparent 55%);
+    }
+    .wm-window.focused .wm-content::before { opacity: 0.34; }
     .wm-content iframe { width:100%; height:100%; border:none; background:transparent; }
     .wm-placeholder {
       padding:28px; font-size:0.75rem;
@@ -547,6 +645,20 @@
       overflow:hidden; text-overflow:ellipsis;
       transition:all 0.18s; flex-shrink:0; position:relative;
       backdrop-filter:blur(10px);
+      transform-origin: bottom center;
+    }
+    .tb-app .tb-label,
+    .tb-app .tb-icon { position:relative; z-index:1; }
+    .tb-app .tb-signal {
+      position:absolute; left:10px; right:10px; bottom:2px;
+      height:1px; overflow:hidden; opacity:0.55;
+      background:rgba(0,255,136,0.10);
+    }
+    .tb-app .tb-signal::before {
+      content:''; display:block; height:100%; width:38%;
+      background:linear-gradient(90deg, transparent, var(--g), var(--cyan), transparent);
+      transform:translateX(-120%);
+      animation: signalSweep 2.8s linear infinite;
     }
     .tb-app::before {
       content:'';
@@ -564,7 +676,7 @@
     .tb-app:hover {
       background: rgba(0,255,136,0.10);
       border-color: rgba(0,255,136,0.26);
-      color: var(--g); transform:translateY(-2px);
+      color: var(--g); transform:translateY(-3px);
       box-shadow: 0 4px 20px rgba(0,0,0,0.4), var(--glow-sm);
     }
     .tb-app.focused {
@@ -576,13 +688,31 @@
       box-shadow: 0 2px 14px rgba(0,255,136,0.12), inset 0 1px 0 rgba(255,255,255,0.07);
     }
     .tb-app.focused::after { background:var(--g); box-shadow:var(--glow-sm); width:20px; }
-    .tb-app.minimized { opacity:0.42; }
+    .tb-app.focused .tb-signal { opacity:1; }
+    .tb-app.minimized { opacity:0.46; transform:translateY(3px) scale(0.96); }
     .tb-app.minimized::after { background:rgba(0,255,136,0.3); }
+    .tb-app.tb-enter {
+      animation: tbBootIn 0.42s cubic-bezier(0.18,1.35,0.32,1) both;
+    }
+    .tb-app.tb-closing {
+      pointer-events:none;
+      animation: tbShutdown 0.24s cubic-bezier(0.4,0,1,1) both;
+    }
+    .tb-app.tb-min-pulse {
+      animation: tbMinPulse 0.26s ease-out;
+    }
 
     #taskbar-sys {
       display:flex; align-items:center;
       padding:0 8px; flex-shrink:0;
       border-left:1px solid rgba(0,255,136,0.07); height:100%;
+    }
+    #taskbar-sys::before {
+      content:'SYS';
+      color:rgba(0,212,255,0.34);
+      font-size:0.52rem;
+      letter-spacing:0.18em;
+      margin-left:8px;
     }
     .sys-indicator {
       display:flex; flex-direction:column; align-items:center;
@@ -620,6 +750,43 @@
     @keyframes dotPulse {
       0%,100% { opacity:0.38; transform:scale(0.88); }
       50%      { opacity:1;    transform:scale(1.14); }
+    }
+    @keyframes signalSweep {
+      to { transform:translateX(280%); }
+    }
+    @keyframes tbBootIn {
+      0% {
+        opacity:0;
+        transform:translateY(18px) scaleX(0.36) scaleY(0.72);
+        filter:brightness(2.2) saturate(1.8);
+        clip-path:inset(0 50% 0 50%);
+      }
+      42% {
+        opacity:1;
+        transform:translateY(-4px) scaleX(1.08) scaleY(1);
+        clip-path:inset(0);
+      }
+      68% { transform:translateY(1px) scaleX(0.98); }
+      100% { opacity:1; transform:none; filter:none; clip-path:inset(0); }
+    }
+    @keyframes tbShutdown {
+      0% { opacity:1; transform:none; filter:none; clip-path:inset(0); }
+      38% {
+        opacity:0.9;
+        transform:translateY(-2px) scaleX(1.04);
+        filter:brightness(1.8) hue-rotate(18deg);
+        clip-path:inset(34% 0 24% 0);
+      }
+      100% {
+        opacity:0;
+        transform:translateY(14px) scaleX(0.25) scaleY(0.72);
+        filter:brightness(0.7);
+        clip-path:inset(0 48% 0 48%);
+      }
+    }
+    @keyframes tbMinPulse {
+      0% { transform:translateY(-2px) scale(1.02); filter:brightness(1.7); }
+      100% { transform:translateY(3px) scale(0.96); filter:none; }
     }
 
     /* ══ Start Menu ══ */
@@ -666,6 +833,12 @@
       border-bottom:1px solid rgba(0,255,136,0.07);
       position:relative; z-index:1;
     }
+    .start-header::after {
+      content:'ACCESS:USER / APPS:REGISTRY';
+      position:absolute; right:16px; bottom:8px;
+      color:rgba(0,212,255,0.34);
+      font-size:0.48rem; letter-spacing:0.14em;
+    }
     .start-header-logo {
       width:40px; height:40px; object-fit:contain;
       filter:drop-shadow(0 0 8px #00ff88cc) drop-shadow(0 0 18px #00d4ffaa);
@@ -704,6 +877,10 @@
       flex:1; overflow-y:auto; padding:10px 12px;
       display:grid; grid-template-columns:repeat(3,1fr);
       gap:4px; align-content:start; position:relative; z-index:1;
+      background:
+        linear-gradient(90deg, rgba(0,255,136,0.025) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(0,255,136,0.018) 1px, transparent 1px);
+      background-size: 28px 28px;
     }
     #start-apps::-webkit-scrollbar { width:3px; }
     #start-apps::-webkit-scrollbar-thumb { background:rgba(0,180,90,0.28); border-radius:2px; }
@@ -715,6 +892,15 @@
       cursor:pointer; border:1px solid transparent;
       transition:all 0.18s cubic-bezier(0.34,1.4,0.64,1);
       position:relative; overflow:hidden;
+    }
+    .start-app-item::after {
+      content: attr(data-app-id);
+      position:absolute; left:7px; right:7px; bottom:4px;
+      color:rgba(0,212,255,0.28);
+      font-size:0.43rem; letter-spacing:0.08em;
+      text-align:center; overflow:hidden; text-overflow:ellipsis;
+      opacity:0; transform:translateY(4px);
+      transition:opacity 0.18s, transform 0.18s;
     }
     .start-app-item::before {
       content:'';
@@ -731,13 +917,15 @@
       box-shadow: 0 6px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
     }
     .start-app-item:hover::before { opacity:1; }
+    .start-app-item:hover::after { opacity:1; transform:none; }
     .start-app-item .sa-icon {
       font-size:1.72rem;
       transition:transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
       filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+      position:relative; z-index:1;
     }
     .start-app-item:hover .sa-icon { transform:scale(1.22); }
-    .start-app-item .sa-name { font-size:0.59rem; color:rgba(0,200,110,0.72); text-align:center; line-height:1.3; letter-spacing:0.04em; }
+    .start-app-item .sa-name { font-size:0.59rem; color:rgba(0,200,110,0.72); text-align:center; line-height:1.3; letter-spacing:0.04em; padding-bottom:6px; }
     .start-app-item:hover .sa-name { color:var(--g); }
 
     .start-footer {
@@ -815,6 +1003,14 @@
       display:flex; align-items:flex-start; gap:10px;
       pointer-events:all; position:relative; overflow:hidden;
       animation:toastIn 0.28s cubic-bezier(0.34,1.4,0.64,1) forwards;
+    }
+    .toast .toast-code {
+      flex-shrink: 0;
+      margin-left: 6px;
+      color: rgba(0,212,255,0.42);
+      font-size: 0.52rem;
+      letter-spacing: 0.13em;
+      align-self: flex-start;
     }
     .toast::before {
       content:'';
@@ -905,6 +1101,12 @@
       width:100%; height:100%;
       background:rgba(1,8,4,0.94);
       font-family:var(--mono); font-size:13px; color:var(--g); overflow:hidden;
+      position:relative;
+    }
+    .native-terminal::before {
+      content:'';
+      position:absolute; inset:0; pointer-events:none;
+      background: radial-gradient(circle at 12% 8%, rgba(0,255,136,0.08), transparent 28%);
     }
     .nt-header {
       display:flex; align-items:center; justify-content:space-between;
@@ -913,11 +1115,25 @@
       border-bottom:1px solid rgba(0,255,136,0.07);
       font-size:10.5px; color:var(--g-dim); flex-shrink:0;
     }
+    .nt-leds { display:flex; gap:4px; align-items:center; margin-right:8px; }
+    .nt-led {
+      width:5px; height:5px; border-radius:50%;
+      background:rgba(0,255,136,0.34);
+      box-shadow:0 0 8px rgba(0,255,136,0.35);
+      animation: dotPulse 2.4s ease-in-out infinite;
+    }
+    .nt-led:nth-child(2) { background:rgba(0,212,255,0.36); animation-delay:-0.8s; }
+    .nt-led:nth-child(3) { background:rgba(255,204,68,0.36); animation-delay:-1.6s; }
+    .nt-title-wrap { display:flex; align-items:center; min-width:0; }
     .nt-header .nt-title { color:var(--g); opacity:0.8; }
     .nt-cwd { color:var(--cyan); font-size:10.5px; }
     .nt-output {
       flex:1; overflow-y:auto; overflow-x:hidden;
       padding:10px 12px; line-height:1.65; font-size:12.5px;
+      position:relative;
+      background:
+        repeating-linear-gradient(0deg, rgba(0,255,136,0.018) 0 1px, transparent 1px 18px),
+        linear-gradient(180deg, rgba(0,255,136,0.025), transparent 40%);
     }
     .nt-output::-webkit-scrollbar { width:3px; }
     .nt-output::-webkit-scrollbar-thumb { background:rgba(0,140,60,0.35); }
@@ -935,6 +1151,12 @@
       padding:6px 12px;
       border-top:1px solid rgba(0,255,136,0.07);
       background:rgba(0,6,3,0.99); flex-shrink:0; gap:4px;
+      position:relative;
+    }
+    .nt-input-wrap::before {
+      content:'';
+      position:absolute; top:0; left:12px; right:12px; height:1px;
+      background:linear-gradient(90deg, transparent, rgba(0,255,136,0.45), rgba(0,212,255,0.28), transparent);
     }
     .nt-prompt { color:var(--g); white-space:nowrap; flex-shrink:0; font-size:12.5px; user-select:none; }
     .nt-prompt .nt-ph { color:var(--cyan); }
@@ -943,6 +1165,140 @@
       flex:1; background:transparent; border:none; outline:none;
       color:var(--g); font-family:var(--mono); font-size:12.5px;
       caret-color:var(--g); user-select:text;
+    }
+
+    /* Cyberhacker effect overrides */
+    #desktop.drop-active { outline-color: rgba(0,255,136,0.38); }
+    .drop-zone-hint {
+      border-color: rgba(0,255,136,0.20);
+      color: rgba(0,255,136,0.34);
+    }
+    .desktop-icon:hover,
+    .desktop-icon.active {
+      background:
+        linear-gradient(135deg, rgba(0,255,136,0.12), rgba(0,212,255,0.055)),
+        repeating-linear-gradient(90deg, transparent 0 8px, rgba(0,255,136,0.025) 8px 9px);
+      border-color: rgba(0,255,136,0.30);
+    }
+    .desktop-icon .label {
+      color: rgba(220,255,238,0.94);
+      text-shadow: 0 1px 8px #000a, 0 0 12px rgba(0,255,136,0.34);
+      background: rgba(0,8,4,0.54);
+    }
+    .desktop-icon:hover .label { animation: textJitter 0.38s steps(2,end); }
+    .wm-window.focused { border-color: rgba(0,255,136,0.32); }
+    .wm-window.focused::after {
+      content:'';
+      position:absolute; inset:0; pointer-events:none; z-index:2;
+      background:
+        linear-gradient(90deg, transparent, rgba(0,255,136,0.055), transparent),
+        repeating-linear-gradient(0deg, transparent 0 12px, rgba(0,255,136,0.018) 12px 13px);
+      opacity:0;
+      animation: windowScan 3.7s ease-in-out infinite;
+    }
+    .wm-titlebar,
+    .wm-window.focused .wm-titlebar {
+      background: linear-gradient(180deg,
+        rgba(255,255,255,0.12) 0%,
+        rgba(0,220,130,0.24) 32%,
+        rgba(0,120,70,0.16) 70%,
+        rgba(0,30,14,0.15) 100%
+      );
+      border-bottom-color: rgba(0,255,136,0.16);
+    }
+    .wm-titlebar::after,
+    #taskbar::before,
+    #start-menu::after,
+    .toast::after,
+    .toast-left-bar {
+      background: linear-gradient(90deg, transparent, var(--g), var(--cyan), var(--g), transparent);
+    }
+    #taskbar {
+      background: rgba(1,8,4,0.88);
+      border-top-color: rgba(0,255,136,0.12);
+    }
+    #taskbar::after { animation: taskbarSweep 4.6s ease-in-out infinite; }
+    #start-zone { border-right-color: rgba(0,255,136,0.08); }
+    #start-btn {
+      background:
+        linear-gradient(135deg, rgba(0,255,136,0.12), rgba(0,212,255,0.07)),
+        repeating-linear-gradient(90deg, transparent 0 10px, rgba(0,255,136,0.035) 10px 11px);
+      border-color: rgba(0,255,136,0.24);
+    }
+    #start-btn:hover,
+    #start-btn.active {
+      border-color: rgba(0,212,255,0.40);
+    }
+    .tb-app {
+      background: rgba(0,255,136,0.045);
+      border-color: rgba(0,255,136,0.10);
+      color: rgba(0,200,110,0.75);
+    }
+    .tb-app::before {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.07), transparent 58%),
+        repeating-linear-gradient(90deg, transparent 0 13px, rgba(0,255,136,0.04) 13px 14px);
+    }
+    .tb-app::after {
+      box-shadow:0 0 0 rgba(0,255,136,0);
+    }
+    .tb-app:hover,
+    .tb-app.focused {
+      background:
+        linear-gradient(135deg, rgba(0,255,136,0.14), rgba(0,212,255,0.08)),
+        repeating-linear-gradient(90deg, transparent 0 12px, rgba(0,255,136,0.03) 12px 13px);
+      border-color: rgba(0,255,136,0.30);
+      color: rgba(220,255,238,0.96);
+    }
+    .tb-app:hover::before {
+      animation: tbHoverSweep 0.75s ease-out;
+    }
+    @keyframes tbHoverSweep {
+      0% { transform:translateX(-65%); opacity:0.25; }
+      48% { opacity:1; }
+      100% { transform:translateX(65%); opacity:0.45; }
+    }
+    #start-menu,
+    #ctx-menu,
+    .toast {
+      background: rgba(2,12,7,0.94);
+      border-color: rgba(0,255,136,0.18);
+    }
+    #start-search {
+      background: rgba(0,255,136,0.055);
+      border-color: rgba(0,255,136,0.18);
+    }
+    .native-terminal {
+      background: rgba(1,8,4,0.96);
+      font-family: var(--mono);
+    }
+    .nt-header,
+    .nt-input-wrap {
+      background: rgba(0,6,3,0.98);
+      border-color: rgba(0,255,136,0.10);
+    }
+    .nt-output::-webkit-scrollbar-thumb,
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0,255,136,0.28);
+    }
+    @keyframes textJitter {
+      0%,100% { transform:none; }
+      25% { transform:translateX(1px); }
+      50% { transform:translateX(-1px); }
+      75% { transform:translateY(-1px); }
+    }
+    @keyframes windowScan {
+      0%, 62%, 100% { opacity:0; transform:translateX(-40%); }
+      68% { opacity:0.55; }
+      78% { opacity:0; transform:translateX(40%); }
+    }
+    @keyframes taskbarSweep {
+      0%,100% { opacity:0.4; transform:translateX(-6%); }
+      50% { opacity:1; transform:translateX(6%); }
+    }
+    @keyframes titleCursor {
+      0%, 48% { opacity:1; }
+      49%, 100% { opacity:0; }
     }
 
     /* Focus ripple */
@@ -957,6 +1313,12 @@
 
   <div id="chrome-overlay"></div>
   <canvas id="bg-canvas"></canvas>
+  <div id="hacker-svg-layer" aria-hidden="true">
+    <div class="hud-bracket tl"></div>
+    <div class="hud-bracket tr"></div>
+    <div class="hud-bracket bl"></div>
+    <div class="hud-bracket br"></div>
+  </div>
 
   <div id="shell-loading">
     <div class="sl-logo">HUEBOS</div>
@@ -1029,6 +1391,31 @@
       'desktop.grid'     : true,
     };
 
+    const NATIVE_SYSTEM_APPS = [
+      {
+        id: 'terminal',
+        name: 'Terminal',
+        version: '0.3.0',
+        icon: '⌨',
+        category: 'system',
+        singleton: false,
+        entry: 'native:shell-terminal',
+        native: true,
+        meta: {
+          description: 'Terminal nativa integrada al shell',
+          winWidth: 700,
+          winHeight: 480,
+          author: 'HUEBOS Shell',
+          sourceFile: 'shell.html',
+        },
+      },
+    ];
+
+    function withNativeSystemApps(apps) {
+      const externalApps = (apps || []).filter(app => app?.id !== 'terminal');
+      return [...NATIVE_SYSTEM_APPS, ...externalApps];
+    }
+
     const THEME_PALETTES = {
       dark: {
         green:'#00ff88', greenDim:'#00bb66', greenFaint:'#002e18',
@@ -1052,7 +1439,7 @@
 
     let currentPalette = THEME_PALETTES.dark;
 
-    /* ══ BG Canvas — green aurora + subtle nebula ══ */
+    /* ══ BG Canvas — base cyberhacker aurora ══ */
     const BG = (() => {
       const canvas = document.getElementById('bg-canvas');
       const ctx = canvas.getContext('2d');
@@ -1068,7 +1455,6 @@
           x:Math.random()*W, y:Math.random()*H,
           r:Math.random()*1.2+0.1,
           a:Math.random(), da:(Math.random()-0.5)*0.005,
-          /* mix green, cyan, violet */
           hue:[145,190,270][Math.floor(Math.random()*3)],
         }));
       }
@@ -1079,24 +1465,28 @@
         return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${alpha})`;
       }
       function drawBg(){
-        /* Green-dark radial, with faint violet pocket top-right */
+        /* Smoked violet base with neon pockets */
         const bg=ctx.createRadialGradient(W/2,H*0.4,0,W/2,H*0.5,Math.max(W,H)*0.78);
         bg.addColorStop(0,currentPalette.greenDark);
         bg.addColorStop(1,currentPalette.bg);
         ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
-        /* Violet nebula */
+
         const neb=ctx.createRadialGradient(W*0.72,H*0.22,0,W*0.72,H*0.22,W*0.30);
         neb.addColorStop(0,'rgba(80,20,160,0.07)');
         neb.addColorStop(1,'transparent');
         ctx.fillStyle=neb; ctx.fillRect(0,0,W,H);
-        /* Cyan nebula */
+
         const neb2=ctx.createRadialGradient(W*0.18,H*0.72,0,W*0.18,H*0.72,W*0.24);
         neb2.addColorStop(0,'rgba(0,180,220,0.06)');
         neb2.addColorStop(1,'transparent');
         ctx.fillStyle=neb2; ctx.fillRect(0,0,W,H);
+
+        const acid=ctx.createRadialGradient(W*0.54,H*0.86,0,W*0.54,H*0.86,W*0.34);
+        acid.addColorStop(0,'rgba(214,255,63,0.045)');
+        acid.addColorStop(1,'transparent');
+        ctx.fillStyle=acid; ctx.fillRect(0,0,W,H);
       }
       function drawAurora(t){
-        /* Green primary + cyan secondary + hint of violet */
         [
           {s:0.008,f:0.006,a:0.14,hex:'#00ff88',y:0.15},
           {s:0.005,f:0.004,a:0.09,hex:'#00d4ff',y:0.21},
@@ -1176,8 +1566,9 @@
         const cls=type==='warn'?'toast-warn':type==='error'?'toast-error':type==='info'?'toast-info':'';
         t.className=`toast ${cls}`; t.style.setProperty('--toast-dur',duration+'ms');
         const ttl=title||(type==='warn'?'AVISO':type==='error'?'ERROR':type==='info'?'INFO':'OK');
+        const code=type==='error'?'ERR':type==='warn'?'WRN':type==='info'?'INF':'OK';
         t.innerHTML=`<div class="toast-left-bar"></div><span class="toast-icon">${ICONS[type]??'●'}</span>
-          <div class="toast-body"><div class="toast-title">${ttl}</div><div class="toast-msg">${msg}</div></div>`;
+          <div class="toast-body"><div class="toast-title">${ttl}</div><div class="toast-msg">${msg}</div></div><span class="toast-code">${code}</span>`;
         container.appendChild(t); t.addEventListener('click',()=>dismiss(t)); setTimeout(()=>dismiss(t),duration);
       }
       function dismiss(t){if(!t.parentNode)return;t.classList.add('toast-out');setTimeout(()=>t.remove(),230);}
@@ -1282,7 +1673,15 @@
       function minimize(pid){
         const w=_windows[pid]; if(!w)return;
         w.minimized=!w.minimized; w.el.classList.toggle('minimized',w.minimized);
-        updateTaskbarItem(pid); if(!w.minimized)focus(pid);
+        updateTaskbarItem(pid);
+        const tb=document.querySelector(`.tb-app[data-pid="${pid}"]`);
+        if(tb){
+          tb.classList.remove('tb-min-pulse');
+          void tb.offsetWidth;
+          tb.classList.add('tb-min-pulse');
+          setTimeout(()=>tb.classList.remove('tb-min-pulse'),280);
+        }
+        if(!w.minimized)focus(pid);
       }
       function toggleMaximize(pid){
         const w=_windows[pid]; if(!w)return;
@@ -1310,7 +1709,13 @@
         tb.classList.toggle('focused',w.el.classList.contains('focused'));
         tb.classList.toggle('minimized',!!w.minimized);
       }
-      function removeTaskbarItem(pid){const tb=document.querySelector(`.tb-app[data-pid="${pid}"]`);if(tb)tb.remove();}
+      function removeTaskbarItem(pid){
+        const tb=document.querySelector(`.tb-app[data-pid="${pid}"]`);
+        if(!tb)return;
+        tb.classList.remove('tb-enter','tb-min-pulse');
+        tb.classList.add('tb-closing');
+        setTimeout(()=>tb.remove(),240);
+      }
 
       function createWindow(proc,opts={}){
         const pid=proc.pid;
@@ -1333,7 +1738,8 @@
             <div class="wm-btn max" title="Maximizar"></div>
           </div>
           <span class="win-icon">${proc.icon||opts.icon||'▪'}</span>
-          <span class="win-title">${proc.title||opts.title||proc.appId}</span>`;
+          <span class="win-title">${proc.title||opts.title||proc.appId}</span>
+          <span class="win-meta">PID ${pid}</span>`;
 
         const content=document.createElement('div'); content.className='wm-content';
         if(opts.url){
@@ -1367,8 +1773,9 @@
       function addTaskbarItem(proc,pid){
         const tbApps=document.getElementById('taskbar-apps');
         const btn=document.createElement('div');
-        btn.className='tb-app focused'; btn.dataset.pid=pid;
-        btn.innerHTML=`<span class="tb-icon">${proc.icon||'▪'}</span><span class="tb-label">${proc.title||proc.appId}</span>`;
+        btn.className='tb-app focused tb-enter'; btn.dataset.pid=pid;
+        btn.innerHTML=`<span class="tb-icon">${proc.icon||'▪'}</span><span class="tb-label">${proc.title||proc.appId}</span><span class="tb-signal"></span>`;
+        setTimeout(()=>btn.classList.remove('tb-enter'),460);
         btn.addEventListener('click',()=>{
           const w=_windows[pid]; if(!w)return;
           if(w.minimized)minimize(pid);
@@ -1408,6 +1815,7 @@
         grid.innerHTML='';
         filtered.forEach(app=>{
           const item=document.createElement('div'); item.className='start-app-item';
+          item.dataset.appId=app.id;
           item.innerHTML=`<span class="sa-icon">${app.icon||'▪'}</span><span class="sa-name">${app.name}</span>`;
           item.addEventListener('click',()=>{hide();launchApp(app);}); grid.appendChild(item);
         });
@@ -1432,7 +1840,7 @@
 
       function addIcon(app){
         const ic=document.createElement('div'); ic.className='desktop-icon';
-        ic.innerHTML=`<span class="icon">${app.icon||'▪'}</span><span class="label">${app.name}</span>`;
+        ic.innerHTML=`<span class="icon-wrap"><span class="icon">${app.icon||'▪'}</span></span><span class="label">${app.name}</span>`;
         ic.addEventListener('dblclick',()=>launchApp(app));
         ic.addEventListener('click',()=>{
           document.querySelectorAll('.desktop-icon').forEach(d=>d.classList.remove('active'));
@@ -1487,7 +1895,10 @@
     /* ══ APP LAUNCHER ══ */
     const _singletons={};
     function launchApp(app,opts={}){
-      if(app.id==='terminal'){createNativeTerminal(null);return;}
+      if(app.id==='terminal'||app.entry==='native:shell-terminal'){
+        createNativeTerminal(opts.parentPid??null);
+        return;
+      }
       if(app.singleton&&_singletons[app.id]){
         const ep=_singletons[app.id]; const wd=WM.getWindow(ep);
         if(wd){if(wd.minimized)WM.minimize(ep);WM.focus(ep);Toast.show(`${app.name} ya está abierta`,'info');return;}
@@ -1527,7 +1938,7 @@
       div.innerHTML=`<h2>📋 Sistema</h2>
         <div style="font-size:0.72rem;line-height:2.2;color:var(--g-dim)">
           <div><span style="color:var(--g)">KERNEL</span>    HUEBOS v0.3.0</div>
-          <div><span style="color:var(--g)">SHELL</span>     Blend · Cyberglass + Green Aero</div>
+          <div><span style="color:var(--g)">SHELL</span>     Cyberhacker · Aero Glass</div>
           <div><span style="color:var(--g)">SESIÓN</span>    #${session.count??'?'}</div>
           <div><span style="color:var(--g)">MOTOR</span>     ${navigator.userAgent.split(' ').slice(-1)[0]}</div>
           <div><span style="color:var(--g)">PLATAFORMA</span> ${navigator.platform}</div>
@@ -1543,7 +1954,7 @@
       const termProc=Kernel.procs.spawn('terminal',{title:'Terminal',icon:'⌨',cwd:'/home',parentPid:parentPid??null});
       const wrap=document.createElement('div'); wrap.className='native-terminal';
       const header=document.createElement('div'); header.className='nt-header';
-      header.innerHTML=`<span class="nt-title">⌨ HUEBOS Terminal v0.3.0</span><span class="nt-cwd">/home</span>`;
+      header.innerHTML=`<span class="nt-title-wrap"><span class="nt-leds"><span class="nt-led"></span><span class="nt-led"></span><span class="nt-led"></span></span><span class="nt-title">⌨ HUEBOS Terminal v0.3.0</span></span><span class="nt-cwd">/home</span>`;
       const cwdDisplay=header.querySelector('.nt-cwd');
       const output=document.createElement('div'); output.className='nt-output';
       const inputWrap=document.createElement('div'); inputWrap.className='nt-input-wrap';
@@ -1575,7 +1986,12 @@
         print(ps,'nt-cmd'); history.unshift(trimmed); histIdx=-1;
         if(history.length>200)history.pop();
         const [cmd,...args]=trimmed.split(/\s+/);
-        try{await COMMANDS[cmd]?.(args)??print(`bash: ${cmd}: command not found`,'nt-err');}
+        if(!COMMANDS[cmd]){
+          print(`bash: ${cmd}: command not found`,'nt-err');
+          scrollBottom();
+          return;
+        }
+        try{await COMMANDS[cmd](args);}
         catch(err){print(`Error: ${err.message}`,'nt-err');}
         scrollBottom();
       }
@@ -1714,8 +2130,8 @@
             `   ██╔══██║██║   ██║██╔══╝  ██╔══██╗██║   ██║╚════██║`,
             `   ██║  ██║╚██████╔╝███████╗██████╔╝╚██████╔╝███████║`,
             `   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚══════╝`,``];
-          const info=[``,`OS: HUEBOS v0.3.0 Blend Edition`,`Kernel: HUEBOS Kernel v0.3.0`,
-            `Shell: Cyberglass+Green Aero`,`Resolution: ${screen.width}×${screen.height}`,
+          const info=[``,`OS: HUEBOS v0.3.0 Cyberhacker Glass`,`Kernel: HUEBOS Kernel v0.3.0`,
+            `Shell: Cyberhacker+Aero Glass`,`Resolution: ${screen.width}×${screen.height}`,
             `CPU: ${navigator.hardwareConcurrency} core(s)`,
             `Memory: ${navigator.deviceMemory?navigator.deviceMemory+' GB':'N/D'}`,
             `Uptime: ${upStr}`,`Session: #${session.count??'?'}`,`PID: ${termProc.pid}`,`CWD: ${cwd}`];
@@ -1779,9 +2195,9 @@
     }
 
     async function resolveShellApps(kernel){
-      try{const apps=await loadAppsFromIndex();if(apps.length)return apps;}catch(_){}
+      try{const apps=await loadAppsFromIndex();if(apps.length)return withNativeSystemApps(apps);}catch(_){}
       const apps=await kernel.apps.list();
-      return apps.filter(app=>app?.entry&&app.entry.startsWith('./apps/'));
+      return withNativeSystemApps(apps.filter(app=>app?.entry&&app.entry.startsWith('./apps/')));
     }
 
     function renderRegisteredApps(apps){
@@ -1834,7 +2250,7 @@
         if(!wd){const proc=kernel.procs.get(pid);if(proc&&proc.autoWindow)WM.createWindow(proc,proc.windowOpts||{});}
       });
 
-      setTimeout(()=>Toast.show('HUEBOS Blend Edition activa','ok','SISTEMA'),400);
+      setTimeout(()=>Toast.show('HUEBOS Cyberhacker Glass activa','ok','SISTEMA'),400);
       setTimeout(()=>{
         kernel.prefs.get('boot.firstRun').then(first=>{
           if(!first)return;

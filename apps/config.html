@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WebOS · Configuración</title>
+  <title>HuebOS · Configuración</title>
   <script type="application/json" id="wos-manifest">
   {
     "id":          "config",
@@ -428,7 +428,7 @@
   <div id="header">
     <span class="h-icon">⚙️</span>
     <span class="h-title">CONFIGURACIÓN DEL SISTEMA</span>
-    <span class="h-ver">WebOS v0.1.0</span>
+    <span class="h-ver">HuebOS v0.1.0</span>
   </div>
 
   <!-- Body -->
@@ -704,10 +704,10 @@
 
       <!-- ── ABOUT ── -->
       <div id="panel-about" class="panel">
-        <div class="section-title">📋 Acerca de WebOS</div>
+        <div class="section-title">📋 Acerca de HuebOS</div>
 
         <div class="cfg-card" style="padding:18px;text-align:center">
-          <div class="about-logo">W E B O S</div>
+          <div class="about-logo">H U E B O S</div>
           <div style="font-size:0.7rem;color:var(--green-dim);letter-spacing:0.08em">Sistema Operativo de Navegador · FASE 3</div>
         </div>
 
@@ -749,7 +749,7 @@
 
 <script>
 /* ══════════════════════════════════════════════
-   WebOS · Configuración del Sistema
+   HuebOS · Configuración del Sistema
    config.html · v0.1.0
 ══════════════════════════════════════════════ */
 (function () {
@@ -975,7 +975,7 @@
   $('btn-format-all').addEventListener('click', () => {
     Confirm.show(
       '💥 FORMATEAR SISTEMA COMPLETO',
-      '⚠️ ACCIÓN IRREVERSIBLE: Se eliminará toda la base de datos webos_db de IndexedDB. ' +
+      '⚠️ ACCIÓN IRREVERSIBLE: Se eliminará toda la base de datos Huebos_db de IndexedDB. ' +
       'Perderás TODOS tus archivos, preferencias y datos guardados. ' +
       'El sistema arrancará limpio al recargar. ¿Estás completamente seguro?',
       () => {
@@ -1014,7 +1014,7 @@
       };
       req.onblocked = () => {
         // La DB está bloqueada por otra pestaña
-        Toast.show('⚠️ DB bloqueada. Cierra otras pestañas de WebOS y se intentará reiniciar.', 'error', 6000);
+        Toast.show('⚠️ DB bloqueada. Cierra otras pestañas de HuebOS y se intentará reiniciar.', 'error', 6000);
         rebootSystem(3000);
       };
     } catch (err) {
