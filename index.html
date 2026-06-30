@@ -399,7 +399,7 @@
     /* ── Boot completo ── */
     Kernel.once('ready', ({ version, sessionCount, recoveredBoot }) => {
       addLog('OK', `Kernel v${version} · sesión #${sessionCount ?? '?'}`);
-      addLog('OK', `FS montado · /home /tmp /sys /sys/crashes`);
+      addLog('OK', `FS montado · /home /temp /sys /sys/crashes`);
       addLog('OK', `FS Binario activo · Blob/ArrayBuffer habilitado`);
       if (recoveredBoot) addLog('OK', 'CrashReporter activo · boot anterior recuperado');
       else               addLog('OK', 'CrashReporter instalado · /sys/crashes/ listo');

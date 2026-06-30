@@ -625,10 +625,10 @@
           <div class="cfg-row">
             <div>
               <div class="cfg-label">Limpiar archivos temporales</div>
-              <div class="cfg-hint">Borra el contenido de /tmp</div>
+              <div class="cfg-hint">Borra el contenido de /temp</div>
             </div>
             <div class="cfg-control">
-              <button class="btn btn-amber" id="btn-clear-tmp">🗑️ /TMP</button>
+              <button class="btn btn-amber" id="btn-clear-tmp">🗑️ /TEMP</button>
             </div>
           </div>
         </div>
@@ -926,17 +926,17 @@
     );
   });
 
-  /* ── Clear /tmp ── */
+  /* ── Clear /temp ── */
   $('btn-clear-tmp').addEventListener('click', () => {
     Confirm.show(
-      '⚠️ LIMPIAR /tmp',
-      'Se borrarán todos los archivos en /tmp.',
+      '⚠️ LIMPIAR /temp',
+      'Se borrarán todos los archivos en /temp.',
       async () => {
         try {
-          await K.fs.remove('/tmp', { recursive: true });
-          await K.fs.mkdir('/tmp');
-          K.emit('fs:change', { path: '/tmp' });
-          Toast.show('/tmp limpiado ✓', 'ok');
+          await K.fs.remove('/temp', { recursive: true });
+          await K.fs.mkdir('/temp');
+          K.emit('fs:change', { path: '/temp' });
+          Toast.show('/temp limpiado ✓', 'ok');
           loadStorageStats();
         } catch (e) {
           Toast.show(`Error: ${e.message}`, 'error');

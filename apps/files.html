@@ -87,6 +87,7 @@
     .fi-icon { font-size: 15px; width: 22px; text-align: center; flex-shrink: 0; }
     .fi-name { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .fi-name.is-dir { color: var(--green); }
+    .fi-name.is-shortcut { color: var(--blue); }
     .fi-meta { display: flex; gap: 14px; font-size: 10px; color: var(--green-dim); opacity: 0.65; white-space: nowrap; }
 
     /* ── Status bar ── */
@@ -290,13 +291,14 @@
       row.className  = 'file-item';
       row.dataset.id = item.id;
 
-      const icon    = item.type === 'dir' ? '📁' : getIcon(item.name);
-      const sizeStr = item.type === 'file' ? fmtSize(item.size) : '—';
+      const isShortcut = item.type === 'shortcut' || item.meta?.isDesktopShortcut;
+      const icon = item.type === 'dir' ? '📁' : isShortcut ? '🔗' : getIcon(item.name);
+      const sizeStr = item.type === 'file' || item.type === 'shortcut' ? fmtSize(item.size) : '—';
       const dateStr = fmtDate(item.mtime);
 
       row.innerHTML = `
         <span class="fi-icon">${icon}</span>
-        <span class="fi-name ${item.type === 'dir' ? 'is-dir' : ''}">${item.name}${item.type === 'dir' ? '/' : ''}</span>
+        <span class="fi-name ${item.type === 'dir' ? 'is-dir' : ''} ${isShortcut ? 'is-shortcut' : ''}">${item.name}${item.type === 'dir' ? '/' : ''}${isShortcut ? ' ⌁' : ''}</span>
         <div class="fi-meta">
           <span>${sizeStr}</span>
           <span>${dateStr}</span>
@@ -334,6 +336,13 @@
 
   function openItem(item) {
     if (item.type === 'dir') { navigate(item.id); return; }
+    if (item.type === 'shortcut' && item.meta?.appId) {
+      const app = window.parent.Kernel?.apps?.get(item.meta.appId);
+      if (app) {
+        window.parent.__wos?.launch(item.meta.appId, { startPath: item.id });
+        return;
+      }
+    }
     const ext = item.name.split('.').pop().toLowerCase();
     const textExts = new Set(['txt','md','js','ts','html','css','json','csv','log','sh','py','xml','yaml','yml','ini','cfg','conf','env','gitignore']);
     if (textExts.has(ext)) {
@@ -358,6 +367,8 @@
 
     if (item.type === 'dir') {
       menuItems.push({ icon:'📂', text:'Abrir', action: () => navigate(item.id) });
+    } else if (item.type === 'shortcut' && item.meta?.appId) {
+      menuItems.push({ icon:'🚀', text:'Abrir acceso', action: () => openItem(item) });
     } else {
       const ext = item.name.split('.').pop().toLowerCase();
       const editorExts = new Set(['txt','md','js','html','css','json','sh','py','xml','yaml','yml','log','ini','cfg','env']);
@@ -368,10 +379,13 @@
     }
 
     menuItems.push('sep');
-    menuItems.push({ icon:'✎', text:'Renombrar', action: () => startRename(item) });
+    if (item.id === '/system' || item.id.startsWith('/system/')) {
+      menuItems.push({ icon:'🛡', text:'Protegido del sistema', action: () => alert('Este elemento está protegido por el sistema.') });
+    } else {
+      menuItems.push({ icon:'✎', text:'Renombrar', action: () => startRename(item) });
+      menuItems.push({ icon:'🗑', text:'Eliminar', action: () => { selected = item; deleteSelected(); } });
+    }
     menuItems.push({ icon:'📋', text:'Copiar ruta', action: () => copyPath(item.id) });
-    menuItems.push('sep');
-    menuItems.push({ icon:'🗑', text:'Eliminar', action: () => { selected = item; deleteSelected(); } });
     menuItems.push('sep');
     menuItems.push({ icon:'ℹ', text:'Propiedades', action: () => showProps(item) });
 
@@ -460,6 +474,10 @@
 
   async function deleteSelected() {
     if (!selected) return;
+    if (selected.id === '/system' || selected.id.startsWith('/system/')) {
+      alert('Este elemento está protegido y no se puede eliminar.');
+      return;
+    }
     const msg = selected.type === 'dir'
       ? `¿Eliminar carpeta "${selected.name}" y todo su contenido?`
       : `¿Eliminar "${selected.name}"?`;
@@ -587,6 +605,8 @@
     const startPath = getStartPath();
     if (startPath) {
       cwd = K.fs._normalize(startPath) || '/home';
+    } else {
+      cwd = '/home';
     }
 
     refresh();

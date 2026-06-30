@@ -322,6 +322,14 @@
       padding: 2px 8px; border-radius: 5px;
       backdrop-filter: blur(5px);
     }
+    .desktop-icon .shortcut-badge {
+      position: absolute; top: -2px; right: -2px;
+      width: 16px; height: 16px; border-radius: 50%;
+      display: grid; place-items: center; font-size: 0.58rem;
+      background: rgba(0,212,255,0.95); color: #041018;
+      box-shadow: 0 0 10px rgba(0,212,255,0.4);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
 
     /* ── WM layer ── */
     #wm-layer {
@@ -1320,12 +1328,6 @@
     <div class="hud-bracket br"></div>
   </div>
 
-  <div id="shell-loading">
-    <div class="sl-logo">HUEBOS</div>
-    <div class="sl-bar-wrap"><div class="sl-bar"></div></div>
-    <div class="sl-sub">v0.3.0 · INICIANDO KERNEL…</div>
-  </div>
-
   <div id="desktop">
     <div class="drop-zone-hint">SOLTAR ARCHIVOS AQUÍ</div>
     <div id="desktop-icons"></div>
@@ -1411,10 +1413,16 @@
       },
     ];
 
-    function withNativeSystemApps(apps) {
-      const externalApps = (apps || []).filter(app => app?.id !== 'terminal');
-      return [...NATIVE_SYSTEM_APPS, ...externalApps];
-    }
+function withNativeSystemApps(apps) {
+  const nativeIds = new Set(NATIVE_SYSTEM_APPS.map(a => a.id));
+  const seen = new Set(nativeIds);
+  const externalApps = (apps || []).filter(app => {
+    if (!app?.id || seen.has(app.id)) return false;
+    seen.add(app.id);
+    return true;
+  });
+  return [...NATIVE_SYSTEM_APPS, ...externalApps];
+}
 
     const THEME_PALETTES = {
       dark: {
@@ -1796,6 +1804,63 @@
       return {createWindow,close,minimize,toggleMaximize,focus,getWindow:pid=>_windows[pid],windows:_windows};
     })();
 
+        const Dialog = (() => {
+      const _ok  = 'padding:7px 20px;border-radius:7px;border:1px solid rgba(0,255,136,0.30);background:rgba(0,255,136,0.10);color:var(--g);font-family:var(--mono);font-size:0.70rem;cursor:pointer;letter-spacing:0.08em;transition:all 0.18s;';
+      const _bad = 'padding:7px 20px;border-radius:7px;border:1px solid rgba(255,68,102,0.28);background:rgba(255,68,102,0.07);color:rgba(255,68,102,0.78);font-family:var(--mono);font-size:0.70rem;cursor:pointer;letter-spacing:0.08em;transition:all 0.18s;';
+      const _inp = 'width:100%;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.20);border-radius:8px;padding:8px 13px;color:var(--g);font-family:var(--mono);font-size:0.76rem;outline:none;caret-color:var(--g);box-sizing:border-box;';
+      const _row = 'display:flex;gap:8px;justify-content:flex-end;margin-top:auto;';
+      const _wrap = 'padding:22px 24px;display:flex;flex-direction:column;gap:14px;height:100%;box-sizing:border-box;';
+
+      function prompt(msg, { placeholder = '', title = 'Entrada', defaultValue = '' } = {}) {
+        return new Promise(resolve => {
+          const proc = Kernel.procs.spawn('_dialog', { title, icon: '✏' });
+          const pid  = proc.pid;
+          const div  = document.createElement('div');
+          div.style.cssText = _wrap;
+          div.innerHTML = `
+            <p style="font-size:0.75rem;color:var(--g-dim);line-height:1.7;">${msg}</p>
+            <input id="dlg-i-${pid}" type="text" style="${_inp}"
+              placeholder="${placeholder}" value="${defaultValue}"
+              autocomplete="off" spellcheck="false"/>
+            <div style="${_row}">
+              <button id="dlg-x-${pid}" style="${_bad}">CANCELAR</button>
+              <button id="dlg-o-${pid}" style="${_ok}">ACEPTAR</button>
+            </div>`;
+          WM.createWindow(proc, { title, icon: '✏', width: 390, height: 214, content: div });
+          const done = v => { WM.close(pid); resolve(v); };
+          const inp  = () => document.getElementById(`dlg-i-${pid}`);
+          document.getElementById(`dlg-o-${pid}`).addEventListener('click', () => done(inp()?.value.trim() || null));
+          document.getElementById(`dlg-x-${pid}`).addEventListener('click', () => done(null));
+          inp()?.addEventListener('keydown', e => {
+            if (e.key === 'Enter')  done(inp()?.value.trim() || null);
+            if (e.key === 'Escape') done(null);
+          });
+          setTimeout(() => inp()?.focus(), 120);
+        });
+      }
+
+      function confirm(msg, { title = 'Confirmar', icon = '❓' } = {}) {
+        return new Promise(resolve => {
+          const proc = Kernel.procs.spawn('_dialog', { title, icon });
+          const pid  = proc.pid;
+          const div  = document.createElement('div');
+          div.style.cssText = _wrap;
+          div.innerHTML = `
+            <p style="font-size:0.75rem;color:var(--g-dim);line-height:1.7;">${msg}</p>
+            <div style="${_row}">
+              <button id="dlg-n-${pid}" style="${_bad}">NO</button>
+              <button id="dlg-y-${pid}" style="${_ok}">SÍ</button>
+            </div>`;
+          WM.createWindow(proc, { title, icon, width: 370, height: 185, content: div });
+          const done = v => { WM.close(pid); resolve(v); };
+          document.getElementById(`dlg-y-${pid}`).addEventListener('click', () => done(true));
+          document.getElementById(`dlg-n-${pid}`).addEventListener('click', () => done(false));
+        });
+      }
+
+      return { prompt, confirm };
+    })();
+
     /* ══ START MENU ══ */
     const StartMenu=(()=>{
       const menu=document.getElementById('start-menu');
@@ -1838,27 +1903,98 @@
       const desktop=document.getElementById('desktop');
       const iconsEl=document.getElementById('desktop-icons');
 
-      function addIcon(app){
-        const ic=document.createElement('div'); ic.className='desktop-icon';
-        ic.innerHTML=`<span class="icon-wrap"><span class="icon">${app.icon||'▪'}</span></span><span class="label">${app.name}</span>`;
-        ic.addEventListener('dblclick',()=>launchApp(app));
-        ic.addEventListener('click',()=>{
-          document.querySelectorAll('.desktop-icon').forEach(d=>d.classList.remove('active'));
-          ic.classList.add('active');
+      function renderFromFs(items){
+        iconsEl.innerHTML='';
+        const entries=[...items].sort((a,b)=>{
+          if(a.type!==b.type)return a.type==='dir'?-1:1;
+          return (a.name||'').localeCompare(b.name||'');
         });
-        ic.addEventListener('contextmenu',e=>{
-          e.preventDefault();
-          CtxMenu.show(e.clientX,e.clientY,[{icon:app.icon,text:`Abrir ${app.name}`,action:()=>launchApp(app)}]);
+
+        entries.forEach(item=>{
+    const isShortcut=item.type==='shortcut' || item.meta?.isDesktopShortcut;
+    const isExe=!isShortcut && item.type==='file' && (item.name||'').endsWith('.exe') && !!item.meta?.appId;
+    const ic=document.createElement('div'); ic.className='desktop-icon';
+    ic.dataset.path=item.id;
+    const icon = item.meta?.icon || item.icon || (isShortcut ? '🔗' : isExe ? '⚙' : (item.type==='dir' ? '📁' : '📄'));
+    const label = (isExe && item.meta?.displayName) ? item.meta.displayName : (item.name || item.id.split('/').pop());
+    ic.innerHTML=`<span class="icon-wrap"><span class="icon">${icon}</span>${isShortcut?'<span class="shortcut-badge">⚡</span>':''}</span><span class="label">${label}</span>`;
+    ic.addEventListener('dblclick',async()=>{
+      if(isShortcut||isExe){
+        const appId=item.meta?.appId;
+        if(appId){
+          const app=await window.Kernel?.apps?.get(appId);
+          if(app)launchApp(app);
+          else Toast.show(`${isShortcut?'Acceso':'Ejecutable'} "${label}" no disponible`,'warn');
+        }
+        return;
+      }
+      if(item.type==='dir'){
+        Toast.show(`Abrir carpeta ${label}`,'info');
+        return;
+      }
+      if(window.Kernel?.openFile){
+        const result=await window.Kernel.openFile(item.id);
+        if(!result?.ok) Toast.show('No hay app asociada para este archivo','info');
+      }
+    });
+          ic.addEventListener('click',()=>{
+            document.querySelectorAll('.desktop-icon').forEach(d=>d.classList.remove('active'));
+            ic.classList.add('active');
+          });
+          ic.addEventListener('contextmenu',e=>{
+            e.preventDefault();
+            const actions=[{icon:icon,text:`Abrir ${label}`,action:async()=>{
+              if(isShortcut){
+                const appId=item.meta?.appId;
+                if(appId)window.Kernel?.apps?.get(appId).then(app=>app&&launchApp(app));
+                return;
+              }
+              if(window.Kernel?.openFile){
+                const result=await window.Kernel.openFile(item.id);
+                if(!result?.ok) Toast.show('No hay app asociada para este archivo','info');
+              }
+            }}];
+            const protectedNode = item.id === '/system' || item.id.startsWith('/system/');
+            if (!protectedNode) {
+              actions.push({icon:'🗑',text:'Eliminar',action:async()=>{try{await Kernel.fs.remove(item.id);await refreshDesktop();}catch(err){Toast.show(err.message||'No se pudo eliminar','error');}}});
+            } else {
+              actions.push({icon:'🛡',text:'Protegido del sistema',action:()=>Toast.show('Este elemento está protegido','info')});
+            }
+            CtxMenu.show(e.clientX,e.clientY,actions);
+          });
+          iconsEl.appendChild(ic);
         });
-        iconsEl.appendChild(ic);
+      }
+
+      async function refreshDesktop(){
+        if(!window.Kernel?.isReady)return;
+        try{
+          const items=await window.Kernel.fs.readdir('/home/desktop');
+          renderFromFs(items);
+        }catch(err){
+          console.warn('[shell:desktop] no se pudo actualizar',err);
+          renderFromFs([]);
+        }
       }
       desktop.addEventListener('contextmenu',e=>{
         if(e.target!==desktop&&!e.target.closest('#desktop-icons')&&!e.target.classList.contains('drop-zone-hint'))return;
         e.preventDefault();
         CtxMenu.show(e.clientX,e.clientY,[
           {label:'ESCRITORIO'},
+          {icon:'📁',text:'Nueva carpeta',action:async()=>{
+            const name=await Dialog.prompt('Nombre de la carpeta:',{placeholder:'mi_carpeta',title:'Nueva carpeta'});
+            if(!name)return;
+            try{await Kernel.fs.mkdir(`/home/${name.replace(/[/\\]/g,'')}`); Toast.show('Carpeta creada en /home','ok');}
+            catch(err){Toast.show(err.message||'No se pudo crear la carpeta','error');}
+          }},
+          {icon:'📄',text:'Nuevo archivo',action:async()=>{
+            const name=await Dialog.prompt('Nombre del archivo:',{placeholder:'documento.txt',title:'Nuevo archivo'});
+            if(!name)return;
+            try{await Kernel.fs.write(`/home/docs/${name.replace(/[/\\]/g,'')}`,''); Toast.show('Archivo creado en /home/docs','ok');}
+            catch(err){Toast.show(err.message||'No se pudo crear el archivo','error');}
+          }},
           {icon:'⌨',text:'Abrir Terminal',action:()=>createNativeTerminal(null)},
-          {icon:'🔄',text:'Actualizar escritorio',action:()=>Toast.show('Escritorio actualizado','ok')},
+          {icon:'🔄',text:'Actualizar escritorio',action:()=>refreshDesktop().catch(()=>{})},
           'sep',
           {icon:'⚙️',text:'Preferencias del sistema',action:()=>openPrefsWindow()},
           {icon:'📋',text:'Información del sistema',action:()=>openSysInfoWindow()},
@@ -1875,11 +2011,16 @@
         const files=Array.from(e.dataTransfer.files); if(!files.length)return;
         Toast.show(`${files.length} archivo(s) recibido(s)`,'info','DROP ZONE');
         if(window.Kernel){
-          for(const file of files){const text=await file.text().catch(()=>'');await Kernel.fs.write(`/home/media/${file.name}`,text);}
-          Toast.show('Archivos guardados en /home/media','ok');
+          for(const file of files){
+            const text=await file.text().catch(()=>'');
+            const target=`/home/downloads/${file.name}`;
+            await Kernel.fs.write(target,text);
+          }
+          Toast.show('Archivos guardados en /home/downloads','ok');
+          await refreshDesktop();
         }
       });
-      return {addIcon};
+      return {refreshDesktop, renderFromFs};
     })();
 
     /* ══ CLOCK ══ */
@@ -2194,16 +2335,25 @@
       return loadedApps;
     }
 
-    async function resolveShellApps(kernel){
-      try{const apps=await loadAppsFromIndex();if(apps.length)return withNativeSystemApps(apps);}catch(_){}
-      const apps=await kernel.apps.list();
-      return withNativeSystemApps(apps.filter(app=>app?.entry&&app.entry.startsWith('./apps/')));
+async function resolveShellApps(kernel){
+  try{
+    const raw=await loadAppsFromIndex();
+    if(raw.length){
+      const unique=[...new Map(raw.map(a=>[a.id,a])).values()];
+      return withNativeSystemApps(unique);
     }
+  }catch(_){}
+  const raw=await kernel.apps.list();
+  const unique=[...new Map(
+    raw.filter(app=>app?.entry&&app.entry.startsWith('./apps/')).map(a=>[a.id,a])
+  ).values()];
+  return withNativeSystemApps(unique);
+}
 
     function renderRegisteredApps(apps){
       _runtimeApps=new Map(apps.map(app=>[app.id,app]));
-      document.getElementById('desktop-icons').innerHTML='';
-      StartMenu.setApps(apps); apps.forEach(app=>Desktop.addIcon(app));
+      StartMenu.setApps(apps);
+      Desktop.refreshDesktop().catch(()=>{});
     }
 
     function shellInit(kernel){
@@ -2232,31 +2382,33 @@
       kernel.on('shell:launch',async({appId,filePath,startPath})=>{
         const app=_runtimeApps.get(appId)||await kernel.apps.get(appId);
         if(!app){Toast.show(`App "${appId}" no encontrada`,'error');return;}
-        launchApp(app,{filePath,startPath});
+        const isSys=p=>typeof p==='string'&&(p.startsWith('/system')||p.startsWith('/sys'));
+        launchApp(app, (isSys(filePath)||isSys(startPath)) ? {} : {filePath,startPath});
       });
       applyShellPrefs(kernel).catch(()=>{Object.entries(DEFAULT_PREFS).forEach(([k,v])=>applyShellPref(k,v));});
       kernel.on('prefs:change',({key,value})=>applyShellPref(key,value));
       kernel.on('prefs:delete',({key})=>{if(Object.prototype.hasOwnProperty.call(DEFAULT_PREFS,key))applyShellPref(key,DEFAULT_PREFS[key]);});
-
-      document.getElementById('shell-loading').classList.add('hidden');
 
       resolveShellApps(kernel).then(renderRegisteredApps).catch(()=>{
         Toast.show('No se pudieron cargar las apps del sistema','error','APPS');
       });
       kernel.on('apps:registered',async()=>{const apps=await resolveShellApps(kernel);renderRegisteredApps(apps);});
       kernel.on('apps:unregistered',async()=>{const apps=await resolveShellApps(kernel);renderRegisteredApps(apps);});
+      kernel.on('fs:write',()=>Desktop.refreshDesktop().catch(()=>{}));
+      kernel.on('fs:remove',()=>Desktop.refreshDesktop().catch(()=>{}));
+      kernel.on('fs:mkdir',()=>Desktop.refreshDesktop().catch(()=>{}));
+      kernel.on('fs:move',()=>Desktop.refreshDesktop().catch(()=>{}));
       kernel.on('procs:spawn',({pid})=>{
         const wd=WM.getWindow(pid);
         if(!wd){const proc=kernel.procs.get(pid);if(proc&&proc.autoWindow)WM.createWindow(proc,proc.windowOpts||{});}
       });
 
       setTimeout(()=>Toast.show('HUEBOS Cyberhacker Glass activa','ok','SISTEMA'),400);
-      setTimeout(()=>{
-        kernel.prefs.get('boot.firstRun').then(first=>{
-          if(!first)return;
-          Toast.show('Bienvenido a HUEBOS. Doble clic para apps. Ctrl+Alt+T terminal.','info','BIENVENIDA',7000);
-        });
-      },1200);
+setTimeout(()=>{
+  if(Kernel.session.firstRun){
+    Toast.show('Bienvenido a HUEBOS. Doble clic para apps. Ctrl+Alt+T terminal.','info','BIENVENIDA',7000);
+  }
+},1200);
     }
 
     function waitForKernel(){

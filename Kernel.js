@@ -16,6 +16,18 @@
     BINARY_BLOBS : 'binary_blobs',   // v0.3.0
   };
 
+  const HOME_DIR = '/home';
+  const DESKTOP_DIR = '/home/desktop';
+  const SYSTEM_DIR = '/system';
+  const TEMP_DIR = '/temp';
+  const FS_HIERARCHY_VERSION = 1; // Incrementar cuando cambie la jerarquía base
+
+  const SYSTEM_EXECUTABLES = [
+    { path: `${SYSTEM_DIR}/archivos.exe`, appId: 'files', name: 'Archivos', icon: '📁' },
+    { path: `${SYSTEM_DIR}/bloc_notas.exe`, appId: 'text-editor', name: 'Bloc de notas', icon: '📝' },
+    { path: `${SYSTEM_DIR}/config.exe`, appId: 'config', name: 'Configuración', icon: '⚙️' },
+  ];
+
   /* ═══════════════════════════════════════════════════
      MIGRATION SYSTEM                          [Alpha 1.0]
   ═══════════════════════════════════════════════════ */
@@ -182,9 +194,39 @@
   ═══════════════════════════════════════════════════ */
   const FS = {
     _normalize(path) {
-      let p = path.replace(/\/+/g, '/');
+      let p = String(path || '').replace(/\/+/g, '/');
+      if (!p) p = '/';
       if (p !== '/' && p.endsWith('/')) p = p.slice(0, -1);
-      return p;
+
+      const parts = p.split('/').filter(Boolean);
+      if (!parts.length) return '/';
+
+      const reserved = {
+        home: 'home',
+        system: 'system',
+        temp: 'temp',
+        sys: 'sys',
+      };
+
+      const canonical = parts.map((segment, index) => {
+        if (index === 0) {
+          const lower = segment.toLowerCase();
+          if (reserved[lower]) return reserved[lower];
+        }
+        if (index === 1 && parts[0].toLowerCase() === 'home') {
+          const reservedHome = {
+            desktop: 'desktop',
+            docs: 'docs',
+            media: 'media',
+            downloads: 'downloads',
+          };
+          const lower = segment.toLowerCase();
+          if (reservedHome[lower]) return reservedHome[lower];
+        }
+        return segment;
+      });
+
+      return '/' + canonical.join('/');
     },
 
     _basename(path) {
@@ -200,24 +242,144 @@
       return parts.join('/') || '/';
     },
 
-    async mkdir(path) {
+    _isSystemProtectedPath(path) {
+      const normalized = this._normalize(path);
+      return normalized === SYSTEM_DIR || normalized.startsWith(`${SYSTEM_DIR}/`);
+    },
+
+    _isDesktopPath(path) {
+      const normalized = this._normalize(path);
+      return normalized === DESKTOP_DIR || normalized.startsWith(`${DESKTOP_DIR}/`);
+    },
+
+    _isProtectedNode(node) {
+      if (!node) return false;
+      if (node.type === 'shortcut' && node.meta?.isDesktopShortcut) return false;
+      if (typeof node.id === 'string' && (node.id === HOME_DIR || node.id.startsWith(`${HOME_DIR}/`))) return false;
+      return !!(node?.meta?.protected || node?.meta?.systemApp);
+    },
+
+    _normalizeTargetPath(path, { kind = 'file' } = {}) {
+      const normalized = this._normalize(path);
+      if (!normalized) {
+        throw new Error(kind === 'dir' ? 'INVALID_DIRECTORY_TARGET' : 'INVALID_FILE_TARGET');
+      }
+      if (normalized === '/') {
+        if (kind === 'dir') return '/';
+        throw new Error('INVALID_FILE_TARGET');
+      }
+
+      const basename = this._basename(normalized);
+      if (!basename || basename === '.' || basename === '..') {
+        throw new Error(kind === 'dir' ? 'INVALID_DIRECTORY_TARGET' : 'INVALID_FILE_TARGET');
+      }
+
+      if (kind === 'file' && normalized.endsWith('/')) {
+        throw new Error('INVALID_FILE_TARGET');
+      }
+
+      return normalized;
+    },
+
+    _assertSystemIntegrity(path, operation) {
+      const normalized = this._normalize(path);
+      if (this._isSystemProtectedPath(normalized)) {
+        throw new Error(`FS.${operation}: '${normalized}' está protegido por el kernel`);
+      }
+    },
+
+    async isProtected(path) {
+      const node = await DB.get(STORES.FS, this._normalize(path));
+      return !!node && this._isProtectedNode(node);
+    },
+
+    async createShortcut(path, { appId, name, icon = '🔗', entry = null, metadata = {} } = {}) {
       path = this._normalize(path);
+      if (this._isSystemProtectedPath(path)) {
+        throw new Error(`FS.createShortcut: '${path}' está protegido por el kernel`);
+      }
       const existing = await DB.get(STORES.FS, path);
       if (existing) {
-        if (existing.type === 'dir') return existing;
-        throw new Error(`FS.mkdir: existe un archivo en '${path}'`);
+        if (existing.type === 'shortcut' && existing.meta?.appId === appId) {
+          const updated = {
+            ...existing,
+            name,
+            icon: icon || existing.icon || '🔗',
+            meta: {
+              ...(existing.meta || {}),
+              ...metadata,
+              appId,
+              entry,
+              systemApp: metadata?.systemApp || false,
+              protected: metadata?.protected || false,
+              isDesktopShortcut: true,
+            },
+            mtime: Date.now(),
+          };
+          await DB.put(STORES.FS, updated);
+          EventBus.emit('fs:write', { path, type: 'shortcut' });
+          return updated;
+        }
+        throw new Error(`FS.createShortcut: ya existe '${path}'`);
       }
 
       const parent = this._dirname(path);
-      if (parent && parent !== path) {
+      if (parent) await this.mkdir(parent);
+
+      const now = Date.now();
+      const node = {
+        id: path,
+        type: 'shortcut',
+        name: name || this._basename(path),
+        parent,
+        content: null,
+        ctime: now,
+        mtime: now,
+        size: 0,
+        icon,
+        meta: {
+          ...metadata,
+          appId,
+          entry,
+          systemApp: metadata?.systemApp || false,
+          protected: metadata?.protected || false,
+          isDesktopShortcut: true,
+        },
+      };
+
+      await DB.put(STORES.FS, node);
+      EventBus.emit('fs:write', { path, type: 'shortcut' });
+      console.debug(`[Kernel:fs] shortcut ${path} -> ${appId}`);
+      return node;
+    },
+
+    async mkdir(path, opts = {}) {
+      const target = this._normalizeTargetPath(path, { kind: 'dir' });
+      const allowProtected = !!opts.allowProtected;
+      if (this._isSystemProtectedPath(target) && !allowProtected) {
+        throw new Error(`FS.mkdir: '${target}' está protegido por el kernel`);
+      }
+
+      const existing = await DB.get(STORES.FS, target);
+      if (existing) {
+        if (existing.type === 'dir') return existing;
+        throw new Error(`FS.mkdir: conflicto de tipo en '${target}'`);
+      }
+
+      const parent = this._dirname(target);
+      if (parent && parent !== target) {
+        const parentNode = await DB.get(STORES.FS, parent);
+        if (parentNode && parentNode.type !== 'dir') {
+          throw new Error(`FS.mkdir: padre no es directorio '${parent}'`);
+        }
         await this.mkdir(parent);
       }
 
       const now  = Date.now();
       const node = {
-        id      : path,
+        id      : target,
         type    : 'dir',
-        name    : this._basename(path) || '/',
+        name    : this._basename(target) || '/',
         parent  : parent,
         content : null,
         ctime   : now,
@@ -226,33 +388,44 @@
         meta    : {},
       };
       await DB.put(STORES.FS, node);
-      EventBus.emit('fs:mkdir', { path });
-      console.debug(`[Kernel:fs] mkdir ${path}`);
+      EventBus.emit('fs:mkdir', { path: target });
+      console.debug(`[Kernel:fs] mkdir ${target}`);
       return node;
     },
 
-    async write(path, content = '') {
-      path = this._normalize(path);
-      const parent = this._dirname(path);
+    async write(path, content = '', opts = {}) {
+      const target = this._normalizeTargetPath(path, { kind: 'file' });
+      const allowProtected = !!opts.allowProtected;
+      const meta = opts.meta || {};
+      if (this._isSystemProtectedPath(target) && !allowProtected) {
+        throw new Error(`FS.write: '${target}' está protegido por el kernel`);
+      }
 
-      if (parent) await this.mkdir(parent);
+      const parent = this._dirname(target);
+      if (parent) await this.mkdir(parent, { allowProtected });
 
-      const existing = await DB.get(STORES.FS, path);
+      const existing = await DB.get(STORES.FS, target);
+      if (existing?.type === 'dir') {
+        throw new Error(`INVALID_FILE_TARGET`);
+      }
+      if (existing?.type === 'file' || existing?.type === 'shortcut') {
+        // overwrite allowed for normal file targets
+      }
       const now      = Date.now();
       const node     = {
-        id      : path,
+        id      : target,
         type    : 'file',
-        name    : this._basename(path),
+        name    : this._basename(target),
         parent  : parent,
         content : content,
         ctime   : existing ? existing.ctime : now,
         mtime   : now,
         size    : new Blob([content]).size,
-        meta    : existing?.meta ?? {},
+        meta    : { ...(existing?.meta ?? {}), ...meta },
       };
       await DB.put(STORES.FS, node);
-      EventBus.emit('fs:write', { path, size: node.size });
-      console.debug(`[Kernel:fs] write ${path} (${node.size}B)`);
+      EventBus.emit('fs:write', { path: target, size: node.size });
+      console.debug(`[Kernel:fs] write ${target} (${node.size}B)`);
       return node;
     },
 
@@ -285,69 +458,77 @@
     },
 
     async remove(path, { recursive = false } = {}) {
-      path = this._normalize(path);
-      const node = await DB.get(STORES.FS, path);
-      if (!node) throw new Error(`FS.remove: '${path}' no existe`);
+      const target = this._normalizeTargetPath(path, { kind: 'dir' });
+      if (this._isSystemProtectedPath(target)) {
+        throw new Error(`FS.remove: '${target}' está protegido por el kernel`);
+      }
+      const node = await DB.get(STORES.FS, target);
+      if (!node) throw new Error(`FS.remove: '${target}' no existe`);
+      if (this._isProtectedNode(node)) throw new Error(`FS.remove: '${target}' está protegido`);
 
       if (node.type === 'dir' && !recursive) {
-        const children = await this.readdir(path);
+        const children = await this.readdir(target);
         if (children.length > 0)
-          throw new Error(`FS.remove: directorio '${path}' no está vacío (usa recursive)`);
+          throw new Error(`FS.remove: directorio '${target}' no está vacío (usa recursive)`);
       }
 
       if (node.type === 'dir' && recursive) {
         const all = await DB.list(STORES.FS);
         const descendants = all
-          .filter(n => n.id.startsWith(path + '/') || n.id === path)
+          .filter(n => n.id.startsWith(target + '/') || n.id === target)
           .map(n => n.id);
         for (const id of descendants) {
           await DB.delete(STORES.FS, id);
           await DB.delete(STORES.BINARY_BLOBS, id).catch(() => {});
         }
       } else {
-        await DB.delete(STORES.FS, path);
+        await DB.delete(STORES.FS, target);
         if (node.encoding === 'binary') {
-          await DB.delete(STORES.BINARY_BLOBS, path).catch(() => {});
+          await DB.delete(STORES.BINARY_BLOBS, target).catch(() => {});
         }
       }
 
-      EventBus.emit('fs:remove', { path });
-      console.debug(`[Kernel:fs] remove ${path}`);
+      EventBus.emit('fs:remove', { path: target });
+      console.debug(`[Kernel:fs] remove ${target}`);
     },
 
     async move(src, dst) {
-      src = this._normalize(src);
-      dst = this._normalize(dst);
-      const node = await DB.get(STORES.FS, src);
-      if (!node) throw new Error(`FS.move: '${src}' no existe`);
+      const source = this._normalizeTargetPath(src, { kind: 'dir' });
+      const target = this._normalizeTargetPath(dst, { kind: 'dir' });
+      if (this._isSystemProtectedPath(source) || this._isSystemProtectedPath(target)) {
+        throw new Error(`FS.move: '${source}' o '${target}' está protegido por el kernel`);
+      }
+      const node = await DB.get(STORES.FS, source);
+      if (!node) throw new Error(`FS.move: '${source}' no existe`);
+      if (this._isProtectedNode(node)) throw new Error(`FS.move: '${source}' está protegido`);
 
       if (node.type === 'dir') {
         const all = await DB.list(STORES.FS);
-        const affected = all.filter(n => n.id === src || n.id.startsWith(src + '/'));
+        const affected = all.filter(n => n.id === source || n.id.startsWith(source + '/'));
         for (const n of affected) {
-          const newId = dst + n.id.slice(src.length);
+          const newId = target + n.id.slice(source.length);
           await DB.delete(STORES.FS, n.id);
           await DB.put(STORES.FS, {
             ...n,
             id     : newId,
-            name   : newId === dst ? this._basename(dst) : n.name,
+            name   : newId === target ? this._basename(target) : n.name,
             parent : this._dirname(newId),
             mtime  : Date.now(),
           });
         }
       } else {
-        await DB.delete(STORES.FS, src);
+        await DB.delete(STORES.FS, source);
         await DB.put(STORES.FS, {
           ...node,
-          id     : dst,
-          name   : this._basename(dst),
-          parent : this._dirname(dst),
+          id     : target,
+          name   : this._basename(target),
+          parent : this._dirname(target),
           mtime  : Date.now(),
         });
       }
 
-      EventBus.emit('fs:move', { src, dst });
-      console.debug(`[Kernel:fs] move ${src} → ${dst}`);
+      EventBus.emit('fs:move', { src: source, dst: target });
+      console.debug(`[Kernel:fs] move ${source} → ${target}`);
     },
 
     async exists(path) {
@@ -358,6 +539,9 @@
 
     async writeBinary(path, data, mime = 'application/octet-stream') {
       path = this._normalize(path);
+      if (this._isSystemProtectedPath(path)) {
+        throw new Error(`FS.writeBinary: '${path}' está protegido por el kernel`);
+      }
       const parent = this._dirname(path);
       if (parent) await this.mkdir(parent);
 
@@ -439,6 +623,82 @@
       if (!node) return null;
       return node.mime || (node.encoding === 'binary' ? 'application/octet-stream' : 'text/plain');
     },
+  };
+
+  /* ═══════════════════════════════════════════════════
+     EXTENSION MANAGER / BINDING LAYER
+  ═══════════════════════════════════════════════════ */
+  const ExtensionManager = {
+    _registry: new Map(),
+    _mime: new Map(),
+
+    register(extension, handler, mime = null) {
+      const key = extension.startsWith('.') ? extension.toLowerCase() : `.${extension.toLowerCase()}`;
+      this._registry.set(key, handler);
+      if (mime) this._mime.set(key, mime);
+      return { extension: key, handler };
+    },
+
+    resolve(pathOrExtension) {
+      const ext = typeof pathOrExtension === 'string' && pathOrExtension.includes('/')
+        ? (pathOrExtension.split('/').pop().includes('.') ? `.${pathOrExtension.split('.').pop().toLowerCase()}` : '')
+        : (pathOrExtension.startsWith('.') ? pathOrExtension.toLowerCase() : `.${pathOrExtension.toLowerCase()}`);
+      return this._registry.get(ext) ? { extension: ext, handler: this._registry.get(ext), mime: this._mime.get(ext) || null } : null;
+    },
+
+    getExtension(path) {
+      const name = path.split('/').pop() || '';
+      const dot = name.lastIndexOf('.');
+      return dot > 0 ? name.slice(dot).toLowerCase() : '';
+    },
+
+    list() {
+      return [...this._registry.entries()].map(([ext, handler]) => ({ extension: ext, handler }));
+    },
+  };
+
+  const AppBinding = {
+    _fieldBindings: new Map(),
+
+    registerExtension(extension, appId, mime = null) {
+      ExtensionManager.register(extension, appId, mime);
+      return { extension, appId };
+    },
+
+    bindFileField(fieldName, appId) {
+      this._fieldBindings.set(fieldName, appId);
+      return { fieldName, appId };
+    },
+
+    async openFile(filePath, opts = {}) {
+      const normalized = FS._normalize(filePath);
+      const node = await DB.get(STORES.FS, normalized);
+      if (!node) throw new Error(`Binding.openFile: '${normalized}' no existe`);
+      if (node.type === 'dir') {
+        throw new Error(`Binding.openFile: '${normalized}' es un directorio`);
+      }
+
+      const ext = ExtensionManager.getExtension(normalized);
+      const resolved = ExtensionManager.resolve(ext) || ExtensionManager.resolve(ext.replace('.', ''));
+      const appId = node.meta?.appId || resolved?.handler || opts.appId || null;
+      if (!appId) {
+        EventBus.emit('app:fallback', { filePath: normalized, extension: ext });
+        return { ok: false, reason: 'NO_HANDLER', extension: ext };
+      }
+
+      const app = await Apps.get(appId);
+      if (!app) {
+        EventBus.emit('app:fallback', { filePath: normalized, extension: ext, appId });
+        return { ok: false, reason: 'APP_NOT_FOUND', appId, extension: ext };
+      }
+
+  const isSysExec = !!(node.meta?.systemApp && node.meta?.source === 'system-executable');
+  EventBus.emit('shell:launch', isSysExec
+    ? { appId }
+    : { appId, filePath: normalized, startPath: FS._dirname(normalized) }
+  );
+  return { ok: true, appId, extension: ext };
+},
   };
 
   /* ═══════════════════════════════════════════════════
@@ -812,12 +1072,13 @@
     const prevCount    = await Prefs.get('boot.sessionCount', 0);
     const sessionCount = prevCount + 1;
 
-    _session = {
-      id           : sessionId,
-      count        : sessionCount,
-      startedAt    : _bootStartedAt,
-      recoveredBoot,
-    };
+  _session = {
+    id           : sessionId,
+    count        : sessionCount,
+    startedAt    : _bootStartedAt,
+    recoveredBoot,
+    firstRun     : false,
+  };
 
     await Prefs.set('boot.sessionId',    sessionId);
     await Prefs.set('boot.sessionCount', sessionCount);
@@ -827,21 +1088,75 @@
     console.info(`[Kernel:session] sesión #${sessionCount} · id=${sessionId}${recoveredBoot ? ' · RECOVERED' : ''}`);
   }
 
+async function _ensureFsHierarchy() {
+  const currentVersion = await Prefs.get('fs.hierarchyVersion', 0);
+  if (currentVersion === FS_HIERARCHY_VERSION) return;
+
+  if (currentVersion === 0) {
+    // Instalación nueva: stores ya vacíos, solo registrar versión
+    await Prefs.set('fs.hierarchyVersion', FS_HIERARCHY_VERSION);
+    return;
+  }
+
+  // Actualización real de jerarquía: limpiar y reconstruir
+  console.warn('[Kernel:fs] jerarquía de FS modificada, reinicializando IndexedDB');
+  await DB.clear(STORES.FS);
+  await DB.clear(STORES.PREFS);
+  await DB.clear(STORES.APPS_META);
+  await DB.clear(STORES.CRASHES);
+  await DB.clear(STORES.BINARY_BLOBS);
+  await Prefs.set('fs.hierarchyVersion', FS_HIERARCHY_VERSION);
+  await Prefs.set('boot.firstRun', true);
+  console.info('[Kernel:fs] DB reinicializada por cambio de jerarquía');
+}
+
   /* ═══════════════════════════════════════════════════
      BOOT HELPERS
   ═══════════════════════════════════════════════════ */
   async function _bootstrapFS() {
-    await FS.mkdir('/');
-    await FS.mkdir('/home');
-    await FS.mkdir('/home/docs');
-    await FS.mkdir('/home/apps');
-    await FS.mkdir('/home/media');
-    await FS.mkdir('/tmp');
-    await FS.mkdir('/sys');
-    await FS.mkdir('/sys/crashes');
+    const repaired = [];
 
-    const alreadyBooted = await FS.exists('/home/docs/readme.txt');
-    if (!alreadyBooted) {
+    async function ensureDir(path, allowProtected = false) {
+      try {
+        await FS.mkdir(path, { allowProtected });
+        repaired.push(path);
+      } catch (err) {
+        if (err.message.includes('conflicto de tipo')) {
+          repaired.push(path);
+          return;
+        }
+        console.warn(`[Kernel:repair] no se pudo asegurar ${path}:`, err.message);
+      }
+    }
+
+    async function ensureFile(path, content, allowProtected = false, meta = {}) {
+      try {
+        await FS.write(path, content, { allowProtected, meta });
+        repaired.push(path);
+      } catch (err) {
+        if (err.message.includes('INVALID_FILE_TARGET')) {
+          repaired.push(path);
+          return;
+        }
+        console.warn(`[Kernel:repair] no se pudo asegurar ${path}:`, err.message);
+      }
+    }
+
+    await ensureDir('/');
+    await ensureDir(HOME_DIR);
+    await ensureDir('/home/docs');
+    await ensureDir('/home/media');
+    await ensureDir('/home/downloads');
+    await ensureDir(DESKTOP_DIR);
+    await ensureDir(SYSTEM_DIR, true);
+    await ensureDir('/sys');
+    await ensureDir('/sys/crashes');
+    await ensureDir(TEMP_DIR);
+
+    await ensureFile('/system/index.sys', '<!-- sistema index -->', true, { protected: true, systemApp: true });
+    await ensureFile('/system/shell.sys', '<!-- sistema shell -->', true, { protected: true, systemApp: true });
+
+    try {
       await FS.write('/home/docs/readme.txt', [
         '╔══════════════════════════════════════════╗',
         '║         H U E B O S  —  v0.3.0          ║',
@@ -862,16 +1177,22 @@
         'Directorios disponibles:',
         '  /home        → tu espacio personal',
         '  /home/docs   → documentos',
-        '  /home/apps   → datos de aplicaciones',
         '  /home/media  → imágenes y media (binarios)',
-        '  /tmp         → archivos temporales',
-        '  /sys         → configuración del sistema',
-        '  /sys/crashes → reportes de errores del sistema',
+        '  /home/downloads → descargas',
+        `  ${DESKTOP_DIR} → escritorio real del sistema`,
+        `  ${SYSTEM_DIR} → sistema protegido`,
+        `  ${TEMP_DIR} → archivos temporales`,
         '',
         'Kernel version : 0.3.0 (Alpha 2.0)',
         `Boot time      : ${new Date().toISOString()}`,
       ].join('\n'));
       console.info('[Kernel:boot] FS inicial creado');
+    } catch (err) {
+      console.warn('[Kernel:repair] no se pudo restaurar el contenido base:', err.message);
+    }
+
+    if (repaired.length) {
+      console.info(`[Kernel:repair] estructura restaurada: ${repaired.join(', ')}`);
     }
   }
 
@@ -939,6 +1260,8 @@
               winHeight   : manifest.winHeight   || 460,
               author      : manifest.author      || '',
               sourceFile  : file,
+              systemApp   : true,
+              protected   : true,
             },
           };
 
@@ -951,6 +1274,96 @@
       }
     } catch (err) {
       console.error('[Kernel:apps] Fallo cargando apps dinámicas:', err);
+    }
+  }
+
+  async function _bootstrapSystemExecutables() {
+    try {
+      // DB.delete directo — FS.remove rechaza /system por protección
+      const existing = await FS.readdir(SYSTEM_DIR).catch(() => []);
+      for (const item of existing) {
+        if (item.type === 'file' && (item.name || '').endsWith('.exe')) {
+          await DB.delete(STORES.FS, item.id).catch(() => {});
+        }
+      }
+
+      const apps = await Apps.list();
+      for (const app of apps) {
+        const basename = `${app.id.replace(/[^a-z0-9_-]+/gi, '_').toLowerCase()}.exe`;
+        const path     = `${SYSTEM_DIR}/${basename}`;
+        await FS.write(path, `SYSTEM EXECUTABLE ${app.name || app.id} (${app.id})`, {
+          allowProtected: true,
+          meta: {
+            protected  : true,
+            systemApp  : true,
+            appId      : app.id,
+            source     : 'system-executable',
+            icon       : app.icon  || '▪',
+            displayName: app.name  || app.id,
+            entry      : app.entry || null,
+          },
+        });
+      }
+      console.info(`[Kernel:system] ${apps.length} ejecutable(s) en /system`);
+    } catch (err) {
+      console.warn('[Kernel:system] No se pudieron crear ejecutables del sistema:', err);
+    }
+  }
+
+  async function _bootstrapExtensions() {
+    try {
+      const registeredApps = await Apps.list();
+      const preferredEditor = registeredApps.some(app => app.id === 'text-editor') ? 'text-editor' : 'editor';
+      const textExtensions = ['.txt', '.md', '.js', '.ts', '.html', '.css', '.json', '.csv', '.log', '.sh', '.py', '.xml', '.yaml', '.yml', '.ini', '.cfg', '.conf', '.env'];
+      const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
+      const mediaExtensions = ['.mp3', '.mp4', '.wav', '.ogg'];
+      const archiveExtensions = ['.zip', '.tar', '.gz', '.7z'];
+      const docExtensions = ['.pdf'];
+
+      for (const ext of textExtensions) AppBinding.registerExtension(ext, preferredEditor, 'text/plain');
+      for (const ext of imageExtensions) AppBinding.registerExtension(ext, preferredEditor, 'image/*');
+      for (const ext of mediaExtensions) AppBinding.registerExtension(ext, preferredEditor, 'audio/*');
+      for (const ext of archiveExtensions) AppBinding.registerExtension(ext, 'files', 'application/zip');
+      for (const ext of docExtensions) AppBinding.registerExtension(ext, 'files', 'application/pdf');
+
+      if (!AppBinding._fieldBindings.has('editor')) {
+        AppBinding.bindFileField('editor', preferredEditor);
+      }
+      console.info(`[Kernel:extensions] ${textExtensions.length + imageExtensions.length + mediaExtensions.length + archiveExtensions.length + docExtensions.length} extensiones registradas`);
+    } catch (err) {
+      console.warn('[Kernel:extensions] No se pudieron registrar extensiones:', err);
+    }
+  }
+
+// POR (reemplaza cualquier versión anterior de esta función)
+  async function _bootstrapDesktopShortcuts() {
+    try {
+      await FS.mkdir(DESKTOP_DIR);
+
+      // Purgar TODOS los accesos directos del sistema
+      const currentItems = await FS.readdir(DESKTOP_DIR).catch(() => []);
+      for (const item of currentItems) {
+        if (item.type === 'shortcut' && item.meta?.isDesktopShortcut) {
+          await FS.remove(item.id).catch(() => {});
+        }
+      }
+
+      // UN acceso directo por app registrada → apunta a /system/{appId}.exe
+      const apps = await Apps.list();
+      for (const app of apps) {
+        const basename = `${app.id.replace(/[^a-z0-9_-]+/gi, '_').toLowerCase()}.exe`;
+        const target   = `${DESKTOP_DIR}/${app.id}`;
+        await FS.createShortcut(target, {
+          appId   : app.id,
+          name    : app.name || app.id,
+          icon    : app.icon || '🔗',
+          entry   : `${SYSTEM_DIR}/${basename}`,
+          metadata: { isDesktopShortcut: true, protected: false, systemApp: false },
+        });
+      }
+      console.info(`[Kernel:desktop] ${apps.length} acceso(s) en escritorio`);
+    } catch (err) {
+      console.error('[Kernel:desktop] No se pudieron inicializar los accesos del escritorio:', err);
     }
   }
 
@@ -975,6 +1388,7 @@
 
       EventBus.emit('boot:step', { step: 'fs', label: 'Montando sistema de archivos…' });
       Watchdog.markStep('fs');
+      await _ensureFsHierarchy();
       await _bootstrapFS();
       Watchdog.completeStep();
 
@@ -994,23 +1408,29 @@
       Watchdog.markStep('apps');
       await Apps._hydrate();
       await _bootstrapApps();
+      await _bootstrapSystemExecutables();
+      await _bootstrapExtensions();
+      await _bootstrapDesktopShortcuts();
       Watchdog.completeStep();
 
-      await Prefs.set('boot.firstRun', false);
+    const _isFirstRun = !!(await Prefs.get('boot.firstRun', false));
+    _session.firstRun = _isFirstRun;
+    await Prefs.set('boot.firstRun', false);
 
-      Watchdog.clearAll();
+    Watchdog.clearAll();
 
       console.groupEnd();
       console.info('[Kernel] ✓ Sistema listo');
 
       EventBus.emit('boot:step', { step: 'ready', label: 'Sistema listo.' });
-      EventBus.emit('ready', {
-        ts           : Date.now(),
-        version      : '0.3.0',
-        sessionId    : _session.id,
-        sessionCount : _session.count,
-        recoveredBoot: recovered,
-      });
+    EventBus.emit('ready', {
+      ts           : Date.now(),
+      version      : '0.3.0',
+      sessionId    : _session.id,
+      sessionCount : _session.count,
+      recoveredBoot: recovered,
+      firstRun     : _isFirstRun,
+    });
 
     } catch (err) {
       console.groupEnd();
@@ -1031,16 +1451,19 @@
     once : EventBus.once.bind(EventBus),
     emit : EventBus.emit.bind(EventBus),
 
-    db    : DB,
-    fs    : FS,
-    prefs : Prefs,
-    apps  : Apps,
-    procs : Procs,
-    crash : CrashReporter,
+    db         : DB,
+    fs         : FS,
+    prefs      : Prefs,
+    apps       : Apps,
+    procs      : Procs,
+    crash      : CrashReporter,
+    extensions : ExtensionManager,
+    bindings   : AppBinding,
 
     STORES,
 
     boot,
+    openFile: AppBinding.openFile.bind(AppBinding),
 
     get isReady() {
       return _db !== null;
