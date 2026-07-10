@@ -943,11 +943,23 @@
       gap:8px; position:relative; z-index:1;
     }
     .start-footer-label { font-size:0.58rem; color:rgba(0,180,80,0.36); letter-spacing:0.1em; flex:1; }
-    #start-shutdown {
-      background:rgba(255,60,70,0.07); border:1px solid rgba(255,60,70,0.22);
-      color:rgba(255,100,110,0.75); font-size:1rem;
+    #start-lock, #start-shutdown {
       width:34px; height:34px; border-radius:8px; cursor:pointer;
       transition:all 0.18s; display:flex; align-items:center; justify-content:center;
+      font-size:1rem;
+    }
+    #start-lock {
+      background:rgba(255,200,60,0.07); border:1px solid rgba(255,200,60,0.22);
+      color:rgba(255,200,100,0.75);
+    }
+    #start-lock:hover {
+      background:rgba(255,200,60,0.18); border-color:rgba(255,200,60,0.5);
+      color:#ffdd66; box-shadow:0 0 14px rgba(255,200,60,0.22);
+      transform:scale(1.1);
+    }
+    #start-shutdown {
+      background:rgba(255,60,70,0.07); border:1px solid rgba(255,60,70,0.22);
+      color:rgba(255,100,110,0.75);
     }
     #start-shutdown:hover {
       background:rgba(255,60,70,0.18); border-color:rgba(255,60,70,0.5);
@@ -1315,11 +1327,159 @@
       to   { box-shadow:0 0 0 22px rgba(0,255,136,0); }
     }
     .wm-window.focus-ripple { animation:focusRipple 0.4s ease-out, holoGlowPulse 4s ease-in-out infinite 0.4s; }
+
+    /* ══ LOCK SCREEN (estilo Windows) ══ */
+    .lock-screen {
+      position:fixed; inset:0; z-index:99999;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:#0a0a12;
+      overflow:hidden;
+    }
+    .lock-screen.hidden { display:none; }
+    .lock-screen.animate-in { animation:lockFadeIn 0.4s ease-out; }
+    @keyframes lockFadeIn { from{opacity:0} to{opacity:1} }
+    /* Ocultar escritorio hasta que se desbloquee la lock screen */
+    body.locked #bg-canvas,
+    body.locked #hacker-svg-layer,
+    body.locked #desktop,
+    body.locked #wm-layer,
+    body.locked #taskbar,
+    body.locked #start-menu { visibility:hidden !important; }
+    .lock-blur {
+      position:absolute; inset:0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 30%, rgba(0,120,215,0.15) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 30% 80%, rgba(120,0,215,0.10) 0%, transparent 60%);
+      pointer-events:none;
+    }
+    .lock-clock {
+      position:absolute; top:8%; left:50%; transform:translateX(-50%);
+      text-align:center; z-index:1;
+    }
+    .lock-time {
+      font-size:6rem; font-weight:300; letter-spacing:2px; line-height:1;
+      color:#fff; text-shadow:0 2px 20px rgba(0,0,0,0.5);
+      font-variant-numeric:tabular-nums;
+      font-family:'Segoe UI','Helvetica Neue',system-ui,sans-serif;
+    }
+    .lock-date {
+      font-size:1.5rem; font-weight:400; color:rgba(255,255,255,0.85);
+      letter-spacing:1px; margin-top:8px;
+      font-family:'Segoe UI','Helvetica Neue',system-ui,sans-serif;
+    }
+    .lock-panel {
+      position:relative; z-index:2;
+      display:flex; flex-direction:column; align-items:center; gap:16px;
+      padding:0;
+      background:transparent; border:none; border-radius:0;
+      box-shadow:none; min-width:300px;
+    }
+    .lock-avatar {
+      font-size:4rem; width:128px; height:128px;
+      display:flex; align-items:center; justify-content:center;
+      border-radius:50%;
+      background:linear-gradient(135deg, rgba(0,120,215,0.25), rgba(0,150,255,0.15));
+      border:3px solid rgba(255,255,255,0.25);
+      box-shadow:0 8px 32px rgba(0,0,0,0.3), inset 0 2px 8px rgba(255,255,255,0.1);
+      backdrop-filter:blur(10px);
+    }
+    .lock-username {
+      font-size:1.75rem; color:#fff; font-weight:500; letter-spacing:0.5px;
+      font-family:'Segoe UI','Helvetica Neue',system-ui,sans-serif;
+    }
+    .lock-input-wrap {
+      display:flex; align-items:center; gap:8px;
+      width:280px;
+    }
+    .lock-input {
+      flex:1; padding:12px 16px;
+      background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.25);
+      border-radius:6px 0 0 6px; color:#fff; font-size:1rem;
+      text-align:left; outline:none; transition:all 0.2s;
+      font-family:'Segoe UI','Helvetica Neue',system-ui,sans-serif;
+      backdrop-filter:blur(10px);
+    }
+    .lock-input:focus { border-color:rgba(0,120,215,0.8); box-shadow:0 0 0 3px rgba(0,120,215,0.25); background:rgba(255,255,255,0.12); }
+    .lock-input::placeholder { color:rgba(255,255,255,0.4); }
+    .lock-submit {
+      padding:12px 18px;
+      background:rgba(0,120,215,0.7); border:1px solid rgba(0,120,215,0.9);
+      border-radius:0 6px 6px 0; color:#fff; font-size:1rem; cursor:pointer;
+      transition:background 0.2s; font-family:'Segoe UI',sans-serif;
+    }
+    .lock-submit:hover { background:rgba(0,140,235,0.85); }
+    .lock-submit:active { transform:scale(0.96); }
+    .lock-btn {
+      padding:10px 28px;
+      background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.25);
+      border-radius:6px; color:#fff; font-size:0.9rem; cursor:pointer;
+      transition:all 0.2s; letter-spacing:0.5px;
+      font-family:'Segoe UI','Helvetica Neue',system-ui,sans-serif;
+      backdrop-filter:blur(10px);
+    }
+    .lock-btn:hover { background:rgba(255,255,255,0.15); }
+    .lock-btn:active { transform:scale(0.97); }
+    .lock-hint { font-size:0.8rem; color:rgba(255,255,255,0.6); font-family:'Segoe UI',sans-serif; }
+    .lock-safe-badge {
+      margin-top:6px; padding:4px 12px; font-size:0.75rem; letter-spacing:2px;
+      color:var(--amber,#ffcc44); border:1px solid rgba(255,204,68,0.3);
+      border-radius:6px; background:rgba(255,204,68,0.08);
+    }
+    .lock-bottom {
+      position:absolute; bottom:24px; right:32px; z-index:2;
+      display:flex; gap:12px; align-items:center;
+    }
+    .lock-bottom-btn {
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+      padding:10px 14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15);
+      border-radius:6px; color:rgba(255,255,255,0.85); cursor:pointer; font-size:0.75rem;
+      transition:background 0.2s; font-family:'Segoe UI',sans-serif; backdrop-filter:blur(10px);
+    }
+    .lock-bottom-btn:hover { background:rgba(255,255,255,0.12); }
+    .lock-bottom-btn .lock-bottom-icon { font-size:1.4rem; }
+    .lock-error { animation:lockShake 0.4s ease; border-color:var(--red,#ff4466) !important; }
+    @keyframes lockShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+
+    /* ══ BOOT FADE OVERLAY (oculta el flash de carga del lock screen) ══ */
+    #boot-fade-overlay {
+      position:fixed; inset:0; z-index:999999;
+      background:#000;
+      pointer-events:none;
+      opacity:1;
+      transition:opacity 0.6s ease-out;
+    }
+    #boot-fade-overlay.fade-out { opacity:0; }
   </style>
 </head>
-<body>
+<body class="locked">
 
+  <div id="boot-fade-overlay"></div>
   <div id="chrome-overlay"></div>
+
+  <!-- ══ LOCK SCREEN (estilo Windows) ══ -->
+  <div id="lock-screen" class="lock-screen">
+    <div class="lock-blur"></div>
+    <div class="lock-clock">
+      <div class="lock-time" id="lock-time">--:--</div>
+      <div class="lock-date" id="lock-date">--/--/----</div>
+    </div>
+    <div class="lock-panel">
+      <div class="lock-avatar" id="lock-avatar">👤</div>
+      <div class="lock-username" id="lock-username">Usuario</div>
+      <div class="lock-input-wrap">
+        <input type="password" id="lock-password" class="lock-input" placeholder="Contraseña" autocomplete="off" />
+        <button id="lock-unlock-btn" class="lock-submit" type="button">→</button>
+      </div>
+      <div class="lock-hint" id="lock-hint">Presiona cualquier tecla para desbloquear</div>
+      <div class="lock-safe-badge" id="lock-safe-badge" style="display:none">⚠ SAFE MODE</div>
+    </div>
+    <div class="lock-bottom">
+      <div class="lock-bottom-btn" id="lock-reboot-btn" title="Reiniciar">
+        <span class="lock-bottom-icon">⏻</span>
+        <span>Reiniciar</span>
+      </div>
+    </div>
+  </div>
   <canvas id="bg-canvas"></canvas>
   <div id="hacker-svg-layer" aria-hidden="true">
     <div class="hud-bracket tl"></div>
@@ -1354,6 +1514,7 @@
     <div id="start-apps"></div>
     <div class="start-footer">
       <span class="start-footer-label">HUEBOS SHELL · WM ACTIVO</span>
+      <button id="start-lock" title="Bloquear pantalla">🔒</button>
       <button id="start-shutdown" title="Reiniciar sistema">⏻</button>
     </div>
   </div>
@@ -1386,6 +1547,12 @@
   ;(function () {
     'use strict';
 
+    function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]));
+}
+
     const DEFAULT_PREFS = {
       'system.theme'     : 'dark',
       'system.fontSize'  : 14,
@@ -1397,7 +1564,7 @@
       {
         id: 'terminal',
         name: 'Terminal',
-        version: '0.3.0',
+        version: '0.4.0',
         icon: '⌨',
         category: 'system',
         singleton: false,
@@ -1627,7 +1794,7 @@ function withNativeSystemApps(apps) {
         if(_windows[pid])_windows[pid].el.style.zIndex=++_zTop;
       }
 
-      function makeDraggable(titlebar,win,pidRef){
+function makeDraggable(titlebar,win,pidRef){
         let ox,oy,dragging=false;
         const shield=document.getElementById('drag-shield');
         titlebar.addEventListener('mousedown',e=>{
@@ -1637,16 +1804,19 @@ function withNativeSystemApps(apps) {
           ox=e.clientX-r.left; oy=e.clientY-r.top; focus(pidRef.pid);
           shield.style.display='block'; shield.style.cursor='grabbing'; e.preventDefault();
         });
-        document.addEventListener('mousemove',e=>{
+        function onMove(e){
           if(!dragging)return;
           const maxH=window.innerHeight-58;
           let nx=Math.max(0,Math.min(e.clientX-ox,window.innerWidth-60));
           let ny=Math.max(0,Math.min(e.clientY-oy,maxH-20));
           win.style.left=nx+'px'; win.style.top=ny+'px';
           const w=_windows[pidRef.pid]; if(w){w.state.x=nx;w.state.y=ny;}
-        });
-        document.addEventListener('mouseup',()=>{dragging=false;shield.style.display='none';});
+        }
+        function onUp(){dragging=false;shield.style.display='none';}
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
         titlebar.addEventListener('dblclick',e=>{if(!e.target.classList.contains('wm-btn'))toggleMaximize(pidRef.pid);});
+        return {onMove,onUp};
       }
 
       function makeResizable(win,pidRef){
@@ -1706,10 +1876,16 @@ function withNativeSystemApps(apps) {
         }
         focus(pid);
       }
-      function close(pid){
+function close(pid){
         const w=_windows[pid]; if(!w)return;
         w.el.classList.add('animating-close');
-        setTimeout(()=>{w.el.remove();delete _windows[pid];removeTaskbarItem(pid);if(window.Kernel)Kernel.procs.kill(pid);},200);
+        setTimeout(()=>{
+          if(w.dragHandlers){
+            document.removeEventListener('mousemove',w.dragHandlers.onMove);
+            document.removeEventListener('mouseup',w.dragHandlers.onUp);
+          }
+          w.el.remove();delete _windows[pid];removeTaskbarItem(pid);if(window.Kernel)Kernel.procs.kill(pid);
+        },200);
       }
       function updateTaskbarItem(pid){
         const tb=document.querySelector(`.tb-app[data-pid="${pid}"]`); if(!tb)return;
@@ -1765,15 +1941,16 @@ function withNativeSystemApps(apps) {
         }
 
         win.appendChild(titlebar); win.appendChild(content); layer.appendChild(win);
-        const pidRef={pid};
-        makeResizable(win,pidRef); makeDraggable(titlebar,win,pidRef);
+const pidRef={pid};
+        makeResizable(win,pidRef);
+        const dragHandlers=makeDraggable(titlebar,win,pidRef);
         titlebar.querySelector('.min').addEventListener('click',e=>{e.stopPropagation();minimize(pid);});
         titlebar.querySelector('.max').addEventListener('click',e=>{e.stopPropagation();toggleMaximize(pid);});
         titlebar.querySelector('.cls').addEventListener('click',e=>{e.stopPropagation();close(pid);});
         win.addEventListener('mousedown',e=>{if(!e.target.classList.contains('wm-btn'))focus(pid);});
         setTimeout(()=>win.classList.remove('animating-in'),380);
 
-        _windows[pid]={el:win,proc,state:{x:X0,y:Y0,w:W0,h:H0},minimized:false,maximized:false,prevState:null};
+        _windows[pid]={el:win,proc,state:{x:X0,y:Y0,w:W0,h:H0},minimized:false,maximized:false,prevState:null,dragHandlers};
         addTaskbarItem(proc,pid); focus(pid);
         return _windows[pid];
       }
@@ -1915,9 +2092,10 @@ function withNativeSystemApps(apps) {
     const isExe=!isShortcut && item.type==='file' && (item.name||'').endsWith('.exe') && !!item.meta?.appId;
     const ic=document.createElement('div'); ic.className='desktop-icon';
     ic.dataset.path=item.id;
-    const icon = item.meta?.icon || item.icon || (isShortcut ? '🔗' : isExe ? '⚙' : (item.type==='dir' ? '📁' : '📄'));
+const icon = item.meta?.icon || item.icon || (isShortcut ? '🔗' : isExe ? '⚙' : (item.type==='dir' ? '📁' : '📄'));
     const label = (isExe && item.meta?.displayName) ? item.meta.displayName : (item.name || item.id.split('/').pop());
-    ic.innerHTML=`<span class="icon-wrap"><span class="icon">${icon}</span>${isShortcut?'<span class="shortcut-badge">⚡</span>':''}</span><span class="label">${label}</span>`;
+    const safeLabel = escapeHtml(label);
+    ic.innerHTML=`<span class="icon-wrap"><span class="icon">${icon}</span>${isShortcut?'<span class="shortcut-badge">⚡</span>':''}</span><span class="label">${safeLabel}</span>`;
     ic.addEventListener('dblclick',async()=>{
       if(isShortcut||isExe){
         const appId=item.meta?.appId;
@@ -1943,7 +2121,7 @@ function withNativeSystemApps(apps) {
           });
           ic.addEventListener('contextmenu',e=>{
             e.preventDefault();
-            const actions=[{icon:icon,text:`Abrir ${label}`,action:async()=>{
+            const actions=[{icon:icon,text:`Abrir ${safeLabel}`,action:async()=>{
               if(isShortcut){
                 const appId=item.meta?.appId;
                 if(appId)window.Kernel?.apps?.get(appId).then(app=>app&&launchApp(app));
@@ -1981,20 +2159,33 @@ function withNativeSystemApps(apps) {
         e.preventDefault();
         CtxMenu.show(e.clientX,e.clientY,[
           {label:'ESCRITORIO'},
-          {icon:'📁',text:'Nueva carpeta',action:async()=>{
+{icon:'📁',text:'Nueva carpeta',action:async()=>{
             const name=await Dialog.prompt('Nombre de la carpeta:',{placeholder:'mi_carpeta',title:'Nueva carpeta'});
             if(!name)return;
-            try{await Kernel.fs.mkdir(`/home/${name.replace(/[/\\]/g,'')}`); Toast.show('Carpeta creada en /home','ok');}
+            const target=`/home/${name.replace(/[/\\]/g,'')}`;
+            try{
+              if(await Kernel.fs.exists(target)){Toast.show(`Ya existe "${name}" en /home`,'warn');return;}
+              await Kernel.fs.mkdir(target); Toast.show('Carpeta creada en /home','ok');
+            }
             catch(err){Toast.show(err.message||'No se pudo crear la carpeta','error');}
           }},
-          {icon:'📄',text:'Nuevo archivo',action:async()=>{
+{icon:'📄',text:'Nuevo archivo',action:async()=>{
             const name=await Dialog.prompt('Nombre del archivo:',{placeholder:'documento.txt',title:'Nuevo archivo'});
             if(!name)return;
-            try{await Kernel.fs.write(`/home/docs/${name.replace(/[/\\]/g,'')}`,''); Toast.show('Archivo creado en /home/docs','ok');}
-            catch(err){Toast.show(err.message||'No se pudo crear el archivo','error');}
+            const target=`/home/docs/${name.replace(/[/\\]/g,'')}`;
+            try{
+              await Kernel.fs.write(target,''); Toast.show('Archivo creado en /home/docs','ok');
+            }
+            catch(err){
+              const msg = err.message==='INVALID_FILE_TARGET'
+                ? `Ya existe una carpeta llamada "${name}"`
+                : (err.message||'No se pudo crear el archivo');
+              Toast.show(msg,'error');
+            }
           }},
           {icon:'⌨',text:'Abrir Terminal',action:()=>createNativeTerminal(null)},
-          {icon:'🔄',text:'Actualizar escritorio',action:()=>refreshDesktop().catch(()=>{})},
+          {icon:'�',text:'Bloquear pantalla',action:()=>{if(window.__wos_lock)window.__wos_lock();}},
+          {icon:'�🔄',text:'Actualizar escritorio',action:()=>refreshDesktop().catch(()=>{})},
           'sep',
           {icon:'⚙️',text:'Preferencias del sistema',action:()=>openPrefsWindow()},
           {icon:'📋',text:'Información del sistema',action:()=>openSysInfoWindow()},
@@ -2006,15 +2197,21 @@ function withNativeSystemApps(apps) {
       });
       desktop.addEventListener('dragover',e=>{e.preventDefault();desktop.classList.add('drop-active');});
       desktop.addEventListener('dragleave',()=>desktop.classList.remove('drop-active'));
+const DROP_TEXT_EXTENSIONS = ['.txt','.md','.js','.ts','.html','.css','.json','.csv','.log','.sh','.py','.xml','.yaml','.yml','.ini','.cfg','.conf','.env'];
       desktop.addEventListener('drop',async e=>{
         e.preventDefault(); desktop.classList.remove('drop-active');
         const files=Array.from(e.dataTransfer.files); if(!files.length)return;
         Toast.show(`${files.length} archivo(s) recibido(s)`,'info','DROP ZONE');
         if(window.Kernel){
           for(const file of files){
-            const text=await file.text().catch(()=>'');
             const target=`/home/downloads/${file.name}`;
-            await Kernel.fs.write(target,text);
+            const ext=(file.name.match(/\.[^.]+$/)||[''])[0].toLowerCase();
+            if(DROP_TEXT_EXTENSIONS.includes(ext)){
+              const text=await file.text().catch(()=>'');
+              await Kernel.fs.write(target,text);
+            } else {
+              await Kernel.fs.writeBinary(target,file,file.type||'application/octet-stream');
+            }
           }
           Toast.show('Archivos guardados en /home/downloads','ok');
           await refreshDesktop();
@@ -2078,7 +2275,7 @@ function withNativeSystemApps(apps) {
       const session=Kernel.session;
       div.innerHTML=`<h2>📋 Sistema</h2>
         <div style="font-size:0.72rem;line-height:2.2;color:var(--g-dim)">
-          <div><span style="color:var(--g)">KERNEL</span>    HUEBOS v0.3.0</div>
+          <div><span style="color:var(--g)">KERNEL</span>    HUEBOS v0.4.0</div>
           <div><span style="color:var(--g)">SHELL</span>     Cyberhacker · Aero Glass</div>
           <div><span style="color:var(--g)">SESIÓN</span>    #${session.count??'?'}</div>
           <div><span style="color:var(--g)">MOTOR</span>     ${navigator.userAgent.split(' ').slice(-1)[0]}</div>
@@ -2095,7 +2292,7 @@ function withNativeSystemApps(apps) {
       const termProc=Kernel.procs.spawn('terminal',{title:'Terminal',icon:'⌨',cwd:'/home',parentPid:parentPid??null});
       const wrap=document.createElement('div'); wrap.className='native-terminal';
       const header=document.createElement('div'); header.className='nt-header';
-      header.innerHTML=`<span class="nt-title-wrap"><span class="nt-leds"><span class="nt-led"></span><span class="nt-led"></span><span class="nt-led"></span></span><span class="nt-title">⌨ HUEBOS Terminal v0.3.0</span></span><span class="nt-cwd">/home</span>`;
+      header.innerHTML=`<span class="nt-title-wrap"><span class="nt-leds"><span class="nt-led"></span><span class="nt-led"></span><span class="nt-led"></span></span><span class="nt-title">⌨ HUEBOS Terminal v0.4.0</span></span><span class="nt-cwd">/home</span>`;
       const cwdDisplay=header.querySelector('.nt-cwd');
       const output=document.createElement('div'); output.className='nt-output';
       const inputWrap=document.createElement('div'); inputWrap.className='nt-input-wrap';
@@ -2117,7 +2314,7 @@ function withNativeSystemApps(apps) {
       function printHTML(h,c='nt-out'){const l=document.createElement('div');l.className='nt-line '+c;l.innerHTML=h;output.appendChild(l);}
       function scrollBottom(){output.scrollTop=output.scrollHeight;}
 
-      printHTML(`<span style="color:var(--g);text-shadow:0 0 8px #00ff88aa">HUEBOS Terminal</span> <span style="color:var(--g-dim)">v0.3.0 · pid=${termProc.pid}</span>`);
+      printHTML(`<span style="color:var(--g);text-shadow:0 0 8px #00ff88aa">HUEBOS Terminal</span> <span style="color:var(--g-dim)">v0.4.0 · pid=${termProc.pid}</span>`);
       print('Escribe "help" para ver los comandos disponibles.','nt-dim');
       print('','nt-line');
 
@@ -2146,6 +2343,10 @@ function withNativeSystemApps(apps) {
             ['write <path> ...','Escribir texto'],['stat <path>','Info detallada'],['tree [path]','Árbol'],
             ['echo [...txt]','Imprimir'],['ps','Listar procesos'],['kill <pid>','Matar proceso'],
             ['history','Historial'],['neofetch','Info sistema'],['clear','Limpiar'],
+            ['env [key=val]','Ver/poner variables'],['whoami','Usuario actual'],
+            ['useradd <id> <name>','Crear usuario'],['passwd [id]','Cambiar contraseña'],
+            ['reboot [safe]','Reiniciar sistema'],['uefi','Abrir firmware UEFI'],
+            ['safe-mode','Estado safe mode'],
           ];
           print('Comandos disponibles:','nt-info');
           cmds.forEach(([c,d])=>{const pad=c.padEnd(22,' ');printHTML(`  <span style="color:var(--g)">${pad}</span><span style="color:var(--g-dim)">${d}</span>`);});
@@ -2159,8 +2360,8 @@ function withNativeSystemApps(apps) {
           const dirs=entries.filter(e=>e.type==='dir').sort((a,b)=>a.name.localeCompare(b.name));
           const files=entries.filter(e=>e.type==='file').sort((a,b)=>a.name.localeCompare(b.name));
           const parts=[];
-          dirs.forEach(d=>parts.push(`<span class="nt-dir">${d.name}/</span>`));
-          files.forEach(f=>parts.push(`<span class="nt-file">${f.name}</span>${f.encoding==='binary'?`<span style="color:var(--amber);font-size:0.85em"> [bin]</span>`:''}`));
+          dirs.forEach(d=>parts.push(`<span class="nt-dir">${escapeHtml(d.name)}/</span>`));
+          files.forEach(f=>parts.push(`<span class="nt-file">${escapeHtml(f.name)}</span>${f.encoding==='binary'?`<span style="color:var(--amber);font-size:0.85em"> [bin]</span>`:''}`));
           printHTML(parts.join('  '));
         },
         async cd([pa]){
@@ -2189,13 +2390,15 @@ function withNativeSystemApps(apps) {
           if(!src||!dst){print('Uso: mv <origen> <destino>','nt-err');return;}
           await Kernel.fs.move(resolvePath(src),resolvePath(dst));print(`mv: '${src}' → '${dst}'`,'nt-success');
         },
-        async cp([src,dst]){
+async cp([src,dst]){
           if(!src||!dst){print('Uso: cp <origen> <destino>','nt-err');return;}
-          const sp=resolvePath(src),dp=resolvePath(dst);const node=await Kernel.fs.stat(sp);
+          const sp=resolvePath(src);let dp=resolvePath(dst);const node=await Kernel.fs.stat(sp);
           if(!node||node.type!=='file'){print(`cp: '${src}': no es un archivo regular`,'nt-err');return;}
+          const dNode=await Kernel.fs.stat(dp);
+          if(dNode&&dNode.type==='dir')dp=`${dp}/${node.name}`.replace(/\/+/g,'/');
           if(node.encoding==='binary'){const blob=await Kernel.fs.readBlob(sp);await Kernel.fs.writeBinary(dp,blob,node.mime);}
           else{const c=await Kernel.fs.read(sp);await Kernel.fs.write(dp,c);}
-          print(`cp: '${src}' → '${dst}'`,'nt-success');
+          print(`cp: '${src}' → '${dp}'`,'nt-success');
         },
         async touch([pa]){
           if(!pa){print('Uso: touch <ruta>','nt-err');return;}
@@ -2230,7 +2433,7 @@ function withNativeSystemApps(apps) {
               const e=all[i];const isLast=i===all.length-1;const sym=isLast?'└── ':'├── ';
               const cls=e.type==='dir'?'nt-dir':'nt-file';
               const tag=e.encoding==='binary'?` <span style="color:var(--amber);font-size:0.85em">[bin]</span>`:'';
-              printHTML(`${prefix}${sym}<span class="${cls}">${e.name}${e.type==='dir'?'/':''}</span>${tag}`);
+printHTML(`${prefix}${sym}<span class="${cls}">${escapeHtml(e.name)}${e.type==='dir'?'/':''}</span>${tag}`);
               if(e.type==='dir')await printTree(e.id,prefix+(isLast?'    ':'│   '));
             }
           }
@@ -2271,11 +2474,12 @@ function withNativeSystemApps(apps) {
             `   ██╔══██║██║   ██║██╔══╝  ██╔══██╗██║   ██║╚════██║`,
             `   ██║  ██║╚██████╔╝███████╗██████╔╝╚██████╔╝███████║`,
             `   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚══════╝`,``];
-          const info=[``,`OS: HUEBOS v0.3.0 Cyberhacker Glass`,`Kernel: HUEBOS Kernel v0.3.0`,
+          const info=[``,`OS: HUEBOS v0.4.0 Cyberhacker Glass`,`Kernel: HUEBOS Kernel v0.4.0 (UEFI)`,
             `Shell: Cyberhacker+Aero Glass`,`Resolution: ${screen.width}×${screen.height}`,
             `CPU: ${navigator.hardwareConcurrency} core(s)`,
             `Memory: ${navigator.deviceMemory?navigator.deviceMemory+' GB':'N/D'}`,
-            `Uptime: ${upStr}`,`Session: #${session.count??'?'}`,`PID: ${termProc.pid}`,`CWD: ${cwd}`];
+            `Uptime: ${upStr}`,`Session: #${session.count??'?'}`,`PID: ${termProc.pid}`,`CWD: ${cwd}`,
+            `Safe Mode: ${Kernel.safeMode?'ON':'off'}`];
           lines.forEach((l,i)=>{
             const inf=info[i-1]||'';
             printHTML(`<span style="color:var(--g);opacity:0.9">${l}</span>  <span style="color:var(--amber)">${inf}</span>`);
@@ -2283,6 +2487,67 @@ function withNativeSystemApps(apps) {
           print('','nt-line');
         },
         async clear(){output.innerHTML='';},
+        async env(args){
+          if(args.length===0){
+            const all=await Kernel.env.all();
+            const keys=Object.keys(all).sort();
+            if(!keys.length){print('(sin variables de entorno)','nt-dim');return;}
+            keys.forEach(k=>printHTML(`  <span style="color:var(--g)">${k}</span>=<span style="color:var(--amber)">${escapeHtml(String(all[k]))}</span>`));
+          }else{
+            const kv=args.join(' ');
+            const eq=kv.indexOf('=');
+            if(eq<0){const v=await Kernel.env.get(kv);print(v===null?'(undefined)':String(v),'nt-out');return;}
+            const key=kv.slice(0,eq).trim();const val=kv.slice(eq+1).trim();
+            if(!key){print('Uso: env KEY=VAL o env KEY','nt-err');return;}
+            await Kernel.env.set(key,val);print(`env: ${key}=${val}`,'nt-success');
+          }
+        },
+        async whoami(){
+          const u=await Kernel.users.current();
+          if(u)printHTML(`  <span style="color:var(--g)">${u.id}</span> <span style="color:var(--g-dim)">(${u.name})</span> <span style="color:var(--amber)">[${u.role}]</span>`);
+          else print('(no autenticado)','nt-dim');
+        },
+        async useradd(args){
+          const id=args[0];const name=args.slice(1).join(' ')||id;
+          if(!id){print('Uso: useradd <id> [nombre]','nt-err');return;}
+          try{const u=await Kernel.users.create(id,name);print(`useradd: usuario '${u.id}' creado`,'nt-success');}
+          catch(e){print(`useradd: ${e.message}`,'nt-err');}
+        },
+        async passwd(args){
+          const id=args[0]||(await Kernel.users.current())?.id;
+          if(!id){print('Uso: passwd [id]  (sin sesión activa, especifica id)','nt-err');return;}
+          const user=await Kernel.users.get(id);
+          if(!user){print(`passwd: usuario '${id}' no existe`,'nt-err');return;}
+          /* Prompt inline simple */
+          print(`passwd: escriba nueva contraseña para '${id}':`,'nt-info');
+          cmdInput.type='password';cmdInput.value='';cmdInput.placeholder='nueva contraseña…';
+          const handler=async(e)=>{
+            if(e.key==='Enter'){
+              e.preventDefault();cmdInput.removeEventListener('keydown',handler);
+              const pw=cmdInput.value;cmdInput.value='';cmdInput.type='text';cmdInput.placeholder='';
+              user.password=pw;
+              const list=await Kernel.users.list();
+              const idx=list.findIndex(u=>u.id===id);
+              if(idx>=0){list[idx]=user;await Kernel.prefs.set('users.list',list);}
+              print(`passwd: contraseña actualizada para '${id}'`,'nt-success');
+            }
+          };
+          cmdInput.addEventListener('keydown',handler);
+        },
+        async reboot(args){
+          const safe=args[0]==='safe';
+          if(safe){sessionStorage.setItem('huebos_safe_mode','1');print('reboot: reiniciando en SAFE MODE…','nt-amber');}
+          else{sessionStorage.removeItem('huebos_safe_mode');print('reboot: reiniciando…','nt-info');}
+          setTimeout(()=>window.location.href='./index.html',800);
+        },
+        async uefi(){
+          print('uefi: abriendo firmware UEFI…','nt-info');
+          window.open('./uefi.html','_blank');
+        },
+        async safe_mode(){
+          print(`Safe Mode: ${Kernel.safeMode?'ACTIVO ⚠':'inactivo'}`,'nt-info');
+          print('Use "reboot safe" para iniciar en Safe Mode.','nt-dim');
+        },
       };
 
       cmdInput.addEventListener('keydown',async e=>{
@@ -2298,8 +2563,7 @@ function withNativeSystemApps(apps) {
           try{
             const entries=await Kernel.fs.readdir(dir);const matches=entries.filter(e=>e.name.startsWith(pfx));
             if(matches.length===1){parts[parts.length-1]=(partial.includes('/')?partial.slice(0,partial.lastIndexOf('/')+1):'')+matches[0].name+(matches[0].type==='dir'?'/':'');cmdInput.value=parts.join(' ');}
-            else if(matches.length>1){print(parts.join(' '),'nt-dim');printHTML(matches.map(m=>`<span class="${m.type==='dir'?'nt-dir':'nt-file'}">${m.name}${m.type==='dir'?'/':''}</span>`).join('  '));scrollBottom();}
-          }catch{}
+            else if(matches.length>1){print(parts.join(' '),'nt-dim');printHTML(matches.map(m=>`<span class="${m.type==='dir'?'nt-dir':'nt-file'}">${escapeHtml(m.name)}${m.type==='dir'?'/':''}</span>`).join('  '));scrollBottom();}          }catch{}
         }
         else if(e.key==='l'&&e.ctrlKey){e.preventDefault();output.innerHTML='';}
       });
@@ -2313,6 +2577,7 @@ function withNativeSystemApps(apps) {
 
     /* ══ KERNEL INTEGRATION ══ */
     let _shellReady=false;
+    let _desktopReady=false;
 
     async function loadAppsFromIndex(){
       const res=await fetch('./apps/index.json',{cache:'no-store'});
@@ -2360,6 +2625,182 @@ async function resolveShellApps(kernel){
       if(_shellReady)return; _shellReady=true;
       window.__toast=Toast.show.bind(Toast);
 
+      /* ══ LOCK SCREEN ══ */
+      const lockScreen=document.getElementById('lock-screen');
+      const lockTime=document.getElementById('lock-time');
+      const lockDate=document.getElementById('lock-date');
+      const lockAvatar=document.getElementById('lock-avatar');
+      const lockUsername=document.getElementById('lock-username');
+      const lockPassword=document.getElementById('lock-password');
+      const lockUnlockBtn=document.getElementById('lock-unlock-btn');
+      const lockHint=document.getElementById('lock-hint');
+      const lockSafeBadge=document.getElementById('lock-safe-badge');
+
+      let _lockClockInterval=null;
+      function updateLockClock(){
+        const now=new Date();
+        const days=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+        const months=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+        if(lockTime)lockTime.textContent=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        if(lockDate)lockDate.textContent=`${days[now.getDay()]}, ${now.getDate()} de ${months[now.getMonth()]}`;
+      }
+
+      /* Actualizar reloj y foco inmediatamente, sin esperar al Kernel */
+      updateLockClock();
+      if(_lockClockInterval)clearInterval(_lockClockInterval);
+      _lockClockInterval=setInterval(updateLockClock,1000);
+      if(lockUsername)lockUsername.textContent='Invitado';
+      setTimeout(()=>{if(lockPassword&&!lockScreen.classList.contains('hidden'))lockPassword.focus();},100);
+
+      async function showLockScreen(animate){
+        if(!lockScreen)return;
+        const user=await kernel.users.current();
+        if(user){
+          lockUsername.textContent=user.name||user.id;
+          lockAvatar.textContent=user.role==='admin'?'🛡':'👤';
+        }else{
+          lockUsername.textContent='Invitado';
+          lockAvatar.textContent='👤';
+        }
+        if(kernel.safeMode){lockSafeBadge.style.display='block';}
+        else{lockSafeBadge.style.display='none';}
+        /* Determinar si hay que pedir contraseña */
+        const requirePwd=await kernel.prefs.get('security.lockPassword')||false;
+        const secPwd=await kernel.prefs.get('security.password')||'';
+        let userPwd='';
+        if(user){const u=await kernel.users.get(user.id);userPwd=u?.password||'';}
+        const storedPwd=secPwd||userPwd;
+        const needPassword=requirePwd&&storedPwd;
+        lockPassword.value='';
+        if(needPassword){
+          lockPassword.style.display='';
+          lockUnlockBtn.style.display='';
+          lockHint.textContent='Introduce tu contraseña para desbloquear';
+          lockHint.style.color='';
+        }else{
+          lockPassword.style.display='none';
+          lockUnlockBtn.style.display='none';
+          lockHint.textContent='Presiona cualquier tecla para desbloquear';
+          lockHint.style.color='';
+        }
+        document.body.classList.add('locked');
+        lockScreen.classList.remove('hidden');
+        if(animate){lockScreen.classList.add('animate-in');lockScreen.addEventListener('animationend',()=>lockScreen.classList.remove('animate-in'),{once:true});}
+        updateLockClock();
+        if(_lockClockInterval)clearInterval(_lockClockInterval);
+        _lockClockInterval=setInterval(updateLockClock,1000);
+        setTimeout(()=>{if(needPassword)lockPassword.focus();},100);
+      }
+
+      async function tryUnlock(){
+        const requirePwd=await kernel.prefs.get('security.lockPassword')||false;
+        const secPwd=await kernel.prefs.get('security.password')||'';
+        /* También validar contra user.password de users.list */
+        const cur=await kernel.users.current();
+        let userPwd='';
+        if(cur){
+          const user=await kernel.users.get(cur.id);
+          userPwd=user?.password||'';
+        }
+        const storedPwd=secPwd||userPwd;
+        /* Si hay contraseña configurada y el flag está activo, validar */
+        if(requirePwd&&storedPwd){
+          const pw=lockPassword.value;
+          if(pw!==storedPwd){
+            lockPassword.classList.add('lock-error');
+            lockHint.textContent='Contraseña incorrecta';
+            lockHint.style.color='var(--red,#ff4466)';
+            setTimeout(()=>lockPassword.classList.remove('lock-error'),400);
+            lockPassword.value='';
+            lockPassword.focus();
+            return;
+          }
+        }
+        /* Sin contraseña o validación correcta = desbloquear */
+        lockScreen.classList.add('hidden');
+        document.body.classList.remove('locked');
+        if(_lockClockInterval){clearInterval(_lockClockInterval);_lockClockInterval=null;}
+        Toast.show('Sesión desbloqueada','ok','LOCK');
+        /* Inicializar el escritorio solo después de autenticarse */
+        initDesktop(kernel);
+      }
+
+      if(lockUnlockBtn)lockUnlockBtn.addEventListener('click',tryUnlock);
+      if(lockPassword)lockPassword.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();tryUnlock();}});
+      /* Cualquier tecla desbloquea cuando NO hay contraseña configurada.
+         Si hay contraseña, solo Enter en el campo la valida. */
+      let _unlocking=false;
+      document.addEventListener('keydown',async function _lockKeyHandler(e){
+        if(!document.body.classList.contains('locked'))return;
+        if(_unlocking)return;
+        /* Ignorar teclas modificadoras solas y combinaciones de bloqueo */
+        if(e.key==='Meta'||e.key==='Control'||e.key==='Alt'||e.key==='Shift')return;
+        if((e.metaKey||(e.ctrlKey&&e.altKey))&&e.key.toLowerCase()==='l')return;
+        const requirePwd=await kernel.prefs.get('security.lockPassword')||false;
+        const secPwd=await kernel.prefs.get('security.password')||'';
+        const cur=await kernel.users.current();
+        let userPwd='';
+        if(cur){const user=await kernel.users.get(cur.id);userPwd=user?.password||'';}
+        const storedPwd=secPwd||userPwd;
+        if(requirePwd&&storedPwd){
+          /* Hay contraseña: si el evento viene del campo, Enter ya lo maneja.
+             Si viene de fuera, enfocar el campo. */
+          if(e.target!==lockPassword){
+            e.preventDefault();
+            if(lockPassword)lockPassword.focus();
+          }
+          return;
+        }
+        /* Sin contraseña: cualquier tecla desbloquea */
+        e.preventDefault();
+        _unlocking=true;
+        try{ await tryUnlock(); }catch(_){}
+        _unlocking=false;
+      });
+
+      /* Botón reiniciar en lock screen */
+      const lockRebootBtn=document.getElementById('lock-reboot-btn');
+      if(lockRebootBtn)lockRebootBtn.addEventListener('click',()=>{
+        if(confirm('¿Reiniciar HUEBOS?'))location.reload();
+      });
+
+      /* Win+L = bloquear (solo si NO estamos ya en lock screen) */
+      document.addEventListener('keydown',e=>{
+        if(document.body.classList.contains('locked'))return;
+        if(e.metaKey&&e.key.toLowerCase()==='l'){e.preventDefault();showLockScreen(true);}
+        if(e.ctrlKey&&e.altKey&&e.key.toLowerCase()==='l'){e.preventDefault();showLockScreen(true);}
+      });
+
+      /* Mostrar lock al arrancar si la preferencia está activa (default ON) */
+      /* La lock screen ya está visible desde el HTML (sin hidden) y body.locked oculta el escritorio */
+      (async()=>{
+        const uefi=await kernel.prefs.get('uefi.config')||{};
+        const lockOnBoot=uefi.lockScreen!==false; /* default ON */
+        if(lockOnBoot){
+          await showLockScreen(false); /* sin animación: ya está visible desde el HTML */
+        } else {
+          lockScreen.classList.add('hidden'); /* ocultar si la preferencia está desactivada */
+          document.body.classList.remove('locked');
+          initDesktop(kernel); /* sin lock screen: inicializar escritorio directamente */
+        }
+        /* Fade-out del overlay negro tras decidir el estado del lock screen */
+        const overlay=document.getElementById('boot-fade-overlay');
+        if(overlay){
+          overlay.classList.add('fade-out');
+          overlay.addEventListener('transitionend',()=>overlay.remove(),{once:true});
+          /* Fallback: remover tras 1s por si transitionend no dispara */
+          setTimeout(()=>{if(overlay.parentNode)overlay.remove();},1000);
+        }
+      })();
+
+      /* Exponer para uso desde apps */
+      window.__wos_lock=()=>showLockScreen(true);
+    }
+
+    /* ══ ESCRITORIO — solo se inicializa tras autenticación ══ */
+    function initDesktop(kernel){
+      if(_desktopReady)return; _desktopReady=true;
+
       document.addEventListener('keydown',e=>{
         if(e.ctrlKey&&e.altKey&&e.key.toLowerCase()==='t'){e.preventDefault();createNativeTerminal(null);}
       });
@@ -2370,7 +2811,10 @@ async function resolveShellApps(kernel){
           try{const p=new URL(url);if(p.origin===window.location.origin)window.location.href=url;}
           catch{console.warn('[shell] wos:reboot: URL inválida ignorada',url);}
         }
+        if(type==='wos:lock'){window.__wos_lock&&window.__wos_lock();}
       });
+      const startLockBtn=document.getElementById('start-lock');
+      if(startLockBtn)startLockBtn.addEventListener('click',()=>{window.__wos_lock&&window.__wos_lock();});
       window.__wos={
         launch(appId,opts={}){
           Promise.resolve(_runtimeApps.get(appId)).then(app=>app||kernel.apps.get(appId)).then(app=>{
@@ -2403,12 +2847,17 @@ async function resolveShellApps(kernel){
         if(!wd){const proc=kernel.procs.get(pid);if(proc&&proc.autoWindow)WM.createWindow(proc,proc.windowOpts||{});}
       });
 
-      setTimeout(()=>Toast.show('HUEBOS Cyberhacker Glass activa','ok','SISTEMA'),400);
-setTimeout(()=>{
-  if(Kernel.session.firstRun){
-    Toast.show('Bienvenido a HUEBOS. Doble clic para apps. Ctrl+Alt+T terminal.','info','BIENVENIDA',7000);
-  }
-},1200);
+      setTimeout(()=>{
+        if(kernel.safeMode){
+          Toast.show('⚠ SAFE MODE activo — configuración omitida','amber','SAFE MODE',6000);
+        }
+        Toast.show('HUEBOS Cyberhacker Glass activa','ok','SISTEMA');
+      },400);
+      setTimeout(()=>{
+        if(Kernel.session.firstRun){
+          Toast.show('Bienvenido a HUEBOS. Doble clic para apps. Ctrl+Alt+T terminal.','info','BIENVENIDA',7000);
+        }
+      },1200);
     }
 
     function waitForKernel(){

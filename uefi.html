@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HUEBOS · UEFI Setup</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    :root{
+      --blue:#5b9bf5;--blue-dim:#3a6fb0;--blue-faint:#0a1a2e;
+      --amber:#ffb300;--red:#ff5555;--green:#00ff88;
+      --bg:#050a14;--panel:#0a1428;--panel-border:#1a2a4a;
+      --text:#c8d8f0;--text-dim:#6a7a9a;
+    }
+    html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;}
+    body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.15) 0,rgba(0,0,0,0.15) 1px,transparent 1px,transparent 3px);}
+    body::after{content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;background:radial-gradient(ellipse 90% 85% at 50% 50%,transparent 55%,rgba(0,0,0,0.7) 100%);}
+
+    #uefi{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;padding:1.2rem 2rem;gap:0.8rem;}
+    .uefi-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--panel-border);padding-bottom:0.6rem;}
+    .uefi-title{font-family:'VT323',monospace;font-size:1.6rem;color:var(--blue);text-shadow:0 0 8px #5b9bf588;letter-spacing:0.1em;}
+    .uefi-version{font-size:0.7rem;color:var(--text-dim);letter-spacing:0.15em;}
+    .uefi-body{flex:1;display:grid;grid-template-columns:200px 1fr;gap:1rem;overflow:hidden;}
+    .uefi-nav{display:flex;flex-direction:column;gap:0.15rem;border-right:1px solid var(--panel-border);padding-right:0.8rem;}
+    .nav-item{padding:0.5rem 0.8rem;font-size:0.78rem;color:var(--text-dim);cursor:pointer;border-left:2px solid transparent;letter-spacing:0.05em;transition:all 0.15s;}
+    .nav-item:hover{color:var(--text);background:rgba(91,155,245,0.08);}
+    .nav-item.active{color:var(--blue);border-left-color:var(--blue);background:rgba(91,155,245,0.12);text-shadow:0 0 6px #5b9bf566;}
+    .uefi-content{overflow-y:auto;padding-right:0.4rem;}
+    .uefi-content::-webkit-scrollbar{width:6px;}
+    .uefi-content::-webkit-scrollbar-thumb{background:var(--panel-border);}
+    .panel{display:none;}
+    .panel.active{display:block;}
+    .panel-title{font-size:0.85rem;color:var(--blue);letter-spacing:0.12em;margin-bottom:1rem;padding-bottom:0.4rem;border-bottom:1px dashed var(--panel-border);}
+    .opt-row{display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid rgba(26,42,74,0.4);gap:1rem;}
+    .opt-label{font-size:0.78rem;color:var(--text);}
+    .opt-desc{font-size:0.65rem;color:var(--text-dim);margin-top:0.2rem;max-width:380px;line-height:1.4;}
+    .opt-control{flex-shrink:0;}
+    select,input[type="number"],input[type="text"]{background:var(--panel);border:1px solid var(--panel-border);color:var(--text);font-family:inherit;font-size:0.75rem;padding:0.3rem 0.5rem;min-width:160px;outline:none;}
+    select:focus,input:focus{border-color:var(--blue);box-shadow:0 0 6px #5b9bf544;}
+    .toggle{position:relative;width:42px;height:20px;background:var(--panel);border:1px solid var(--panel-border);cursor:pointer;border-radius:10px;transition:background 0.2s;}
+    .toggle::after{content:'';position:absolute;top:1px;left:1px;width:16px;height:16px;background:var(--text-dim);border-radius:50%;transition:all 0.2s;}
+    .toggle.on{background:rgba(91,155,245,0.25);border-color:var(--blue);}
+    .toggle.on::after{left:23px;background:var(--blue);box-shadow:0 0 8px #5b9bf588;}
+    .uefi-footer{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--panel-border);padding-top:0.6rem;}
+    .footer-hint{font-size:0.65rem;color:var(--text-dim);letter-spacing:0.08em;}
+    .footer-hint kbd{background:var(--panel);border:1px solid var(--panel-border);padding:1px 6px;font-family:inherit;font-size:0.65rem;color:var(--blue);}
+    .btn{padding:0.45rem 1.2rem;font-family:inherit;font-size:0.75rem;letter-spacing:0.1em;cursor:pointer;border:1px solid;transition:all 0.15s;}
+    .btn-save{border-color:var(--blue);color:var(--blue);background:rgba(91,155,245,0.1);}
+    .btn-save:hover{background:var(--blue);color:var(--bg);box-shadow:0 0 12px #5b9bf566;}
+    .btn-discard{border-color:var(--text-dim);color:var(--text-dim);background:transparent;}
+    .btn-discard:hover{border-color:var(--red);color:var(--red);}
+    .info-box{background:var(--panel);border:1px solid var(--panel-border);padding:0.8rem;font-size:0.7rem;color:var(--text-dim);line-height:1.6;margin-bottom:1rem;}
+    .info-box strong{color:var(--blue);}
+    .info-row{display:flex;justify-content:space-between;padding:0.2rem 0;}
+    .toast{position:fixed;bottom:5rem;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--blue);color:var(--blue);padding:0.6rem 1.5rem;font-size:0.75rem;letter-spacing:0.1em;box-shadow:0 0 16px #5b9bf544;z-index:10000;opacity:0;transition:opacity 0.3s;pointer-events:none;}
+    .toast.show{opacity:1;}
+    .leaving{animation:fadeOut 0.6s ease forwards;}
+    @keyframes fadeOut{to{opacity:0;}}
+    .btn-danger{border-color:var(--red);color:var(--red);background:rgba(255,85,85,0.1);}
+    .btn-danger:hover{background:var(--red);color:var(--bg);box-shadow:0 0 12px #ff555566;}
+    .danger-box{background:rgba(255,85,85,0.06);border:1px solid rgba(255,85,85,0.3);padding:0.8rem;font-size:0.7rem;color:var(--text-dim);line-height:1.6;margin-bottom:1rem;}
+    .danger-box strong{color:var(--red);}
+    .confirm-overlay{position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s;}
+    .confirm-overlay.show{opacity:1;pointer-events:auto;}
+    .confirm-box{background:var(--panel);border:1px solid var(--red);padding:1.5rem;max-width:420px;text-align:center;box-shadow:0 0 24px rgba(255,85,85,0.3);}
+    .confirm-box h3{color:var(--red);font-size:0.85rem;letter-spacing:0.1em;margin-bottom:0.8rem;text-shadow:0 0 8px rgba(255,85,85,0.5);}
+    .confirm-box p{font-size:0.72rem;color:var(--text-dim);line-height:1.5;margin-bottom:1.2rem;}
+    .confirm-box .btn{margin:0 0.4rem;}
+  </style>
+</head>
+<body>
+  <div id="uefi">
+    <div class="uefi-header">
+      <div class="uefi-title">⚙ HUEBOS UEFI SETUP</div>
+      <div class="uefi-version">FIRMWARE v0.4.0 · HUEBOS BIOS</div>
+    </div>
+
+    <div class="uefi-body">
+      <nav class="uefi-nav" id="nav"></nav>
+      <div class="uefi-content" id="content"></div>
+    </div>
+
+    <div class="uefi-footer">
+      <div class="footer-hint">Navega con <kbd>↑</kbd><kbd>↓</kbd> · Cambia con <kbd>Enter</kbd> · Guarda con <kbd>F10</kbd> · Salir sin guardar con <kbd>Esc</kbd></div>
+      <div style="display:flex;gap:0.6rem;">
+        <button class="btn btn-discard" id="btn-discard">Descartar y salir</button>
+        <button class="btn btn-save" id="btn-save">Guardar y reiniciar</button>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+  ;(function(){
+    'use strict';
+
+    const STORAGE_KEY='huebos_uefi';
+    const DEFAULTS={
+      'boot.timeout':3,
+      'boot.mode':'normal',
+      'boot.verbose':false,
+      'boot.skipLock':false,
+      'system.lang':'es',
+      'boot.theme':'green',
+    };
+
+    let config=loadConfig();
+    let activePanel='boot';
+
+    function loadConfig(){
+      try{const raw=localStorage.getItem(STORAGE_KEY);if(raw)return{...DEFAULTS,...JSON.parse(raw)};}catch{}
+      return{...DEFAULTS};
+    }
+    function saveConfig(){localStorage.setItem(STORAGE_KEY,JSON.stringify(config));}
+
+    const PANELS=[
+      {id:'boot',label:'▸ Boot',build:buildBoot},
+      {id:'system',label:'▸ Sistema',build:buildSystem},
+      {id:'security',label:'▸ Seguridad',build:buildSecurity},
+      {id:'format',label:'▸ Formatear',build:buildFormat},
+      {id:'info',label:'▸ Info Firmware',build:buildInfo},
+    ];
+
+    function init(){
+      buildNav();
+      renderPanel(activePanel);
+      document.getElementById('btn-save').addEventListener('click',saveAndReboot);
+      document.getElementById('btn-discard').addEventListener('click',discardAndExit);
+      document.addEventListener('keydown',handleKey);
+    }
+
+    function buildNav(){
+      const nav=document.getElementById('nav');
+      nav.innerHTML='';
+      PANELS.forEach(p=>{
+        const el=document.createElement('div');
+        el.className='nav-item'+(p.id===activePanel?' active':'');
+        el.textContent=p.label;
+        el.dataset.id=p.id;
+        el.addEventListener('click',()=>{activePanel=p.id;renderPanel(p.id);});
+        nav.appendChild(el);
+      });
+    }
+
+    function renderPanel(id){
+      activePanel=id;
+      document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.id===id));
+      const content=document.getElementById('content');
+      content.innerHTML='';
+      const panel=PANELS.find(p=>p.id===id);
+      if(panel){const div=document.createElement('div');div.className='panel active';content.appendChild(div);panel.build(div);}
+    }
+
+    function toggle(on){return on?'on':'';}
+    function makeToggle(key){
+      const t=document.createElement('div');
+      t.className='toggle '+toggle(config[key]);
+      t.addEventListener('click',()=>{config[key]=!config[key];t.className='toggle '+toggle(config[key]);});
+      return t;
+    }
+    function makeSelect(key,options){
+      const s=document.createElement('select');
+      options.forEach(o=>{const opt=document.createElement('option');opt.value=o.value;opt.textContent=o.label;s.appendChild(opt);});
+      s.value=config[key];
+      s.addEventListener('change',()=>{config[key]=s.value;});
+      return s;
+    }
+    function makeNumber(key,min,max){
+      const i=document.createElement('input');i.type='number';i.min=min;i.max=max;i.value=config[key];
+      i.addEventListener('change',()=>{const v=parseInt(i.value,10);if(!isNaN(v)&&v>=min&&v<=max)config[key]=v;else i.value=config[key];});
+      return i;
+    }
+    function row(label,desc,control){
+      const r=document.createElement('div');r.className='opt-row';
+      const left=document.createElement('div');
+      const l=document.createElement('div');l.className='opt-label';l.textContent=label;
+      const d=document.createElement('div');d.className='opt-desc';d.textContent=desc;
+      left.appendChild(l);left.appendChild(d);
+      const c=document.createElement('div');c.className='opt-control';c.appendChild(control);
+      r.appendChild(left);r.appendChild(c);
+      return r;
+    }
+
+    function buildBoot(parent){
+      const title=document.createElement('div');title.className='panel-title';title.textContent='CONFIGURACIÓN DE ARRANQUE';
+      parent.appendChild(title);
+      parent.appendChild(row('Timeout de boot (seg)','Segundos que el BIOS espera antes de arrancar automáticamente. 0 = arranque inmediato sin opción a UEFI.',makeNumber('boot.timeout',0,30)));
+      parent.appendChild(row('Modo de arranque','Safe mode omite apps, atajos de escritorio y extensiones. Solo FS, prefs y sesión. Útil para recuperación.',makeSelect('boot.mode',[{value:'normal',label:'Normal'},{value:'safe',label:'Safe Mode'}])));
+      parent.appendChild(row('Verbose boot','Muestra logs detallados de cada subsistema durante el arranque en index.html.',makeToggle('boot.verbose')));
+      parent.appendChild(row('Tema de boot','Color del texto de la pantalla de arranque (BIOS POST).',makeSelect('boot.theme',[{value:'green',label:'Verde (clásico)'},{value:'amber',label:'Ámbar'},{value:'blue',label:'Azul'},{value:'white',label:'Blanco'}])));
+    }
+
+    function buildSystem(parent){
+      const title=document.createElement('div');title.className='panel-title';title.textContent='CONFIGURACIÓN DEL SISTEMA';
+      parent.appendChild(title);
+      parent.appendChild(row('Idioma del sistema','Idioma por defecto para la interfaz y mensajes del kernel.',makeSelect('system.lang',[{value:'es',label:'Español'},{value:'en',label:'English'}])));
+    }
+
+    function buildSecurity(parent){
+      const title=document.createElement('div');title.className='panel-title';title.textContent='SEGURIDAD DE ARRANQUE';
+      parent.appendChild(title);
+      const info=document.createElement('div');info.className='info-box';
+      info.innerHTML='<strong>Nota:</strong> La pantalla de bloqueo y las contraseñas de usuario se gestionan desde Configuración → Seguridad dentro del sistema. Aquí solo puedes omitir el bloqueo a nivel de firmware.';
+      parent.appendChild(info);
+      parent.appendChild(row('Saltar pantalla de bloqueo','Si está activo, el sistema arranca directamente al escritorio sin pedir contraseña, ignorando la preferencia "Bloquear al iniciar".',makeToggle('boot.skipLock')));
+    }
+
+    function buildFormat(parent){
+      const title=document.createElement('div');title.className='panel-title';title.style.color='var(--red)';title.textContent='⚠ FORMATEAR SISTEMA';
+      parent.appendChild(title);
+
+      const danger=document.createElement('div');danger.className='danger-box';
+      danger.innerHTML='<strong>⚠ PELIGRO:</strong> El formateo elimina <strong>permanentemente</strong> toda la base de datos <strong>huebos_db</strong> de IndexedDB. Se perderán todos los archivos, preferencias, apps registradas y datos de sesión. El sistema arrancará limpio como recién instalado. Esta acción es <strong>irreversible</strong>.';
+      parent.appendChild(danger);
+
+      const info=document.createElement('div');info.className='info-box';
+      info.innerHTML='<strong>Nota:</strong> A diferencia del formateo desde Configuración (que requiere estar dentro del sistema), este formateo funciona a nivel de firmware. Útil si el sistema no arranca o quedaste bloqueado en la pantalla de login.';
+      parent.appendChild(info);
+
+      // Botón formatear completo
+      const row1=document.createElement('div');row1.className='opt-row';
+      const left1=document.createElement('div');
+      const l1=document.createElement('div');l1.className='opt-label';l1.style.color='var(--red)';l1.textContent='💥 Formateo completo de fábrica';
+      const d1=document.createElement('div');d1.className='opt-desc';d1.textContent='Elimina toda la base de datos IndexedDB. El sistema arrancará limpio sin archivos, preferencias ni usuarios guardados.';
+      left1.appendChild(l1);left1.appendChild(d1);
+      const btn1=document.createElement('button');btn1.className='btn btn-danger';btn1.textContent='💥 FORMATEAR';
+      btn1.addEventListener('click',()=>confirmFormat('full'));
+      const c1=document.createElement('div');c1.className='opt-control';c1.appendChild(btn1);
+      row1.appendChild(left1);row1.appendChild(c1);
+      parent.appendChild(row1);
+
+      // Botón borrar solo FS
+      const row2=document.createElement('div');row2.className='opt-row';
+      const left2=document.createElement('div');
+      const l2=document.createElement('div');l2.className='opt-label';l2.style.color='var(--amber)';l2.textContent='🗂️ Borrar solo sistema de archivos';
+      const d2=document.createElement('div');d2.className='opt-desc';d2.textContent='Elimina el store "fs" y "binary_blobs". Conserva preferencias y apps. El Kernel recreará el FS base al recargar.';
+      left2.appendChild(l2);left2.appendChild(d2);
+      const btn2=document.createElement('button');btn2.className='btn btn-discard';btn2.textContent='🗂️ BORRAR FS';
+      btn2.addEventListener('click',()=>confirmFormat('fs'));
+      const c2=document.createElement('div');c2.className='opt-control';c2.appendChild(btn2);
+      row2.appendChild(left2);row2.appendChild(c2);
+      parent.appendChild(row2);
+
+      // Botón borrar solo prefs (reset de preferencias)
+      const row3=document.createElement('div');row3.className='opt-row';
+      const left3=document.createElement('div');
+      const l3=document.createElement('div');l3.className='opt-label';l3.textContent='🔧 Restablecer preferencias';
+      const d3=document.createElement('div');d3.className='opt-desc';d3.textContent='Elimina el store "prefs". Útil si una preferencia corrupta impide el arranque. Conserva archivos y apps.';
+      left3.appendChild(l3);left3.appendChild(d3);
+      const btn3=document.createElement('button');btn3.className='btn btn-discard';btn3.textContent='🔧 RESET PREFS';
+      btn3.addEventListener('click',()=>confirmFormat('prefs'));
+      const c3=document.createElement('div');c3.className='opt-control';c3.appendChild(btn3);
+      row3.appendChild(left3);row3.appendChild(c3);
+      parent.appendChild(row3);
+    }
+
+    function confirmFormat(type){
+      const labels={
+        full:{title:'💥 FORMATEO COMPLETO',msg:'Se eliminará TODA la base de datos huebos_db. Perderás archivos, preferencias, apps y usuarios. ¿Estás completamente seguro?'},
+        fs:{title:'🗂️ BORRAR SISTEMA DE ARCHIVOS',msg:'Se eliminarán todos los archivos del store "fs". Las preferencias y apps se conservan. ¿Continuar?'},
+        prefs:{title:'🔧 RESET PREFERENCIAS',msg:'Se eliminarán todas las preferencias guardadas. Los archivos y apps se conservan. ¿Continuar?'}
+      };
+      const cfg=labels[type];
+      const overlay=document.createElement('div');overlay.className='confirm-overlay';
+      overlay.innerHTML=`<div class="confirm-box"><h3>${cfg.title}</h3><p>${cfg.msg}</p><button class="btn btn-danger" id="cf-yes">Sí, formatear</button><button class="btn btn-discard" id="cf-no">Cancelar</button></div>`;
+      document.body.appendChild(overlay);
+      requestAnimationFrame(()=>overlay.classList.add('show'));
+      const close=()=>{overlay.classList.remove('show');setTimeout(()=>overlay.remove(),300);};
+      overlay.querySelector('#cf-no').addEventListener('click',close);
+      overlay.querySelector('#cf-yes').addEventListener('click',()=>{close();
+        if(type==='full') confirmFormatFinal();
+        else doFormat(type);
+      });
+    }
+
+    function confirmFormatFinal(){
+      const overlay=document.createElement('div');overlay.className='confirm-overlay';
+      overlay.innerHTML=`<div class="confirm-box"><h3>🔴 ÚLTIMA ADVERTENCIA</h3><p>Todos tus datos serán eliminados permanentemente. Esta es tu última oportunidad de cancelar.</p><button class="btn btn-danger" id="cf2-yes">Sí, eliminar todo</button><button class="btn btn-discard" id="cf2-no">Cancelar</button></div>`;
+      document.body.appendChild(overlay);
+      requestAnimationFrame(()=>overlay.classList.add('show'));
+      const close=()=>{overlay.classList.remove('show');setTimeout(()=>overlay.remove(),300);};
+      overlay.querySelector('#cf2-no').addEventListener('click',close);
+      overlay.querySelector('#cf2-yes').addEventListener('click',()=>{close();doFormat('full');});
+    }
+
+    async function doFormat(type){
+      showToast(type==='full'?'Formateando sistema…':type==='fs'?'Borrando archivos…':'Restableciendo prefs…');
+      document.body.classList.add('leaving');
+      try{
+        if(type==='full'){
+          // deleteDatabase directo desde firmware (no hay Kernel cargado)
+          await new Promise((resolve)=>{
+            const req=indexedDB.deleteDatabase('huebos_db');
+            req.onsuccess=()=>resolve();
+            req.onerror=()=>resolve();
+            req.onblocked=()=>{setTimeout(()=>resolve(),1000);};
+          });
+          showToast('Base de datos eliminada. Reiniciando…');
+        }else{
+          // Abrir DB y limpiar stores específicos
+          await new Promise((resolve)=>{
+            const req=indexedDB.open('huebos_db');
+            req.onsuccess=(e)=>{
+              const db=e.target.result;
+              const stores=type==='fs'?['fs','binary_blobs']:['prefs'];
+              let done=0;
+              stores.forEach(name=>{
+                if(!db.objectStoreNames.contains(name)){done++;if(done===stores.length){db.close();resolve();}return;}
+                const tx=db.transaction(name,'readwrite');
+                tx.objectStore(name).clear();
+                tx.oncomplete=()=>{done++;if(done===stores.length){db.close();resolve();}};
+                tx.onerror=()=>{done++;if(done===stores.length){db.close();resolve();}};
+              });
+            };
+            req.onerror=()=>resolve();
+          });
+          showToast(type==='fs'?'Archivos borrados. Reiniciando…':'Preferencias restablecidas. Reiniciando…');
+        }
+      }catch(err){
+        showToast('Error: '+err.message);
+      }
+      setTimeout(()=>{window.location.href='index.html?boot=1';},1200);
+    }
+
+    function buildInfo(parent){
+      const title=document.createElement('div');title.className='panel-title';title.textContent='INFORMACIÓN DE FIRMWARE';
+      parent.appendChild(title);
+      const box=document.createElement('div');box.className='info-box';
+      const rows=[
+        ['Firmware','HUEBOS UEFI v0.4.0'],
+        ['BIOS Vendor','HuebOS Virtual BIOS'],
+        ['Build Date','2026-07-09'],
+        ['Config Storage','localStorage (pre-IndexedDB)'],
+        ['Config Key',STORAGE_KEY],
+      ];
+      rows.forEach(([k,v])=>{const r=document.createElement('div');r.className='info-row';r.innerHTML=`<span>${k}</span><strong>${v}</strong>`;box.appendChild(r);});
+      parent.appendChild(box);
+      const dump=document.createElement('div');dump.className='info-box';
+      dump.innerHTML='<strong>Config actual:</strong><pre style="margin-top:0.5rem;color:var(--green);font-size:0.7rem">'+JSON.stringify(config,null,2)+'</pre>';
+      parent.appendChild(dump);
+    }
+
+    function handleKey(e){
+      if(e.key==='F10'){e.preventDefault();saveAndReboot();}
+      else if(e.key==='Escape'){e.preventDefault();discardAndExit();}
+      else if(e.key==='ArrowUp'||e.key==='ArrowDown'){
+        e.preventDefault();
+        const items=[...document.querySelectorAll('.nav-item')];
+        const idx=items.findIndex(i=>i.classList.contains('active'));
+        const next=e.key==='ArrowUp'?(idx>0?idx-1:items.length-1):(idx<items.length-1?idx+1:0);
+        items[next].click();
+      }
+    }
+
+    function showToast(msg){
+      const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+      setTimeout(()=>t.classList.remove('show'),2000);
+    }
+
+    function saveAndReboot(){
+      saveConfig();
+      showToast('Configuración guardada. Reiniciando…');
+      document.body.classList.add('leaving');
+      setTimeout(()=>{window.location.href='index.html?boot=1';},800);
+    }
+    function discardAndExit(){
+      showToast('Descartando cambios…');
+      document.body.classList.add('leaving');
+      setTimeout(()=>{window.location.href='index.html?boot=1';},600);
+    }
+
+    init();
+  })();
+  </script>
+</body>
+</html>

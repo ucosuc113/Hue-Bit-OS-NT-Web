@@ -6,6 +6,7 @@
   ═══════════════════════════════════════════════════ */
   const DB_NAME    = 'huebos_db';
   const DB_VERSION = 3;           // v0.3.0: añade binary_blobs
+  const KERNEL_VERSION = '0.4.0'; // v0.4.0: UEFI + Env + Users + Safe Mode
 
   const STORES = {
     FS           : 'fs',
@@ -89,7 +90,22 @@
   const DB = {
     open() {
       return new Promise((resolve, reject) => {
+        let settled = false;
         const req = indexedDB.open(DB_NAME, DB_VERSION);
+
+        // Timeout: si la DB está bloqueada por un deleteDatabase pendiente,
+        // onsuccess/onerror/onblocked nunca disparan. Forzamos cierre y reintento.
+        const timeoutId = setTimeout(() => {
+          if (!settled) {
+            console.warn('[Kernel:db] open() timeout — forzando deleteDatabase y reintento');
+            settled = true;
+            try { req.onupgradeneeded = null; req.onsuccess = null; req.onerror = null; req.onblocked = null; } catch(_) {}
+            const delReq = indexedDB.deleteDatabase(DB_NAME);
+            delReq.onsuccess = () => { console.info('[Kernel:db] DB stale eliminada, reintentando open()'); setTimeout(() => resolve(DB.open()), 200); };
+            delReq.onerror = () => { setTimeout(() => resolve(DB.open()), 500); };
+            delReq.onblocked = () => { setTimeout(() => resolve(DB.open()), 1000); };
+          }
+        }, 4000);
 
         req.onupgradeneeded = (e) => {
           const db         = e.target.result;
@@ -115,14 +131,26 @@
         };
 
         req.onsuccess = (e) => {
+          clearTimeout(timeoutId);
           _db = e.target.result;
           console.info(`[Kernel:db] IndexedDB lista (v${DB_VERSION})`);
+          settled = true;
           resolve(_db);
         };
 
         req.onerror = (e) => {
+          clearTimeout(timeoutId);
           console.error('[Kernel:db] Error al abrir IndexedDB', e.target.error);
-          reject(e.target.error);
+          if (!settled) { settled = true; reject(e.target.error); }
+        };
+
+        req.onblocked = () => {
+          clearTimeout(timeoutId);
+          console.warn('[Kernel:db] open() bloqueado — otra conexión retiene la DB. Reintentando…');
+          if (!settled) {
+            settled = true;
+            setTimeout(() => resolve(DB.open()), 500);
+          }
         };
       });
     },
@@ -234,13 +262,18 @@
       return p === '/' ? '' : p.split('/').pop();
     },
 
-    _dirname(path) {
+_dirname(path) {
       const p = this._normalize(path);
       if (p === '/') return '';
       const parts = p.split('/');
       parts.pop();
       return parts.join('/') || '/';
     },
+
+    /* Alias públicos para que las apps no dependan de los métodos "_privados" */
+    normalize(path) { return this._normalize(path); },
+    dirname(path) { return this._dirname(path); },
+    basename(path) { return this._basename(path); },
 
     _isSystemProtectedPath(path) {
       const normalized = this._normalize(path);
@@ -445,6 +478,37 @@
       return stat;
     },
 
+    /* Crea un archivo vacío si no existe, o actualiza su mtime si ya existe.
+       Equivalente a `touch` de Unix. No sobrescribe contenido. */
+    async touch(path, opts = {}) {
+      path = this._normalize(path);
+      const existing = await DB.get(STORES.FS, path);
+      const now = Date.now();
+      if (existing) {
+        existing.mtime = now;
+        await DB.put(STORES.FS, existing);
+        return existing;
+      }
+      /* Crear archivo nuevo vacío */
+      const parent = this._dirname(path);
+      if (parent && parent !== '/') {
+        const parentNode = await DB.get(STORES.FS, parent);
+        if (!parentNode) throw new Error(`FS.touch: directorio padre '${parent}' no existe`);
+      }
+      const node = {
+        id: path,
+        type: 'file',
+        content: '',
+        parent,
+        mtime: now,
+        ctime: now,
+        meta: opts.meta || {},
+      };
+      await DB.put(STORES.FS, node);
+      EventBus.emit('fs:write', { path, content: '' });
+      return node;
+    },
+
     async readdir(path) {
       path = this._normalize(path);
       const node = await DB.get(STORES.FS, path);
@@ -492,15 +556,44 @@
       console.debug(`[Kernel:fs] remove ${target}`);
     },
 
-    async move(src, dst) {
+async move(src, dst) {
       const source = this._normalizeTargetPath(src, { kind: 'dir' });
-      const target = this._normalizeTargetPath(dst, { kind: 'dir' });
+      let target = this._normalizeTargetPath(dst, { kind: 'dir' });
       if (this._isSystemProtectedPath(source) || this._isSystemProtectedPath(target)) {
         throw new Error(`FS.move: '${source}' o '${target}' está protegido por el kernel`);
       }
       const node = await DB.get(STORES.FS, source);
       if (!node) throw new Error(`FS.move: '${source}' no existe`);
       if (this._isProtectedNode(node)) throw new Error(`FS.move: '${source}' está protegido`);
+
+      // Convención estilo "mv": si el destino es una carpeta existente, mover DENTRO de ella
+      const destAsIs = await DB.get(STORES.FS, target);
+      if (destAsIs && destAsIs.type === 'dir') {
+        target = this._normalize(`${target}/${this._basename(source)}`);
+      }
+
+      if (target === source) return node; // mismo origen y destino: no-op
+
+      // No permitir mover una carpeta dentro de sí misma o de un descendiente suyo
+      if (node.type === 'dir' && target.startsWith(source + '/')) {
+        throw new Error(`FS.move: no se puede mover '${source}' dentro de sí misma`);
+      }
+
+      // El destino final no puede chocar con un nodo existente de OTRO tipo
+      // (evita que un archivo reemplace una carpeta, o viceversa, dejando huérfanos)
+      const finalTarget = await DB.get(STORES.FS, target);
+      if (finalTarget && finalTarget.type !== node.type) {
+        throw new Error(`FS.move: ya existe '${target}' y es de tipo distinto (${finalTarget.type})`);
+      }
+
+      // El directorio padre del destino debe existir de verdad, no se crea solo
+      const targetParent = this._dirname(target);
+      if (targetParent) {
+        const parentNode = await DB.get(STORES.FS, targetParent);
+        if (!parentNode || parentNode.type !== 'dir') {
+          throw new Error(`FS.move: el directorio destino '${targetParent}' no existe`);
+        }
+      }
 
       if (node.type === 'dir') {
         const all = await DB.list(STORES.FS);
@@ -723,6 +816,173 @@
     async all() {
       const records = await DB.list(STORES.PREFS);
       return Object.fromEntries(records.map(r => [r.id, r.value]));
+    },
+  };
+
+  /* ═══════════════════════════════════════════════════
+     VARIABLES DE ENTORNO  (v0.4.0 — Env)
+     Persistidas en prefs con prefijo "env.".
+  ═══════════════════════════════════════════════════ */
+  const Env = {
+    _cache: null,
+
+    async _load() {
+      if (this._cache) return;
+      const all = await Prefs.all();
+      this._cache = {};
+      for (const [k, v] of Object.entries(all)) {
+        if (k.startsWith('env.')) this._cache[k.slice(4)] = v;
+      }
+    },
+
+    async get(key, defaultValue = null) {
+      await this._load();
+      return key in this._cache ? this._cache[key] : defaultValue;
+    },
+
+    async set(key, value) {
+      await this._load();
+      this._cache[key] = value;
+      await Prefs.set('env.' + key, value);
+      EventBus.emit('env:change', { key, value });
+    },
+
+    async unset(key) {
+      await this._load();
+      delete this._cache[key];
+      await Prefs.delete('env.' + key);
+      EventBus.emit('env:delete', { key });
+    },
+
+    async all() {
+      await this._load();
+      return { ...this._cache };
+    },
+
+    /* Expande $VAR o ${VAR} en un string */
+    async expand(str) {
+      await this._load();
+      return String(str).replace(/\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?/g, (m, name) => {
+        return name in this._cache ? this._cache[name] : m;
+      });
+    },
+  };
+
+  /* ═══════════════════════════════════════════════════
+     GESTIÓN DE USUARIOS  (v0.4.0 — Users)
+     Multiusuario simple: un usuario activo, datos en prefs.
+  ═══════════════════════════════════════════════════ */
+  const Users = {
+    _current: null,
+
+    async _loadUsers() {
+      const list = await Prefs.get('users.list', null);
+      if (list) return list;
+      /* Primera vez: crear usuario por defecto */
+      const defaultUser = {
+        id: 'admin',
+        name: 'Administrador',
+        password: '',
+        avatar: '👤',
+        role: 'admin',
+        createdAt: Date.now(),
+      };
+      await Prefs.set('users.list', [defaultUser]);
+      return [defaultUser];
+    },
+
+    async list() {
+      return this._loadUsers();
+    },
+
+    async get(id) {
+      const users = await this._loadUsers();
+      return users.find(u => u.id === id) || null;
+    },
+
+    async create(id, name, opts = {}) {
+      const users = await this._loadUsers();
+      if (users.find(u => u.id === id)) throw new Error(`Users.create: '${id}' ya existe`);
+      const user = {
+        id,
+        name: name || id,
+        password: opts.password || '',
+        avatar: opts.avatar || '👤',
+        role: opts.role || 'user',
+        createdAt: Date.now(),
+      };
+      users.push(user);
+      await Prefs.set('users.list', users);
+      EventBus.emit('users:created', { id });
+      return user;
+    },
+
+    async delete(id) {
+      if (id === 'admin') throw new Error('Users.delete: no se puede eliminar al administrador');
+      const users = await this._loadUsers();
+      const filtered = users.filter(u => u.id !== id);
+      await Prefs.set('users.list', filtered);
+      EventBus.emit('users:deleted', { id });
+    },
+
+    async login(id, password) {
+      const user = await this.get(id);
+      if (!user) throw new Error(`Users.login: usuario '${id}' no existe`);
+      /* Validar contra user.password (users.list) y security.password (prefs) */
+      const secPwd = await Prefs.get('security.password', '');
+      const effectivePwd = user.password || secPwd;
+      if (effectivePwd && effectivePwd !== password) {
+        throw new Error('Users.login: contraseña incorrecta');
+      }
+      this._current = { id: user.id, name: user.name, avatar: user.avatar, role: user.role };
+      await Prefs.set('users.current', this._current);
+      EventBus.emit('users:login', this._current);
+      return this._current;
+    },
+
+    async updateProfile(updates) {
+      const cur = await this.current();
+      if (!cur) throw new Error('Users.updateProfile: no hay sesión activa');
+      const list = await this._loadUsers();
+      const idx = list.findIndex(u => u.id === cur.id);
+      if (idx < 0) throw new Error(`Users.updateProfile: usuario '${cur.id}' no encontrado`);
+      Object.assign(list[idx], updates);
+      await Prefs.set('users.list', list);
+      this._current = { id: list[idx].id, name: list[idx].name, avatar: list[idx].avatar, role: list[idx].role };
+      await Prefs.set('users.current', this._current);
+      EventBus.emit('users:profileChanged', this._current);
+      return this._current;
+    },
+
+    async setPassword(newPassword) {
+      const cur = await this.current();
+      if (!cur) throw new Error('Users.setPassword: no hay sesión activa');
+      const list = await this._loadUsers();
+      const idx = list.findIndex(u => u.id === cur.id);
+      if (idx < 0) throw new Error(`Users.setPassword: usuario '${cur.id}' no encontrado`);
+      list[idx].password = newPassword || '';
+      await Prefs.set('users.list', list);
+      await Prefs.set('security.password', newPassword || '');
+      EventBus.emit('users:passwordChanged', { id: cur.id });
+      return true;
+    },
+
+    async logout() {
+      const prev = this._current;
+      this._current = null;
+      await Prefs.delete('users.current');
+      EventBus.emit('users:logout', prev);
+    },
+
+    async current() {
+      if (this._current) return this._current;
+      const stored = await Prefs.get('users.current', null);
+      this._current = stored;
+      return stored;
+    },
+
+    async isLoggedIn() {
+      return !!(await this.current());
     },
   };
 
@@ -1088,6 +1348,51 @@
     console.info(`[Kernel:session] sesión #${sessionCount} · id=${sessionId}${recoveredBoot ? ' · RECOVERED' : ''}`);
   }
 
+function _blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function _backupBeforeWipe() {
+  try {
+    const fsRecords = await DB.list(STORES.FS);
+    const blobRecords = await DB.list(STORES.BINARY_BLOBS);
+
+    const binaryBlobs = [];
+    for (const rec of blobRecords) {
+      try {
+        const base64 = await _blobToBase64(rec.data);
+        binaryBlobs.push({ id: rec.id, mtime: rec.mtime, base64 });
+      } catch (err) {
+        console.error(`[Kernel:fs] no se pudo respaldar el blob '${rec.id}':`, err);
+      }
+    }
+
+    const snapshot = {
+      exportedAt: new Date().toISOString(),
+      reason: 'fs.hierarchyVersion mismatch — backup automático antes de limpiar',
+      fs: fsRecords,
+      binaryBlobs,
+    };
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `huebos-backup-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    console.warn(`[Kernel:fs] backup descargado antes de reinicializar (${fsRecords.length} nodos, ${binaryBlobs.length} binarios)`);
+  } catch (err) {
+    console.error('[Kernel:fs] no se pudo generar el backup antes de reinicializar:', err);
+  }
+}
+
 async function _ensureFsHierarchy() {
   const currentVersion = await Prefs.get('fs.hierarchyVersion', 0);
   if (currentVersion === FS_HIERARCHY_VERSION) return;
@@ -1098,8 +1403,9 @@ async function _ensureFsHierarchy() {
     return;
   }
 
-  // Actualización real de jerarquía: limpiar y reconstruir
-  console.warn('[Kernel:fs] jerarquía de FS modificada, reinicializando IndexedDB');
+  // Actualización real de jerarquía: respaldar y reconstruir
+  console.warn('[Kernel:fs] jerarquía de FS modificada, generando backup y reinicializando IndexedDB');
+  await _backupBeforeWipe();
   await DB.clear(STORES.FS);
   await DB.clear(STORES.PREFS);
   await DB.clear(STORES.APPS_META);
@@ -1107,7 +1413,7 @@ async function _ensureFsHierarchy() {
   await DB.clear(STORES.BINARY_BLOBS);
   await Prefs.set('fs.hierarchyVersion', FS_HIERARCHY_VERSION);
   await Prefs.set('boot.firstRun', true);
-  console.info('[Kernel:fs] DB reinicializada por cambio de jerarquía');
+  console.info('[Kernel:fs] DB reinicializada por cambio de jerarquía (backup generado)');
 }
 
   /* ═══════════════════════════════════════════════════
@@ -1183,7 +1489,7 @@ async function _ensureFsHierarchy() {
         `  ${SYSTEM_DIR} → sistema protegido`,
         `  ${TEMP_DIR} → archivos temporales`,
         '',
-        'Kernel version : 0.3.0 (Alpha 2.0)',
+        'Kernel version : 0.4.0 (UEFI Firmware)',
         `Boot time      : ${new Date().toISOString()}`,
       ].join('\n'));
       console.info('[Kernel:boot] FS inicial creado');
@@ -1373,7 +1679,19 @@ async function _ensureFsHierarchy() {
   async function boot() {
     _bootStartedAt = Date.now();
 
-    console.group('[Kernel] ══ BOOT SEQUENCE (v0.3.0) ══');
+    /* ── UEFI config (pre-IndexedDB, de localStorage) ── */
+    const UEFI_DEFAULTS = { 'boot.timeout':3, 'boot.mode':'normal', 'boot.verbose':false, 'boot.skipLock':false, 'system.lang':'es', 'boot.theme':'green' };
+    let uefiConfig = UEFI_DEFAULTS;
+    try {
+      const raw = localStorage.getItem('huebos_uefi');
+      if (raw) uefiConfig = { ...UEFI_DEFAULTS, ...JSON.parse(raw) };
+    } catch {}
+
+    /* ── Safe mode (detectado por index.html vía F8) ── */
+    const safeMode = sessionStorage.getItem('huebos_safe_mode') === '1';
+    if (safeMode) console.warn('[Kernel:boot] ⚠ SAFE MODE activo — apps y atajos omitidos');
+
+    console.group(`[Kernel] ══ BOOT SEQUENCE (v${KERNEL_VERSION}) ══`);
 
     const { recovered, failedStep } = Watchdog.checkPreviousBoot();
     if (recovered) {
@@ -1381,12 +1699,12 @@ async function _ensureFsHierarchy() {
     }
 
     try {
-      EventBus.emit('boot:step', { step: 'db', label: 'Iniciando IndexedDB…' });
+      EventBus.emit('boot:step', { step: 'db', label: 'Iniciando IndexedDB…', detail: `DB v${DB_VERSION}` });
       Watchdog.markStep('db');
       await DB.open();
       Watchdog.completeStep();
 
-      EventBus.emit('boot:step', { step: 'fs', label: 'Montando sistema de archivos…' });
+      EventBus.emit('boot:step', { step: 'fs', label: 'Montando sistema de archivos…', detail: `hierarchy v${FS_HIERARCHY_VERSION}` });
       Watchdog.markStep('fs');
       await _ensureFsHierarchy();
       await _bootstrapFS();
@@ -1394,24 +1712,42 @@ async function _ensureFsHierarchy() {
 
       CrashReporter.install();
 
-      EventBus.emit('boot:step', { step: 'session', label: 'Iniciando sesión…' });
+      EventBus.emit('boot:step', { step: 'session', label: 'Iniciando sesión…', detail: safeMode ? 'safe-mode' : 'normal' });
       Watchdog.markStep('session');
       await _bootstrapSession(recovered);
       Watchdog.completeStep();
 
-      EventBus.emit('boot:step', { step: 'prefs', label: 'Cargando preferencias…' });
+      EventBus.emit('boot:step', { step: 'prefs', label: 'Cargando preferencias…', detail: 'env+users+prefs' });
       Watchdog.markStep('prefs');
       await _bootstrapPrefs();
+      /* Inicializar Env y Users */
+      await Env._load();
+      await Users._loadUsers();
+      /* Auto-login: si no hay sesión de usuario activa, loguear al admin por defecto */
+      let loggedUser = await Users.current();
+      if (!loggedUser) {
+        const users = await Users.list();
+        const admin = users.find(u => u.id === 'admin') || users[0];
+        if (admin) {
+          loggedUser = await Users.login(admin.id, '');
+        }
+      }
       Watchdog.completeStep();
 
-      EventBus.emit('boot:step', { step: 'apps', label: 'Registrando aplicaciones…' });
-      Watchdog.markStep('apps');
-      await Apps._hydrate();
-      await _bootstrapApps();
-      await _bootstrapSystemExecutables();
-      await _bootstrapExtensions();
-      await _bootstrapDesktopShortcuts();
-      Watchdog.completeStep();
+      if (!safeMode) {
+        EventBus.emit('boot:step', { step: 'apps', label: 'Registrando aplicaciones…', detail: 'full' });
+        Watchdog.markStep('apps');
+        await Apps._hydrate();
+        await _bootstrapApps();
+        await _bootstrapSystemExecutables();
+        await _bootstrapExtensions();
+        await _bootstrapDesktopShortcuts();
+        Watchdog.completeStep();
+      } else {
+        EventBus.emit('boot:step', { step: 'apps', label: 'Safe Mode: apps omitidas…', detail: 'skipped (safe-mode)' });
+        /* En safe mode solo hidratamos el registro existente, sin re-crear atajos */
+        await Apps._hydrate();
+      }
 
     const _isFirstRun = !!(await Prefs.get('boot.firstRun', false));
     _session.firstRun = _isFirstRun;
@@ -1422,14 +1758,17 @@ async function _ensureFsHierarchy() {
       console.groupEnd();
       console.info('[Kernel] ✓ Sistema listo');
 
-      EventBus.emit('boot:step', { step: 'ready', label: 'Sistema listo.' });
+      EventBus.emit('boot:step', { step: 'ready', label: 'Sistema listo.', detail: safeMode ? 'safe-mode' : 'normal' });
     EventBus.emit('ready', {
       ts           : Date.now(),
-      version      : '0.3.0',
+      version      : KERNEL_VERSION,
       sessionId    : _session.id,
       sessionCount : _session.count,
       recoveredBoot: recovered,
       firstRun     : _isFirstRun,
+      safeMode     : safeMode,
+      uefiConfig   : uefiConfig,
+      user         : loggedUser,
     });
 
     } catch (err) {
@@ -1445,7 +1784,7 @@ async function _ensureFsHierarchy() {
      API PÚBLICA  — global.Kernel
   ═══════════════════════════════════════════════════ */
   const Kernel = {
-    version : '0.3.0',
+    version : KERNEL_VERSION,
 
     on   : EventBus.on.bind(EventBus),
     once : EventBus.once.bind(EventBus),
@@ -1454,6 +1793,8 @@ async function _ensureFsHierarchy() {
     db         : DB,
     fs         : FS,
     prefs      : Prefs,
+    env        : Env,
+    users      : Users,
     apps       : Apps,
     procs      : Procs,
     crash      : CrashReporter,
@@ -1467,6 +1808,10 @@ async function _ensureFsHierarchy() {
 
     get isReady() {
       return _db !== null;
+    },
+
+    get safeMode() {
+      return sessionStorage.getItem('huebos_safe_mode') === '1';
     },
 
     get uptime() {

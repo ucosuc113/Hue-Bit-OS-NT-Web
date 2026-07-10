@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>WebOS · Archivos</title>
+  <title>HuebOS · Archivos</title>
   <script type="application/json" id="wos-manifest">
   {
     "id":          "files",
@@ -14,7 +14,7 @@
     "description": "Explorador de archivos del sistema",
     "winWidth":    580,
     "winHeight":   440,
-    "author":      "WebOS"
+    "author":      "HuebOS"
   }
   </script>
   <style>
@@ -162,6 +162,12 @@
 ;(function () {
   'use strict';
 
+  function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[ch]));
+  }
+
   /* ── Kernel ref ── */
   let K = null;
 
@@ -216,8 +222,8 @@
 
   /* ═══════════════════════ NAVIGATION ═══════════════════════ */
 
-  function navigate(path) {
-    cwd = K.fs._normalize(path) || '/';
+function navigate(path) {
+    cwd = K.fs.normalize(path) || '/';
     selected = null;
     updateSelBtns();
     refresh();
@@ -296,9 +302,9 @@
       const sizeStr = item.type === 'file' || item.type === 'shortcut' ? fmtSize(item.size) : '—';
       const dateStr = fmtDate(item.mtime);
 
-      row.innerHTML = `
+row.innerHTML = `
         <span class="fi-icon">${icon}</span>
-        <span class="fi-name ${item.type === 'dir' ? 'is-dir' : ''} ${isShortcut ? 'is-shortcut' : ''}">${item.name}${item.type === 'dir' ? '/' : ''}${isShortcut ? ' ⌁' : ''}</span>
+        <span class="fi-name ${item.type === 'dir' ? 'is-dir' : ''} ${isShortcut ? 'is-shortcut' : ''}">${escapeHtml(item.name)}${item.type === 'dir' ? '/' : ''}${isShortcut ? ' ⌁' : ''}</span>
         <div class="fi-meta">
           <span>${sizeStr}</span>
           <span>${dateStr}</span>
@@ -334,14 +340,16 @@
 
   /* ═══════════════════════ OPEN ITEM ═══════════════════════ */
 
-  function openItem(item) {
+async function openItem(item) {
     if (item.type === 'dir') { navigate(item.id); return; }
     if (item.type === 'shortcut' && item.meta?.appId) {
-      const app = window.parent.Kernel?.apps?.get(item.meta.appId);
+      const app = await window.parent.Kernel?.apps?.get(item.meta.appId);
       if (app) {
         window.parent.__wos?.launch(item.meta.appId, { startPath: item.id });
-        return;
+      } else {
+        alert(`La app "${item.meta.appId}" ya no está disponible.`);
       }
+      return;
     }
     const ext = item.name.split('.').pop().toLowerCase();
     const textExts = new Set(['txt','md','js','ts','html','css','json','csv','log','sh','py','xml','yaml','yml','ini','cfg','conf','env','gitignore']);
@@ -453,12 +461,22 @@
     input.focus();
     input.select();
 
-    const commit = async () => {
+const commit = async () => {
       const newName = input.value.trim().replace(/\//g, '');
       if (newName && newName !== oldName) {
-        const parentDir = K.fs._dirname(item.id);
+        const parentDir = K.fs.dirname(item.id);
         const newPath   = parentDir === '/' ? '/' + newName : parentDir + '/' + newName;
         try {
+          const collision = await K.fs.stat(newPath);
+          if (collision && collision.type !== item.type) {
+            alert(`Ya existe "${newName}" y es de otro tipo (${collision.type === 'dir' ? 'carpeta' : 'archivo'}). No se puede renombrar.`);
+            refresh();
+            return;
+          }
+          if (collision && !confirm(`Ya existe "${newName}" en esta carpeta. ¿Sobrescribirlo?`)) {
+            refresh();
+            return;
+          }
           await K.fs.move(item.id, newPath);
         } catch (e) { alert('Error al renombrar: ' + e.message); }
       }
@@ -472,7 +490,7 @@
     });
   }
 
-  async function deleteSelected() {
+async function deleteSelected() {
     if (!selected) return;
     if (selected.id === '/system' || selected.id.startsWith('/system/')) {
       alert('Este elemento está protegido y no se puede eliminar.');
@@ -482,11 +500,12 @@
       ? `¿Eliminar carpeta "${selected.name}" y todo su contenido?`
       : `¿Eliminar "${selected.name}"?`;
     if (!confirm(msg)) return;
+    const deletedName = selected.name;
     try {
       await K.fs.remove(selected.id, { recursive: selected.type === 'dir' });
       selected = null;
       updateSelBtns();
-      if (window.parent.__wos) window.parent.__wos.toast(`Eliminado: ${selected?.name || 'elemento'}`, 'ok', 'FILES');
+      if (window.parent.__wos) window.parent.__wos.toast(`Eliminado: ${deletedName}`, 'ok', 'FILES');
       refresh();
     } catch (e) { alert('Error: ' + e.message); }
   }
@@ -504,18 +523,20 @@
 
   /* ═══════════════════════ TOOLBAR ACTIONS ═══════════════════════ */
 
-  document.getElementById('btn-up').addEventListener('click', () => {
-    const p = K.fs._dirname(cwd);
+document.getElementById('btn-up').addEventListener('click', () => {
+    const p = K.fs.dirname(cwd);
     navigate((p && p !== cwd) ? p : '/');
   });
   document.getElementById('btn-home').addEventListener('click', () => navigate('/home'));
   document.getElementById('btn-refresh').addEventListener('click', refresh);
 
-  document.getElementById('btn-newdir').addEventListener('click', async () => {
+document.getElementById('btn-newdir').addEventListener('click', async () => {
     const name = prompt('Nombre de la nueva carpeta:');
     if (!name) return;
+    const target = cwd + '/' + name.replace(/\//g, '');
     try {
-      await K.fs.mkdir(cwd + '/' + name.replace(/\//g, ''));
+      if (await K.fs.exists(target)) { alert(`Ya existe "${name}" en esta carpeta.`); return; }
+      await K.fs.mkdir(target);
       refresh();
     } catch (e) { alert('Error: ' + e.message); }
   });
@@ -523,10 +544,16 @@
   document.getElementById('btn-newfile').addEventListener('click', async () => {
     const name = prompt('Nombre del nuevo archivo:');
     if (!name) return;
+    const target = cwd + '/' + name.replace(/\//g, '');
     try {
-      await K.fs.write(cwd + '/' + name.replace(/\//g, ''), '');
+      await K.fs.write(target, '');
       refresh();
-    } catch (e) { alert('Error: ' + e.message); }
+    } catch (e) {
+      const msg = e.message === 'INVALID_FILE_TARGET'
+        ? `Ya existe una carpeta llamada "${name}"`
+        : ('Error: ' + e.message);
+      alert(msg);
+    }
   });
 
   document.getElementById('btn-delete').addEventListener('click', deleteSelected);
@@ -592,7 +619,8 @@
     K.on('fs:move',   () => refresh());
   }
 
-  window.addEventListener('message', e => {
+window.addEventListener('message', e => {
+    if (e.origin !== window.location.origin) return;
     const { type, path } = e.data || {};
     if (type === 'files:navigate' && path) navigate(path);
   });
@@ -602,9 +630,9 @@
     K = kernel;
     bindKernelEvents();
 
-    const startPath = getStartPath();
+const startPath = getStartPath();
     if (startPath) {
-      cwd = K.fs._normalize(startPath) || '/home';
+      cwd = K.fs.normalize(startPath) || '/home';
     } else {
       cwd = '/home';
     }

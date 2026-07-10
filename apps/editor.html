@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WebOS · Editor</title>
+  <title>HuebOS · Editor</title>
   <script type="application/json" id="wos-manifest">
   {
     "id":          "text-editor",
@@ -15,7 +15,7 @@
     "description": "Editor de texto plano con numeración de líneas",
     "winWidth":    700,
     "winHeight":   500,
-    "author":      "WebOS"
+    "author":      "HuebOS"
   }
   </script>
   <style>
@@ -379,12 +379,18 @@
 
 <script>
 /* ══════════════════════════════════════════════
-   WebOS · Editor de Texto
+   HuebOS · Editor de Texto
    Usa exclusivamente Kernel.* (via window.parent o self)
    Versión: 0.1.0
 ══════════════════════════════════════════════ */
 (function () {
   'use strict';
+
+  function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[ch]));
+  }
 
   /* ── Helpers ── */
   const $ = id => document.getElementById(id);
@@ -538,7 +544,7 @@
     dirtyDot.classList.toggle('visible', d);
     document.title = d
       ? `● ${filePath ? filePath.split('/').pop() : 'sin título'} · Editor`
-      : `${filePath ? filePath.split('/').pop() : 'Editor'} · WebOS`;
+      : `${filePath ? filePath.split('/').pop() : 'Editor'} · HuebOS`;
   }
 
   function setPath(path) {
@@ -560,8 +566,9 @@
     editor.focus();
   }
 
-  async function openFile(path) {
+async function openFile(path) {
     if (!path) return;
+    if (dirty && !confirm('Hay cambios sin guardar en el archivo actual. ¿Descartarlos y abrir otro archivo?')) return;
     sbStatus.textContent = 'CARGANDO…';
     try {
       const content = await K.fs.read(path);
@@ -581,7 +588,7 @@
     }
   }
 
-  async function saveFile(path) {
+async function saveFile(path) {
     const target = path || filePath;
     if (!target) {
       showSaveAsDialog();
@@ -596,10 +603,13 @@
       sbStatus.textContent = 'GUARDADO';
       Toast.show(`Guardado: ${target}`, 'ok');
       // Notificar al sistema que el FS cambió
-      K.emit('fs:change', { path: target });
+      K.emit('fs:write', { path: target });
     } catch (err) {
       sbStatus.textContent = 'ERROR';
-      Toast.show(`Error al guardar: ${err.message}`, 'error', 3500);
+      const msg = err.message === 'INVALID_FILE_TARGET'
+        ? `Ya existe una carpeta llamada "${target.split('/').pop()}"`
+        : err.message;
+      Toast.show(`Error al guardar: ${msg}`, 'error', 3500);
     }
   }
 
@@ -652,10 +662,10 @@
       // Try root
       try {
         const all = await K.fs.readdir('/');
-        fileListEl.innerHTML = all.map(e =>
+fileListEl.innerHTML = all.map(e =>
           `<div class="dialog-file-item">
             <span class="fi-icon">${e.type === 'dir' ? '📁' : '📄'}</span>
-            <span>${e.name}</span>
+            <span>${escapeHtml(e.name)}</span>
           </div>`
         ).join('');
       } catch(e2) {
@@ -695,12 +705,23 @@
 
   $('btn-save-as').addEventListener('click', showSaveAsDialog);
   $('saveas-cancel').addEventListener('click', () => saveAsDialog.style.display = 'none');
-  $('saveas-confirm').addEventListener('click', () => {
-    const p = saveAsInput.value.trim();
-    if (p) { saveAsDialog.style.display = 'none'; saveFile(p); }
-  });
+async function confirmSaveAs(p) {
+    if (!p) return;
+    try {
+      const existing = await K.fs.stat(p);
+      if (existing && existing.type === 'dir') {
+        Toast.show(`"${p}" es una carpeta, no se puede guardar ahí`, 'error', 3500);
+        return;
+      }
+      if (existing && !confirm(`Ya existe el archivo "${p}". ¿Sobrescribirlo?`)) return;
+    } catch (_) { /* si stat falla, dejamos que saveFile reporte el error real */ }
+    saveAsDialog.style.display = 'none';
+    saveFile(p);
+  }
+
+  $('saveas-confirm').addEventListener('click', () => confirmSaveAs(saveAsInput.value.trim()));
   saveAsInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { saveAsDialog.style.display = 'none'; saveFile(saveAsInput.value.trim()); }
+    if (e.key === 'Enter') confirmSaveAs(saveAsInput.value.trim());
     if (e.key === 'Escape') saveAsDialog.style.display = 'none';
   });
 
@@ -709,11 +730,10 @@
   $('btn-save').addEventListener('click', () => saveFile());
 
   /* ── Editor events ── */
-  editor.addEventListener('input', () => {
+editor.addEventListener('input', () => {
     updateLineNumbers();
     updateStatus();
-    if (editor.value !== lastSaved) setDirty(true);
-    else setDirty(false);
+    setDirty(true);
     emptyState.classList.add('hidden');
   });
 
@@ -752,7 +772,8 @@
   editor.addEventListener('keyup', updateStatus);
 
   /* ── postMessage API (para que files.html abra archivos) ── */
-  window.addEventListener('message', e => {
+window.addEventListener('message', e => {
+    if (e.origin !== window.location.origin) return;
     const { type, path } = e.data || {};
     if (type === 'editor:open' && path) openFile(path);
     if (type === 'editor:new')         newFile();

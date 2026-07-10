@@ -15,7 +15,7 @@
     "description": "Configuración y herramientas del sistema",
     "winWidth":    680,
     "winHeight":   500,
-    "author":      "WebOS"
+    "author":      "HuebOS"
   }
   </script>
   <style>
@@ -447,6 +447,12 @@
       </div>
       <div class="nav-sep"></div>
       <div class="nav-group-label">Avanzado</div>
+      <div class="nav-item" data-panel="panel-uefi">
+        <span class="ni-icon">🔌</span> UEFI / Firmware
+      </div>
+      <div class="nav-item" data-panel="panel-seguridad">
+        <span class="ni-icon">🔐</span> Seguridad
+      </div>
       <div class="nav-item" data-panel="panel-almacenamiento">
         <span class="ni-icon">💾</span> Almacenamiento
       </div>
@@ -586,6 +592,180 @@
         <button class="btn btn-primary" id="btn-save-shell">💾 GUARDAR CAMBIOS</button>
       </div>
 
+      <!-- ── UEFI / FIRMWARE ── -->
+      <div id="panel-uefi" class="panel">
+        <div class="section-title">🔌 UEFI / Firmware</div>
+        <div class="section-desc">Configuración del firmware virtual. Estos valores se leen durante el arranque (F2 para entrar al setup).</div>
+
+        <div class="info-box ok">
+          El firmware UEFI virtual se ejecuta antes del Kernel. Los cambios aquí afectan el proceso de boot la próxima vez que reinicies.
+        </div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Arranque</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Modo de arranque</div>
+              <div class="cfg-hint">Normal = boot estándar · Diagnóstico = verbose + logs detallados</div>
+            </div>
+            <div class="cfg-control">
+              <select class="cfg-select" id="uefi-boot-mode">
+                <option value="normal">Normal</option>
+                <option value="diagnostic">Diagnóstico (verbose)</option>
+              </select>
+            </div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Arranque rápido</div>
+              <div class="cfg-hint">Omite animaciones y delays del boot</div>
+            </div>
+            <div class="cfg-control">
+              <label class="cfg-toggle">
+                <input type="checkbox" id="uefi-fast-boot" />
+                <div class="cfg-toggle-track"></div>
+                <div class="cfg-toggle-thumb"></div>
+              </label>
+            </div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Timeout de selección</div>
+              <div class="cfg-hint">Segundos antes de auto-arrancar (0 = sin espera)</div>
+            </div>
+            <div class="cfg-control">
+              <input type="number" class="cfg-input-num" id="uefi-timeout" min="0" max="30" step="1" value="3" />
+            </div>
+          </div>
+        </div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Seguridad de boot</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Secure Boot</div>
+              <div class="cfg-hint">Verifica la integridad del Kernel al arrancar</div>
+            </div>
+            <div class="cfg-control">
+              <label class="cfg-toggle">
+                <input type="checkbox" id="uefi-secure-boot" checked />
+                <div class="cfg-toggle-track"></div>
+                <div class="cfg-toggle-thumb"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Recuperación</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Modo seguro</div>
+              <div class="cfg-hint">Arranca con subsistemas mínimos (sin apps de terceros)</div>
+            </div>
+            <div class="cfg-control">
+              <label class="cfg-toggle">
+                <input type="checkbox" id="uefi-safe-mode" />
+                <div class="cfg-toggle-track"></div>
+                <div class="cfg-toggle-thumb"></div>
+              </label>
+            </div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Entrar a UEFI en próximo reinicio</div>
+              <div class="cfg-hint">Fuerza la apertura del setup UEFI al reiniciar</div>
+            </div>
+            <div class="cfg-control">
+              <button class="btn btn-amber" id="btn-uefi-enter-setup">🔌 ENTRAR AL SETUP</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-save-uefi">💾 GUARDAR UEFI</button>
+      </div>
+
+      <!-- ── SEGURIDAD ── -->
+      <div id="panel-seguridad" class="panel">
+        <div class="section-title">🔐 Seguridad</div>
+        <div class="section-desc">Gestión de usuarios, bloqueo de pantalla y políticas de acceso.</div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Bloqueo de pantalla</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Bloqueo automático</div>
+              <div class="cfg-hint">Bloquea la pantalla tras N minutos de inactividad</div>
+            </div>
+            <div class="cfg-control">
+              <select class="cfg-select" id="sec-autolock">
+                <option value="0">Nunca</option>
+                <option value="1">1 minuto</option>
+                <option value="5">5 minutos</option>
+                <option value="15">15 minutos</option>
+                <option value="30">30 minutos</option>
+              </select>
+            </div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Requerir contraseña al desbloquear</div>
+              <div class="cfg-hint">Pide la contraseña del usuario actual para desbloquear</div>
+            </div>
+            <div class="cfg-control">
+              <label class="cfg-toggle">
+                <input type="checkbox" id="sec-lock-password" />
+                <div class="cfg-toggle-track"></div>
+                <div class="cfg-toggle-thumb"></div>
+              </label>
+            </div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Bloquear ahora</div>
+              <div class="cfg-hint">Bloquea la pantalla inmediatamente</div>
+            </div>
+            <div class="cfg-control">
+              <button class="btn btn-amber" id="btn-sec-lock-now">🔒 BLOQUEAR</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Usuario actual</div>
+          <div class="db-store-row"><span class="db-store-name">Nombre</span><span class="db-store-count" id="sec-username">…</span></div>
+          <div class="db-store-row"><span class="db-store-name">Rol</span><span class="db-store-count" id="sec-userrole">…</span></div>
+          <div class="db-store-row"><span class="db-store-name">UID</span><span class="db-store-count" id="sec-useruid">…</span></div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Cambiar nombre de usuario</div>
+              <div class="cfg-hint">El nombre visible en la sesión</div>
+            </div>
+            <div class="cfg-control">
+              <input type="text" class="cfg-input-num" id="sec-new-username" placeholder="Nuevo nombre" style="width:120px" />
+            </div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Establecer contraseña</div>
+              <div class="cfg-hint">Se pedirá al desbloquear la pantalla (si está activado)</div>
+            </div>
+            <div class="cfg-control">
+              <input type="password" class="cfg-input-num" id="sec-new-password" placeholder="Contraseña" style="width:120px" />
+            </div>
+          </div>
+        </div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Estado del sistema</div>
+          <div class="db-store-row"><span class="db-store-name">Safe Mode</span><span class="db-store-count" id="sec-safemode">…</span></div>
+          <div class="db-store-row"><span class="db-store-name">Secure Boot</span><span class="db-store-count" id="sec-secureboot">…</span></div>
+          <div class="db-store-row"><span class="db-store-name">Sesiones totales</span><span class="db-store-count" id="sec-session-count">…</span></div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-save-security">💾 GUARDAR SEGURIDAD</button>
+      </div>
+
       <!-- ── ALMACENAMIENTO ── -->
       <div id="panel-almacenamiento" class="panel">
         <div class="section-title">💾 Almacenamiento</div>
@@ -676,7 +856,7 @@
             <div>
               <div class="cfg-label">Formatear todo el sistema</div>
               <div class="cfg-hint">
-                Elimina TODA la base de datos IndexedDB (<code style="color:#ff8888">webos_db</code>) y recarga.<br>
+                Elimina TODA la base de datos IndexedDB (<code style="color:#ff8888">huebos_db</code>) y recarga.<br>
                 <span style="color:rgba(255,68,68,0.7)">Se perderán TODOS los archivos, preferencias y datos.</span>
               </div>
             </div>
@@ -712,7 +892,7 @@
         </div>
 
         <div class="about-grid" id="about-grid">
-          <div class="about-item"><div class="ai-key">Kernel</div><div class="ai-val">v0.1.0</div></div>
+          <div class="about-item"><div class="ai-key">Kernel</div><div class="ai-val" id="ab-kernel-ver">v0.3.0</div></div>
           <div class="about-item"><div class="ai-key">Fase</div><div class="ai-val">3 · Core Apps</div></div>
           <div class="about-item"><div class="ai-key">Motor DB</div><div class="ai-val">IndexedDB</div></div>
           <div class="about-item"><div class="ai-key">Último boot</div><div class="ai-val" id="ab-lastboot">…</div></div>
@@ -784,7 +964,12 @@
   });
   $('confirm-ok').addEventListener('click', () => {
     $('confirm-modal').classList.remove('visible');
-    if (_confirmCb) { _confirmCb(); _confirmCb = null; }
+    // Guardar referencia antes de ejecutar: el callback puede anidar
+    // otro Confirm.show (doble confirmación) que reasigna _confirmCb.
+    // Si hiciéramos _confirmCb=null después, borraríamos el callback anidado.
+    const cb = _confirmCb;
+    _confirmCb = null;
+    if (cb) cb();
   });
 
   /* ── Kernel ── */
@@ -927,7 +1112,7 @@
   });
 
   /* ── Clear /temp ── */
-  $('btn-clear-tmp').addEventListener('click', () => {
+$('btn-clear-tmp').addEventListener('click', () => {
     Confirm.show(
       '⚠️ LIMPIAR /temp',
       'Se borrarán todos los archivos en /temp.',
@@ -935,7 +1120,6 @@
         try {
           await K.fs.remove('/temp', { recursive: true });
           await K.fs.mkdir('/temp');
-          K.emit('fs:change', { path: '/temp' });
           Toast.show('/temp limpiado ✓', 'ok');
           loadStorageStats();
         } catch (e) {
@@ -1003,33 +1187,46 @@
       // en lugar de onsuccess y la base de datos nunca se elimina.
       K.db.close();
 
-      const req = indexedDB.deleteDatabase('webos_db');
-      req.onsuccess = () => {
+      // Pequeño delay para que el navegador procese el cierre de la conexión
+      // antes de intentar deleteDatabase (evita onblocked por race condition).
+      await new Promise(r => setTimeout(r, 300));
+
+      // Intentar deleteDatabase con reintentos automáticos si queda bloqueado.
+      const tryDeleteDB = (attempt = 0) => new Promise((resolve) => {
+        const req = indexedDB.deleteDatabase('huebos_db');
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => resolve(false);
+        req.onblocked = () => {
+          if (attempt < 5) {
+            // Reintentar: la conexión anterior aún no se cerró del todo.
+            setTimeout(() => resolve(tryDeleteDB(attempt + 1)), 500);
+          } else {
+            resolve(false);
+          }
+        };
+      });
+
+      const deleted = await tryDeleteDB();
+      if (deleted) {
         Toast.show('Base de datos eliminada. Reiniciando sistema…', 'ok', 2000);
-        rebootSystem(1200);
-      };
-      req.onerror = () => {
-        Toast.show('Error al eliminar DB. Intentando reinicio forzado…', 'error', 3000);
-        rebootSystem(2000);
-      };
-      req.onblocked = () => {
-        // La DB está bloqueada por otra pestaña
-        Toast.show('⚠️ DB bloqueada. Cierra otras pestañas de HuebOS y se intentará reiniciar.', 'error', 6000);
-        rebootSystem(3000);
-      };
+      } else {
+        Toast.show('DB bloqueada. Reiniciando forzado…', 'error', 3000);
+      }
+      rebootSystem(deleted ? 1200 : 2000);
     } catch (err) {
       Toast.show(`Error: ${err.message}`, 'error', 4000);
     }
   }
 
   /* ── Format FS only ── */
-  $('btn-format-fs').addEventListener('click', () => {
+$('btn-format-fs').addEventListener('click', () => {
     Confirm.show(
       '⚠️ BORRAR SISTEMA DE ARCHIVOS',
-      'Se eliminarán todos los archivos del store "fs". Las preferencias y apps se conservan. El Kernel recreará el FS base al recargar.',
+      'Se eliminarán todos los archivos del store "fs" y sus datos binarios asociados. Las preferencias y apps se conservan. El Kernel recreará el FS base al recargar.',
       async () => {
         await K.db.clear(K.STORES.FS);
-        K.emit('fs:change', { path: '/' });
+        await K.db.clear(K.STORES.BINARY_BLOBS);
+        K.emit('fs:remove', { path: '/' });
         Toast.show('Sistema de archivos borrado. Reiniciando sistema…', 'info', 2500);
         rebootSystem(1400);
       }
@@ -1047,6 +1244,7 @@
 
   /* ── About ── */
   async function loadAbout() {
+    $('ab-kernel-ver').textContent = K.version || 'v0.3.0';
     $('ab-platform').textContent = navigator.platform || 'N/D';
     $('ab-cores').textContent    = navigator.hardwareConcurrency || 'N/D';
 
@@ -1065,11 +1263,101 @@
     `).join('');
   }
 
+  /* ── UEFI / Firmware ── */
+  async function loadUEFI() {
+    const cfg = await K.prefs.get('uefi.config') || {};
+    if (cfg.bootMode) $('uefi-boot-mode').value = cfg.bootMode;
+    if (cfg.fastBoot !== undefined) $('uefi-fast-boot').checked = cfg.fastBoot;
+    if (cfg.timeout !== undefined) $('uefi-timeout').value = cfg.timeout;
+    if (cfg.secureBoot !== undefined) $('uefi-secure-boot').checked = cfg.secureBoot;
+    if (cfg.safeMode !== undefined) $('uefi-safe-mode').checked = cfg.safeMode;
+  }
+
+  $('btn-save-uefi').addEventListener('click', async () => {
+    const cfg = {
+      bootMode:   $('uefi-boot-mode').value,
+      fastBoot:   $('uefi-fast-boot').checked,
+      timeout:    parseInt($('uefi-timeout').value) || 0,
+      secureBoot: $('uefi-secure-boot').checked,
+      safeMode:   $('uefi-safe-mode').checked
+    };
+    await K.prefs.set('uefi.config', cfg);
+    Toast.show('Configuración UEFI guardada ✓', 'ok');
+  });
+
+  $('btn-uefi-enter-setup').addEventListener('click', async () => {
+    await K.prefs.set('uefi.enterSetup', true);
+    Toast.show('Entrando a UEFI en el próximo reinicio…', 'info', 2000);
+    rebootSystem(1400);
+  });
+
+  /* ── Seguridad ── */
+  async function loadSecurity() {
+    // Autolock
+    const autolock = await K.prefs.get('security.autolock') || 0;
+    $('sec-autolock').value = String(autolock);
+    const lockPwd = await K.prefs.get('security.lockPassword') || false;
+    $('sec-lock-password').checked = lockPwd;
+
+    // Usuario actual (desde Users del Kernel)
+    const cur = await K.users.current();
+    const user = cur || {};
+    $('sec-username').textContent = user.name || 'Invitado';
+    $('sec-userrole').textContent = user.role || 'admin';
+    $('sec-useruid').textContent  = user.id || 'admin';
+
+    // Estado del sistema
+    const env = K.env || {};
+    $('sec-safemode').textContent = env.safeMode ? '🔴 Activado' : '🟢 Desactivado';
+    const uefiCfg = await K.prefs.get('uefi.config') || {};
+    $('sec-secureboot').textContent = uefiCfg.secureBoot === false ? '🔴 Desactivado' : '🟢 Activado';
+    const sessionCount = await K.prefs.get('boot.sessionCount') || 0;
+    $('sec-session-count').textContent = String(sessionCount);
+  }
+
+  $('btn-save-security').addEventListener('click', async () => {
+    await K.prefs.set('security.autolock', parseInt($('sec-autolock').value) || 0);
+    await K.prefs.set('security.lockPassword', $('sec-lock-password').checked);
+
+    // Cambiar nombre de usuario
+    const newName = $('sec-new-username').value.trim();
+    if (newName) {
+      try {
+        await K.users.updateProfile({ name: newName });
+      } catch(e) { console.error('updateProfile:', e); }
+    }
+
+    // Establecer contraseña (sincroniza user.password y security.password)
+    const newPwd = $('sec-new-password').value;
+    if (newPwd) {
+      try {
+        await K.users.setPassword(newPwd);
+      } catch(e) { console.error('setPassword:', e); }
+    }
+
+    $('sec-new-username').value = '';
+    $('sec-new-password').value = '';
+    Toast.show('Configuración de seguridad guardada ✓', 'ok');
+    loadSecurity();
+  });
+
+  $('btn-sec-lock-now').addEventListener('click', () => {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'wos:lock' }, window.location.origin);
+      Toast.show('Bloqueando pantalla…', 'info');
+    } else {
+      Toast.show('Bloqueo no disponible fuera del shell', 'error');
+    }
+  });
+
   /* ── Init ── */
   function init(kernel) {
     K = kernel;
     fillSysInfo();
     loadPrefs();
+    loadUEFI();
+    loadSecurity();
+    loadAbout();
   }
 
   waitForKernel(init);

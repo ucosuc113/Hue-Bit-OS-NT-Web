@@ -260,6 +260,54 @@
       from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: none; }
     }
+
+    /* ── F2 UEFI Countdown ── */
+    #uefi-prompt {
+      position: fixed;
+      bottom: 3rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.72rem;
+      letter-spacing: 0.15em;
+      color: var(--green-dim);
+      z-index: 2;
+      opacity: 0;
+      animation: fadeIn 0.4s ease 0.3s forwards;
+      text-align: center;
+      line-height: 1.8;
+    }
+    #uefi-prompt .key {
+      display: inline-block;
+      border: 1px solid var(--green-dim);
+      padding: 1px 8px;
+      margin: 0 3px;
+      color: var(--green);
+      text-shadow: var(--glow-sm);
+      font-size: 0.7rem;
+    }
+    #uefi-prompt .countdown {
+      color: var(--amber);
+      font-weight: bold;
+      text-shadow: 0 0 6px #ffb30088;
+    }
+    #uefi-prompt.hidden { display: none; }
+
+    /* ── Temas dinámicos de boot ── */
+    body.theme-amber {
+      --green: #ffb300; --green-dim: #aa7700; --green-faint: #332200;
+      --glow: 0 0 8px #ffb300cc, 0 0 22px #ffb30055;
+      --glow-sm: 0 0 4px #ffb30088;
+    }
+    body.theme-blue {
+      --green: #5b9bf5; --green-dim: #3a6fb0; --green-faint: #0a1a2e;
+      --glow: 0 0 8px #5b9bf5cc, 0 0 22px #5b9bf555;
+      --glow-sm: 0 0 4px #5b9bf588;
+    }
+    body.theme-white {
+      --green: #e0e0e0; --green-dim: #888; --green-faint: #222;
+      --glow: 0 0 8px #e0e0e0cc, 0 0 22px #e0e0e055;
+      --glow-sm: 0 0 4px #e0e0e088;
+    }
   </style>
 </head>
 
@@ -283,7 +331,7 @@
 <span class="dim">║</span>   <span class="line">╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚══════╝</span>  <span class="dim">║</span>
 <span class="dim">╚═══════════════════════════════════════════════════════╝</span></pre>
 
-    <div id="version">KERNEL v0.3.0 · ALPHA 2.0 · INIT</div>
+    <div id="version">KERNEL v0.4.0 · UEFI FIRMWARE · INIT</div>
 
     <!-- Log de arranque -->
     <div id="boot-log"></div>
@@ -304,6 +352,13 @@
 
   </main>
 
+  <!-- Prompt F2 para entrar a UEFI -->
+  <div id="uefi-prompt">
+    Pulsa <span class="key">F2</span> para entrar a UEFI Setup &nbsp;·&nbsp;
+    <span class="key">F8</span> Safe Mode &nbsp;·&nbsp;
+    <span class="countdown" id="uefi-countdown">3</span>s
+  </div>
+
   <!-- Kernel -->
 
   <!-- Kernel Alpha 1.0 — cargado como módulo externo -->
@@ -317,11 +372,64 @@
   ;(function () {
     'use strict';
 
+    /* ── UEFI config (leída de localStorage, pre-IndexedDB) ── */
+    const UEFI_DEFAULTS = { 'boot.timeout':3, 'boot.mode':'normal', 'boot.verbose':false, 'boot.skipLock':false, 'system.lang':'es', 'boot.theme':'green' };
+    function loadUefi(){ try{ const raw=localStorage.getItem('huebos_uefi'); if(raw) return {...UEFI_DEFAULTS,...JSON.parse(raw)}; }catch{} return {...UEFI_DEFAULTS}; }
+    const uefi = loadUefi();
+
+    /* ── Aplicar tema de boot dinámico ── */
+    if(uefi['boot.theme'] && uefi['boot.theme']!=='green'){
+      document.body.classList.add('theme-'+uefi['boot.theme']);
+    }
+
+    /* ── Detectar ?boot=1 (viene de UEFI) vs arranque normal ── */
+    const params = new URLSearchParams(location.search);
+    const fromUefi = params.get('boot')==='1';
+    const verbose = uefi['boot.verbose']===true;
+
     const logEl   = document.getElementById('boot-log');
     const barEl   = document.getElementById('progress-bar-inner');
     const pctEl   = document.getElementById('progress-pct');
     const txtEl   = document.getElementById('progress-text');
     const statEl  = document.getElementById('status-line');
+    const uefiPrompt = document.getElementById('uefi-prompt');
+    const countdownEl = document.getElementById('uefi-countdown');
+
+    /* ── Countdown F2 para UEFI ── */
+    let uefiCountdown = uefi['boot.timeout'] || 3;
+    let uefiEntered = false;
+    countdownEl.textContent = uefiCountdown;
+
+    function enterUefi(){
+      if(uefiEntered) return;
+      uefiEntered = true;
+      uefiPrompt.classList.add('hidden');
+      document.body.classList.add('leaving');
+      setTimeout(()=>{ window.location.href='uefi.html'; }, 500);
+    }
+
+    function enterSafeMode(){
+      if(uefiEntered) return;
+      uefiEntered = true;
+      uefiPrompt.classList.add('hidden');
+      sessionStorage.setItem('huebos_safe_mode','1');
+      addLog('WAIT','Safe Mode solicitado (F8) · omitiendo apps y atajos…');
+    }
+
+    document.addEventListener('keydown', e=>{
+      if(e.key==='F2'){ e.preventDefault(); enterUefi(); }
+      else if(e.key==='F8'){ e.preventDefault(); enterSafeMode(); }
+    });
+
+    const uefiTimer = setInterval(()=>{
+      if(uefiEntered){ clearInterval(uefiTimer); return; }
+      uefiCountdown--;
+      countdownEl.textContent = uefiCountdown;
+      if(uefiCountdown<=0){
+        clearInterval(uefiTimer);
+        uefiPrompt.classList.add('hidden');
+      }
+    }, 1000);
 
     /* Mapa paso → progreso  (Alpha 1.0: añade 'session') */
     const STEPS = {
@@ -376,13 +484,18 @@
     });
 
     /* ── Pasos de boot ── */
-    Kernel.on('boot:step', ({ step }) => {
+    Kernel.on('boot:step', ({ step, detail }) => {
       const info = STEPS[step];
       if (!info) return;
       setProgress(info.pct, info.label);
       if (tagMap[step]) {
         const [tag, msg] = tagMap[step];
         addLog(tag, msg);
+      }
+      /* Verbose: mostrar detalles extra de cada subsistema */
+      if (verbose && detail) {
+        const d = typeof detail === 'string' ? detail : JSON.stringify(detail);
+        addLog('OK', `  └ ${step}: ${d}`);
       }
     });
 
@@ -423,7 +536,9 @@
     setTimeout(() => {
       addLog('OK',   'BIOS POST completado.');
       addLog('OK',   'CPU: WebWorker x1 · RAM: Session Storage');
-      addLog('OK',   'HUEBOS Kernel v0.3.0 · Alpha 2.0');
+      addLog('OK',   `HUEBOS Kernel v0.4.0 · UEFI Firmware`);
+      if (fromUefi) addLog('OK', 'Configuración UEFI aplicada.');
+      if (verbose) addLog('WAIT', 'Verbose boot ACTIVADO · logs detallados habilitados.');
       addLog('WAIT', 'Iniciando subsistemas…');
     }, 600);
 
