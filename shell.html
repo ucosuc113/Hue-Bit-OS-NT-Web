@@ -1449,6 +1449,50 @@
       transition:opacity 0.6s ease-out;
     }
     #boot-fade-overlay.fade-out { opacity:0; }
+
+    /* ══ LOCK SCREEN CONFIRM DIALOG ══ */
+    .lock-confirm-overlay {
+      position:fixed; inset:0; z-index:100000;
+      display:flex; align-items:center; justify-content:center;
+      background:rgba(0,0,0,0.6); backdrop-filter:blur(8px);
+      opacity:0; transition:opacity 0.25s ease;
+    }
+    .lock-confirm-overlay.show { opacity:1; }
+    .lock-confirm-box {
+      min-width:340px; max-width:420px;
+      padding:28px 32px 24px;
+      background:rgba(20,20,30,0.95);
+      border:1px solid rgba(255,255,255,0.15);
+      border-radius:12px;
+      box-shadow:0 16px 48px rgba(0,0,0,0.5);
+      transform:scale(0.92); transition:transform 0.25s ease;
+      font-family:'Segoe UI','Helvetica Neue',system-ui,sans-serif;
+    }
+    .lock-confirm-overlay.show .lock-confirm-box { transform:scale(1); }
+    .lock-confirm-icon {
+      font-size:2.5rem; text-align:center; margin-bottom:12px;
+    }
+    .lock-confirm-title {
+      font-size:1.1rem; font-weight:600; color:#fff; text-align:center; margin-bottom:8px;
+    }
+    .lock-confirm-msg {
+      font-size:0.85rem; color:rgba(255,255,255,0.65); text-align:center; line-height:1.6; margin-bottom:24px;
+    }
+    .lock-confirm-btns {
+      display:flex; gap:12px; justify-content:center;
+    }
+    .lock-confirm-btn {
+      padding:10px 28px; border-radius:6px; font-size:0.85rem; cursor:pointer;
+      border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.08);
+      color:rgba(255,255,255,0.85); transition:all 0.2s; letter-spacing:0.5px;
+      font-family:'Segoe UI',sans-serif;
+    }
+    .lock-confirm-btn:hover { background:rgba(255,255,255,0.15); }
+    .lock-confirm-btn:active { transform:scale(0.96); }
+    .lock-confirm-btn.danger {
+      background:rgba(255,68,102,0.7); border-color:rgba(255,68,102,0.9); color:#fff;
+    }
+    .lock-confirm-btn.danger:hover { background:rgba(255,68,102,0.85); }
   </style>
 </head>
 <body class="locked">
@@ -1477,6 +1521,18 @@
       <div class="lock-bottom-btn" id="lock-reboot-btn" title="Reiniciar">
         <span class="lock-bottom-icon">⏻</span>
         <span>Reiniciar</span>
+      </div>
+    </div>
+    <!-- Diálogo de confirmación personalizado (no nativo) -->
+    <div class="lock-confirm-overlay" id="lock-confirm-overlay" style="display:none">
+      <div class="lock-confirm-box">
+        <div class="lock-confirm-icon">⏻</div>
+        <div class="lock-confirm-title">Reiniciar HUEBOS</div>
+        <div class="lock-confirm-msg">¿Seguro que quieres reiniciar el sistema? Se cerrarán todas las aplicaciones y procesos.</div>
+        <div class="lock-confirm-btns">
+          <button class="lock-confirm-btn" id="lock-confirm-cancel">Cancelar</button>
+          <button class="lock-confirm-btn danger" id="lock-confirm-yes">Reiniciar</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2287,286 +2343,1243 @@ const DROP_TEXT_EXTENSIONS = ['.txt','.md','.js','.ts','.html','.css','.json','.
       WM.createWindow(proc,{content:div,width:400,height:330});
     }
 
-    /* ══ NATIVE TERMINAL ══ */
-    function createNativeTerminal(parentPid){
+    /* ══ NATIVE TERMINAL (modular architecture) ══ */
+
+    /* ── TerminalModule: namespace for all terminal subsystems ── */
+    const TerminalModule=(function(){
+
+      /* ══ 1. Parser ══
+         Tokenizes a command line respecting quotes, escapes, pipes, redirects,
+         && / || operators, and variable references (%VAR% and $VAR).
+         Returns an AST: { type:'pipeline', commands:[{name,tokens,redirects}], operators:[] }
+      */
+      class Parser{
+        static parse(line){
+          if(!line||!line.trim())return{type:'pipeline',commands:[],operators:[]};
+          const tokens=Parser._tokenize(line);
+          if(!tokens.length)return{type:'pipeline',commands:[],operators:[]};
+          const commands=[];const operators=[];
+          let current={name:null,tokens:[],redirects:[]};
+          for(let i=0;i<tokens.length;i++){
+            const t=tokens[i];
+            if(t==='|'){if(current.name){commands.push(current);operators.push('|');current={name:null,tokens:[],redirects:[]};}}
+            else if(t==='&&'){if(current.name){commands.push(current);operators.push('&&');current={name:null,tokens:[],redirects:[]};}}
+            else if(t==='||'){if(current.name){commands.push(current);operators.push('||');current={name:null,tokens:[],redirects:[]};}}
+            else if(t==='>'||t==='>>'||t==='<'){
+              const next=tokens[i+1];
+              if(next&&!['|','&&','||','>','>>','<'].includes(next)){
+                current.redirects.push({op:t,target:next});
+                i++; /* consume next */
+              }
+            }else if(current.name===null){current.name=t;}
+            else{current.tokens.push(t);}
+          }
+          if(current.name)commands.push(current);
+          return{type:'pipeline',commands,operators};
+        }
+        static _tokenize(line){
+          const tokens=[];let buf='';let i=0;let inSingle=false,inDouble=false;
+          const push=()=>{if(buf!==''){tokens.push(buf);buf='';}};
+          while(i<line.length){
+            const c=line[i];
+            if(inSingle){if(c==="'"){inSingle=false;}else{buf+=c;}i++;continue;}
+            if(inDouble){if(c==='"'){inDouble=false;}else if(c==='\\'&&line[i+1]==='"'){buf+='"';i++;}else{buf+=c;}i++;continue;}
+            if(c==="'"){inSingle=true;i++;continue;}
+            if(c==='"'){inDouble=true;i++;continue;}
+            if(c==='\\'&&line[i+1]){buf+=line[i+1];i+=2;continue;}
+            if(c==='|'&&line[i+1]==='|'){push();tokens.push('||');i+=2;continue;}
+            if(c==='&'&&line[i+1]==='&'){push();tokens.push('&&');i+=2;continue;}
+            if(c==='|'){push();tokens.push('|');i++;continue;}
+            if(c==='>'&&line[i+1]==='>'){push();tokens.push('>>');i+=2;continue;}
+            if(c==='>'){push();tokens.push('>');i++;continue;}
+            if(c==='<'){push();tokens.push('<');i++;continue;}
+            if(c===' '||c==='\t'){push();i++;continue;}
+            buf+=c;i++;
+          }
+          push();
+          return tokens;
+        }
+      }
+
+      /* ══ 2. CommandRegistry ══
+         Holds CommandSpec objects. resolve(name) checks primary name + aliases.
+      */
+      class CommandRegistry{
+        constructor(){this._cmds=new Map();this._aliases=new Map();}
+        register(spec){
+          if(!spec||!spec.name)throw new Error('CommandSpec requires name');
+          this._cmds.set(spec.name.toLowerCase(),spec);
+          if(spec.aliases)spec.aliases.forEach(a=>this._aliases.set(a.toLowerCase(),spec.name.toLowerCase()));
+          return spec;
+        }
+        registerAll(specs){if(specs)specs.forEach(s=>this.register(s));}
+        unregister(name){const n=name.toLowerCase();this._cmds.delete(n);for(const [k,v] of this._aliases){if(v===n)this._aliases.delete(k);}}
+        resolve(name){
+          if(!name)return null;
+          const n=name.toLowerCase();
+          const real=this._aliases.get(n)||n;
+          return this._cmds.get(real)||null;
+        }
+        list(){return Array.from(this._cmds.values()).sort((a,b)=>a.name.localeCompare(b.name));}
+        names(){return Array.from(this._cmds.keys()).sort();}
+      }
+
+      /* ══ 3. CommandSpec ══
+         Declarative command contract.
+         { name, aliases?, description, usage?, flags?, permissions?, execute(ctx) }
+         ctx = { args, flags, raw, cwd, resolvePath, print, printHTML, clear, scrollBottom,
+                 kernel, env, history, termProc, exitCode, setExitCode }
+      */
+      /* (CommandSpec is a plain object convention; no class needed) */
+
+      /* ══ 4. ArgResolver ══
+         Separates flags from positionals. Supports -r, --recursive, --flag=value.
+      */
+      class ArgResolver{
+        static resolve(tokens,spec){
+          const positionals=[];const flags={};
+          const flagDefs=spec?.flags||[];
+          for(let i=0;i<tokens.length;i++){
+            const t=tokens[i];
+            if(t.startsWith('--')){
+              const eq=t.indexOf('=');
+              if(eq>=0){flags[t.slice(2,eq)]=t.slice(eq+1);}
+              else{const def=flagDefs.find(f=>f.long===t.slice(2));if(def&&def.takesValue&&tokens[i+1]){flags[t.slice(2)]=tokens[++i];}else{flags[t.slice(2)]=true;}}
+            }else if(t.startsWith('-')&&t.length>1&&!/^\d+$/.test(t.slice(1))){
+              for(const ch of t.slice(1)){const def=flagDefs.find(f=>f.short===ch);if(def&&def.takesValue&&tokens[i+1]&&!tokens[i+1].startsWith('-')){flags[ch]=tokens[++i];}else{flags[ch]=true;}}
+            }else{positionals.push(t);}
+          }
+          return{positionals,flags,errors:[]};
+        }
+      }
+
+      /* ══ 5. ErrorHandler ══ */
+      class ErrorHandler{
+        static report(err,ctx){
+          if(!err)return;
+          const msg=err.message||String(err);
+          if(err.type==='CommandNotFound')ctx.print(`comando no encontrado: ${err.command}`,'nt-err');
+          else if(err.type==='PermissionDenied')ctx.print(`permiso denegado: ${msg}`,'nt-err');
+          else if(err.type==='InvalidArgs')ctx.print(`uso inválido: ${msg}`,'nt-err');
+          else ctx.print(`Error: ${msg}`,'nt-err');
+          return err.exitCode??1;
+        }
+      }
+      /* ══ 6. EnvStore ══
+         Wraps Kernel.env with %VAR% and $VAR expansion.
+      */
+      class EnvStore{
+        constructor(kernel){this.k=kernel;}
+        async get(key){return this.k?.env?.get?.(key)??null;}
+        async set(key,val){return this.k?.env?.set?.(key,val);}
+        async unset(key){return this.k?.env?.unset?.(key);}
+        async all(){return this.k?.env?.all?.()??{};}
+        expand(str,vars){
+          if(!str)return str;
+          let out=str;
+          out=out.replace(/%(\w+)%/g,(m,n)=>{const v=vars?.[n];return v!==undefined?String(v):m;});
+          out=out.replace(/\$\{(\w+)\}/g,(m,n)=>{const v=vars?.[n];return v!==undefined?String(v):m;});
+          out=out.replace(/\$(\w+)/g,(m,n)=>{const v=vars?.[n];return v!==undefined?String(v):m;});
+          return out;
+        }
+        async expandAsync(str){const vars=await this.all();return this.expand(str,vars);}
+
+        async expandAsyncWithExtra(str, extra){
+  const vars=await this.all();
+  return this.expand(str,{...vars,...extra});
+}
+      }
+
+      /* ══ 7. Redirect ══
+         Handles >, >>, < by intercepting ctx.print/printHTML.
+      */
+      class Redirect{
+        static async apply(redirects,ctx){
+          if(!redirects||!redirects.length)return null;
+          const out=redirects.find(r=>r.op==='>'||r.op==='>>');
+          const inp=redirects.find(r=>r.op==='<');
+          let savedPrint=ctx.print,savedPrintHTML=ctx.printHTML;
+          let buffer=null;
+          if(out){
+            buffer=[];
+            ctx.print=(t,c='nt-out')=>{buffer.push({type:'text',text:t});};
+            ctx.printHTML=(h,c='nt-out')=>{buffer.push({type:'html',html:h});};
+          }
+          let stdinContent=null;
+          if(inp){
+            try{stdinContent=await ctx.kernel.fs.read(ctx.resolvePath(inp.target));}
+            catch{stdinContent='';}
+          }
+          return{out,inp,buffer,savedPrint,savedPrintHTML,stdinContent,async flush(){
+            if(!out||!buffer)return;
+            const text=buffer.map(b=>b.type==='text'?b.text:'').join('\n');
+            const target=ctx.resolvePath(out.target);
+            if(out.op==='>>'){const existing=await ctx.kernel.fs.read(target).catch(()=>'');await ctx.kernel.fs.write(target,existing+(existing?'\n':'')+text);}
+            else{await ctx.kernel.fs.write(target,text);}
+            ctx.print=savedPrint;ctx.printHTML=savedPrintHTML;
+            ctx.print(`redirección → ${target} (${text.length} chars)`,'nt-success');
+          }};
+        }
+      }
+
+      /* ══ 8. Pipe ══
+         Executes a pipeline: stdout of cmd N → stdin of cmd N+1 (in-memory string).
+      */
+      class Pipe{
+        static async run(ast,ctx,execCommand){
+          const cmds=ast.commands;
+          if(cmds.length===1)return execCommand(cmds[0],ctx,null);
+          let prevOutput=null;
+          for(let i=0;i<cmds.length;i++){
+            const cmd=cmds[i];
+            const subCtx=Object.create(ctx);
+            let collected='';
+            const origPrint=ctx.print;
+            subCtx.print=(t,c='nt-out')=>{if(i<cmds.length-1){collected+=t+'\n';}else{origPrint(t,c);}};
+            subCtx.printHTML=(h,c='nt-out')=>{if(i<cmds.length-1){collected+=h+'\n';}else{ctx.printHTML(h,c);}};
+            await execCommand(cmd,subCtx,prevOutput);
+            prevOutput=collected;
+          }
+        }
+      }
+
+      /* ══ 9. History ══
+         In-memory history with optional persistence via Kernel.prefs.
+      */
+      class History{
+        constructor(kernel){this.k=kernel;this.items=[];this.idx=-1;this.max=200;} 
+        add(cmd){if(!cmd)return;if(this.items[0]===cmd)return;this.items.unshift(cmd);this.idx=-1;if(this.items.length>this.max)this.items.pop();
+          if(this.k)this.k.prefs.set('terminal.history',this.items).catch(()=>{});
+        }
+          async load(){                                                                // AÑADIR
+    if(!this.k)return;
+    const saved=await this.k.prefs.get('terminal.history');
+    if(Array.isArray(saved))this.items=saved.slice(0,this.max);
+  }
+        up(){if(this.idx<this.items.length-1){this.idx++;return this.items[this.idx];}return null;}
+        down(){if(this.idx>0){this.idx--;return this.items[this.idx];}this.idx=-1;return null;}
+        reset(){this.idx=-1;}
+        clear(){this.items=[];this.idx=-1;
+          if(this.k)this.k.prefs.set('terminal.history',[]).catch(()=>{});
+        }
+        list(){return this.items.slice();}
+      }
+
+      /* ══ 11. Alias ══ */
+class Alias{
+  constructor(kernel){this.k=kernel;}
+  async all(){return (await this.k.prefs.get('terminal.aliases'))||{};}
+  async expand(line){
+    const all=await this.all();
+    const parts=line.split(/\s+/);
+    if(!parts.length)return line;
+    const cmd=all[parts[0]];
+    if(!cmd)return line;
+    return cmd+(parts.length>1?' '+parts.slice(1).join(' '):'');
+  }
+}
+
+      /* ══ 10. Completer ══
+         Tab-completion for commands, paths, flags, and variables.
+      */
+      class Completer{
+        static async complete(input,ctx){
+          const parts=input.split(/\s+/);
+          if(parts.length===0)return null;
+          /* Command name completion (first token, no space yet) */
+          if(parts.length===1&&!input.endsWith(' ')){
+            const partial=parts[0].toLowerCase();
+            const matches=ctx.registry.names().filter(n=>n.startsWith(partial));
+            if(matches.length===1)return{replace:matches[0]+' ',completions:[]};
+            if(matches.length>1)return{replace:null,completions:matches};
+            return null;
+          }
+          /* Flag completion */
+          const lastToken=parts[parts.length-1];
+          if(lastToken.startsWith('--')){
+            const cmdName=parts[0].toLowerCase();
+            const spec=ctx.registry.resolve(cmdName);
+            if(spec?.flags){
+              const partial=lastToken.slice(2);
+              const matches=spec.flags.filter(f=>f.long&&f.long.startsWith(partial)).map(f=>'--'+f.long);
+              if(matches.length===1)return{replace:parts.slice(0,-1).join(' ')+' '+matches[0]+' ',completions:[]};
+              if(matches.length>1)return{replace:null,completions:matches};
+            }
+            return null;
+          }
+          /* Path completion */
+          const partial=lastToken;
+          const dir=partial.includes('/')?ctx.resolvePath(partial.slice(0,partial.lastIndexOf('/')+1)):ctx.cwd;
+          const pfx=partial.includes('/')?partial.slice(partial.lastIndexOf('/')+1):partial;
+          try{
+            const entries=await ctx.kernel.fs.readdir(dir);
+            const matches=entries.filter(e=>e.name.startsWith(pfx));
+            if(matches.length===1){
+              const prefix=partial.includes('/')?partial.slice(0,partial.lastIndexOf('/')+1):'';
+              const completed=prefix+matches[0].name+(matches[0].type==='dir'?'/':'');
+              return{replace:parts.slice(0,-1).join(' ')+' '+completed,completions:[]};
+            }
+            if(matches.length>1){
+              return{replace:null,completions:matches.map(m=>m.name+(m.type==='dir'?'/':''))};
+            }
+          }catch{}
+          return null;
+        }
+      }
+
+      /* ══ 11. Renderer ══
+         Abstracts DOM output operations.
+      */
+      class Renderer{
+        constructor(outputEl){this.el=outputEl;}
+        print(text,cls='nt-out'){const l=document.createElement('div');l.className='nt-line '+cls;l.textContent=text;this.el.appendChild(l);}
+        printHTML(html,cls='nt-out'){const l=document.createElement('div');l.className='nt-line '+cls;l.innerHTML=html;this.el.appendChild(l);}
+        clear(){this.el.innerHTML='';}
+        scrollBottom(){this.el.scrollTop=this.el.scrollHeight;}
+      }
+
+      /* ══ 12. TerminalCore ══
+         Orchestrator: ties together parser, registry, env, redirect, pipe, history,
+         completer, renderer, and error handler. Replaces the old exec/COMMANDS.
+      */
+      class TerminalCore{
+constructor(opts){
+          
+          this.kernel=opts.kernel;
+          this.termProc=opts.termProc;
+          this.renderer=opts.renderer;
+          this.cmdInput=opts.cmdInput;
+          this.promptEl=opts.promptEl||null;
+          this.promptPath=opts.promptPath;
+          this.cwdDisplay=opts.cwdDisplay;
+          this.registry=new CommandRegistry();
+          this.env=new EnvStore(this.kernel);
+          this.alias=new Alias(this.kernel);   // AÑADIR esta línea
+          this.history=new History(this.kernel);
+          
+          this.exitCode=0;
+          this._cwd='/home';
+          this.promptStyle='default';
+        }
+        async init(){
+          await this.history.load();
+          this.promptStyle=await this.kernel.prefs.get('terminal.promptStyle','default');
+          this._applyPromptStyle();
+        }
+        static PROMPT_STYLES={
+          default:{html:cwd=>`<span class="nt-ph">huebos</span><span class="nt-pp">@local</span>:<span class="nt-pid nt-ph">${cwd}</span><span class="nt-pp">$</span>`,text:cwd=>`huebos@local:${cwd}$`},
+          minimal:{html:cwd=>`<span class="nt-pid nt-ph">${cwd}</span><span class="nt-pp">$</span>`,text:cwd=>`${cwd}$`},
+          arrow:{html:cwd=>`<span class="nt-pid nt-ph">${cwd}</span> <span class="nt-pp">➜</span>`,text:cwd=>`${cwd} ➜`},
+          full:{html:cwd=>`<span class="nt-pp">[</span><span class="nt-ph">huebos@local</span> <span class="nt-pid nt-ph">${cwd}</span><span class="nt-pp">]$</span>`,text:cwd=>`[huebos@local ${cwd}]$`},
+        };
+        _currentCwdDisplay(){return this._cwd==='/home'?'~':this._cwd.replace(/^\/home/,'~');}
+        _applyPromptStyle(){
+          const style=TerminalCore.PROMPT_STYLES[this.promptStyle]||TerminalCore.PROMPT_STYLES.default;
+          if(this.promptEl)this.promptEl.innerHTML=style.html(this._currentCwdDisplay());
+          this.promptPath=this.promptEl?this.promptEl.querySelector('.nt-pid'):this.promptPath;
+        }
+        _promptPrefixText(){
+          const style=TerminalCore.PROMPT_STYLES[this.promptStyle]||TerminalCore.PROMPT_STYLES.default;
+          return style.text(this._currentCwdDisplay());
+        }
+get cwd(){return this._cwd;}
+        setCwd(p){this._cwd=p;this._applyPromptStyle();if(this.cwdDisplay)this.cwdDisplay.textContent=p;this.kernel.procs.setCwd(this.termProc.pid,p);}
+        resolvePath(p){
+          if(!p||p==='~')return'/home';if(p.startsWith('~/'))return'/home/'+p.slice(2);
+          if(p.startsWith('/'))return p.replace(/\/+/g,'/').replace(/\/$/,'')||'/';
+          const parts=(this._cwd+'/'+p).split('/').filter(Boolean);const stack=[];
+          for(const pt of parts){if(pt==='.')continue;if(pt==='..')stack.pop();else stack.push(pt);}
+          return'/'+stack.join('/')||'/';
+        }
+        _makeCtx(){
+          const ctx={
+            kernel:this.kernel,registry:this.registry,env:this.env,history:this.history,
+            termProc:this.termProc,cwd:this._cwd,resolvePath:(p)=>this.resolvePath(p),
+            print:(t,c)=>this.renderer.print(t,c),printHTML:(h,c)=>this.renderer.printHTML(h,c),
+            clear:()=>this.renderer.clear(),scrollBottom:()=>this.renderer.scrollBottom(),
+            exitCode:this.exitCode,setExitCode:(c)=>{this.exitCode=c;},
+            escapeHtml:escapeHtml,
+          };
+          return ctx;
+        }
+async exec(raw){
+          const trimmed=(raw||'').trim();
+          if(!trimmed)return;
+          const ps=`${this._promptPrefixText()} ${trimmed}`;
+          this.renderer.print(ps,'nt-cmd');
+          this.history.add(trimmed);
+          /* Expand variables in the line */
+          const aliasExpanded=await this.alias.expand(trimmed);
+const expanded=await this.env.expandAsyncWithExtra(aliasExpanded, {ERRORLEVEL:String(this.exitCode)});
+          const ast=Parser.parse(expanded);
+          if(!ast.commands.length){this.renderer.scrollBottom();return;}
+          const ctx=this._makeCtx();
+          /* Handle && and || operators */
+await this._runPipeline(ast,ctx);
+          this.renderer.scrollBottom();
+        }
+
+        async _runPipeline(ast,ctx){
+  const {commands,operators}=ast;
+  let i=0;
+  while(i<commands.length){
+    let j=i;
+    const segment=[commands[i]];
+    while(j<operators.length&&operators[j]==='|'){segment.push(commands[j+1]);j++;}
+    await Pipe.run({commands:segment,operators:[]},ctx,(cmd,c,stdin)=>this._execCommand(cmd,c,stdin));
+    const lastExit=this.exitCode;
+    const boundaryOp=operators[j];
+    i=j+1;
+    if(boundaryOp==='&&'&&lastExit!==0)break;
+    if(boundaryOp==='||'&&lastExit===0)break;
+  }
+}
+        async _execCommand(cmdSpec,ctx,stdin){
+          const spec=this.registry.resolve(cmdSpec.name);
+          if(!spec){
+            this.renderer.print(`comando no encontrado: ${cmdSpec.name}`,'nt-err');
+            this.exitCode=127;return;
+          }
+          const{positionals,flags,errors}=ArgResolver.resolve(cmdSpec.tokens,spec);
+          ctx.args=positionals;ctx.flags=flags;ctx.raw=cmdSpec.tokens;ctx.stdin=stdin;
+          /* Apply redirects */
+          let redirectCtx=null;
+          try{redirectCtx=await Redirect.apply(cmdSpec.redirects,ctx);}
+          catch(e){this.renderer.print(`Error de redirección: ${e.message}`,'nt-err');this.exitCode=1;return;}
+          if(redirectCtx?.stdinContent!=null) ctx.stdin=redirectCtx.stdinContent;
+          try{
+            const result=await spec.execute(ctx);
+            this.exitCode=result?.exitCode??0;
+          }catch(err){
+            this.exitCode=ErrorHandler.report(err,ctx)??1;
+          }
+          if(redirectCtx)await redirectCtx.flush();
+        }
+        async handleKey(e){
+          if(e.key==='Enter'){const v=this.cmdInput.value;this.cmdInput.value='';this.history.reset();await this.exec(v);}
+          else if(e.key==='ArrowUp'){e.preventDefault();const h=this.history.up();if(h!==null){this.cmdInput.value=h;setTimeout(()=>{this.cmdInput.selectionStart=this.cmdInput.selectionEnd=this.cmdInput.value.length;},0);}}
+          else if(e.key==='ArrowDown'){e.preventDefault();const h=this.history.down();if(h!==null){this.cmdInput.value=h;}else{this.cmdInput.value='';}}
+          else if(e.key==='Tab'){
+            e.preventDefault();
+            const v=this.cmdInput.value;
+            const ctx=this._makeCtx();
+            ctx.cwd=this._cwd;
+            const result=await Completer.complete(v,ctx);
+            if(result?.replace!==null&&result?.replace!==undefined){this.cmdInput.value=result.replace;}
+            else if(result?.completions?.length>1){this.renderer.print(v,'nt-dim');this.renderer.printHTML(result.completions.map(c=>`<span class="nt-file">${escapeHtml(c)}</span>`).join('  '));this.renderer.scrollBottom();}
+          }
+          else if(e.key==='l'&&e.ctrlKey){e.preventDefault();this.renderer.clear();}
+        }
+      }
+
+      /* ══ COMMAND SPECS ══
+         Each command is a declarative CommandSpec. The execute(ctx) function
+         receives a context with args, flags, cwd, resolvePath, print, kernel, env, etc.
+      */
+
+      function buildCommandSpecs(core){
+        const K=Kernel;
+        const termProc=core.termProc;
+        const resolvePath=(p)=>core.resolvePath(p);
+
+        return[
+          /* ── help ── */
+/* ── help ── */
+          {name:'cmd',description:'Abrir nueva instancia de terminal',usage:'cmd',
+  async execute(ctx){createNativeTerminal(termProc.pid);ctx.print('cmd: nueva terminal abierta','nt-success');return{exitCode:0};}
+},
+{name:'ftype',description:'Tipo de archivo asociado a un handler',usage:'ftype [tipo]',
+  async execute(ctx){
+    const arg=ctx.args[0];
+    if(!arg){
+      const all=K.extensions.list();
+      if(!all.length){ctx.print('(sin asociaciones)','nt-dim');return{exitCode:0};}
+      all.sort((a,b)=>a.extension.localeCompare(b.extension)).forEach(e=>ctx.print(`${e.extension}=${e.handler}`,'nt-out'));
+      return{exitCode:0};
+    }
+    const resolved=K.extensions.resolve(arg);
+    ctx.print(resolved?`${arg}=${resolved.handler}`:`ftype: sin asociación para ${arg}`, resolved?'nt-out':'nt-dim');
+    return{exitCode:0};
+  }
+},
+{name:'help',description:'Mostrar comandos disponibles',usage:'help [comando]',
+  async execute(ctx){
+    if(ctx.args[0]){
+      const spec=ctx.registry.resolve(ctx.args[0]);
+      if(!spec){ctx.print(`help: comando no encontrado: ${ctx.args[0]}`,'nt-err');return{exitCode:1};}
+      ctx.print(`${spec.name} — ${spec.description||'(sin descripción)'}`,'nt-info');
+      if(spec.usage)ctx.print(`  Uso: ${spec.usage}`,'nt-out');
+      if(spec.aliases?.length)ctx.print(`  Aliases: ${spec.aliases.join(', ')}`,'nt-dim');
+      if(spec.flags?.length)spec.flags.forEach(f=>ctx.print(`  ${f.short?'-'+f.short+' ':''}${f.long?'--'+f.long:''}  ${f.description||''}`,'nt-dim'));
+      return{exitCode:0};
+    }
+    ctx.print('Comandos disponibles:','nt-info');
+    const cmds=core.registry.list();
+    cmds.forEach(s=>{const pad=(s.name+(s.aliases?.length?'/'+s.aliases.join('/'):'')).padEnd(22,' ');ctx.printHTML(`  <span style="color:var(--g)">${pad}</span><span style="color:var(--g-dim)">${s.description||''}</span>`);});
+    return{exitCode:0};
+  }
+},
+
+          /* ── ls / dir ── */
+{name:'ls',aliases:['dir'],description:'Listar directorio',usage:'ls [-l] [-a] [ruta]',
+            flags:[{short:'l',long:'long',description:'Formato largo'},{short:'a',long:'all',description:'Incluir entradas ocultas (nombre empieza con .)'}],
+            async execute(ctx){
+              const pa=ctx.args[0];const target=pa?resolvePath(pa):core.cwd;
+              const node=await K.fs.stat(target);
+              if(!node){ctx.print(`ls: no se puede acceder a '${target}': No existe`,'nt-err');return{exitCode:1};}
+              if(node.type==='file'){ctx.print(node.name+(node.encoding==='binary'?` [${node.mime||'bin'}]`:''),'nt-file');return{exitCode:0};}
+              const showAll=ctx.flags.a||ctx.flags.all;
+              let entries=await K.fs.readdir(target);
+              if(!showAll)entries=entries.filter(e=>!e.name.startsWith('.'));
+              if(!entries.length){ctx.print(showAll?'(directorio vacío)':'(directorio vacío, o solo contiene ocultos — usa -a)','nt-dim');return{exitCode:0};}
+              if(ctx.flags.l){
+                ctx.print(`  total ${entries.length}`,'nt-dim');
+                for(const e of entries){
+                  const cls=e.type==='dir'?'nt-dir':'nt-file';
+                  const sz=String(e.size||0).padStart(8,' ');
+                  const dt=new Date(e.mtime||e.ctime).toLocaleDateString('es');
+                  ctx.printHTML(`  ${sz}  ${dt}  <span class="${cls}">${escapeHtml(e.name)}${e.type==='dir'?'/':''}</span>${e.encoding==='binary'?`<span style="color:var(--amber);font-size:0.85em"> [bin]</span>`:''}`);
+                }
+                return{exitCode:0};
+              }
+              const dirs=entries.filter(e=>e.type==='dir').sort((a,b)=>a.name.localeCompare(b.name));
+              const files=entries.filter(e=>e.type==='file').sort((a,b)=>a.name.localeCompare(b.name));
+              const parts=[];
+              dirs.forEach(d=>parts.push(`<span class="nt-dir">${escapeHtml(d.name)}/</span>`));
+              files.forEach(f=>parts.push(`<span class="nt-file">${escapeHtml(f.name)}</span>${f.encoding==='binary'?`<span style="color:var(--amber);font-size:0.85em"> [bin]</span>`:''}`));
+              ctx.printHTML(parts.join('  '));
+              return{exitCode:0};
+            }
+          },
+
+          /* ── cd ── */
+          {name:'cd',description:'Cambiar directorio',usage:'cd [ruta]',
+            async execute(ctx){
+              const pa=ctx.args[0];const target=pa?resolvePath(pa):'/home';
+              const node=await K.fs.stat(target);
+              if(!node){ctx.print(`cd: ${target}: No existe`,'nt-err');return{exitCode:1};}
+              if(node.type!=='dir'){ctx.print(`cd: ${target}: No es un directorio`,'nt-err');return{exitCode:1};}
+              core.setCwd(target);return{exitCode:0};
+            }
+          },
+
+          /* ── pwd ── */
+          {name:'pwd',description:'Mostrar ruta actual',usage:'pwd',
+            async execute(ctx){ctx.print(core.cwd,'nt-out');return{exitCode:0};}
+          },
+
+          /* ── cat / type ── */
+/* ── cat / type ── */
+          {name:'cat',aliases:['type'],description:'Mostrar contenido de archivo (o de stdin si no hay ruta)',usage:'cat [ruta]',
+            async execute(ctx){
+              const pa=ctx.args[0];
+              if(!pa){
+                if(ctx.stdin!=null){ctx.stdin.split('\n').forEach(l=>ctx.print(l,'nt-out'));return{exitCode:0};}
+                ctx.print('Uso: cat [ruta]  (o usa una tubería: comando | cat)','nt-err');return{exitCode:1};
+              }
+              const target=resolvePath(pa);const node=await K.fs.stat(target);
+              if(!node){ctx.print(`cat: ${target}: No existe`,'nt-err');return{exitCode:1};}
+              if(node.type==='dir'){ctx.print(`cat: ${target}: Es un directorio`,'nt-err');return{exitCode:1};}
+              if(node.encoding==='binary'){ctx.print(`(binario: ${node.mime||'application/octet-stream'}, ${node.size} bytes)`,'nt-info');return{exitCode:0};}
+              const content=await K.fs.read(target);
+              content.split('\n').forEach(l=>ctx.print(l,'nt-out'));
+              if(ctx.stdin!=null){ctx.stdin.split('\n').forEach(l=>ctx.print(l,'nt-out'));}
+              return{exitCode:0};
+            }
+          },
+
+          /* ── mkdir / md ── */
+          {name:'mkdir',aliases:['md'],description:'Crear directorio',usage:'mkdir <ruta>',
+            async execute(ctx){
+              const pa=ctx.args[0];if(!pa){ctx.print('Uso: mkdir <ruta>','nt-err');return{exitCode:1};}
+              const target=resolvePath(pa);
+              try{await K.fs.mkdir(target);ctx.print(`mkdir: creado '${target}'`,'nt-success');return{exitCode:0};}
+              catch(e){ctx.print(`mkdir: ${e.message}`,'nt-err');return{exitCode:1};}
+            }
+          },
+
+          /* ── rm / del / erase ── */
+          {name:'rm',aliases:['del','erase'],description:'Eliminar archivo/directorio',usage:'rm [-r] [-f] <ruta>',
+            flags:[{short:'r',long:'recursive',description:'Recursivo'},{short:'f',long:'force',description:'Ignorar errores si no existe'}],
+            async execute(ctx){
+              const r=ctx.flags.r||ctx.flags.recursive;const f=ctx.flags.f||ctx.flags.force;const pa=ctx.args[0];
+              if(!pa){ctx.print('Uso: rm [-r] [-f] <ruta>','nt-err');return{exitCode:1};}
+              const target=resolvePath(pa);
+              const exists=await K.fs.exists(target);
+              if(!exists){
+                if(f)return{exitCode:0};
+                ctx.print(`rm: '${target}': No existe`,'nt-err');return{exitCode:1};
+              }
+              try{await K.fs.remove(target,{recursive:r});ctx.print(`rm: eliminado '${target}'`,'nt-success');return{exitCode:0};}
+              catch(e){
+                if(f)return{exitCode:0};
+                ctx.print(`rm: ${e.message}`,'nt-err');return{exitCode:1};
+              }
+            }
+          },
+
+          /* ── mv / move / ren ── */
+          {name:'mv',aliases:['move','ren','rename'],description:'Mover/renombrar',usage:'mv <origen> <destino>',
+            async execute(ctx){
+              const[src,dst]=ctx.args;
+              if(!src||!dst){ctx.print('Uso: mv <origen> <destino>','nt-err');return{exitCode:1};}
+              try{await K.fs.move(resolvePath(src),resolvePath(dst));ctx.print(`mv: '${src}' → '${dst}'`,'nt-success');return{exitCode:0};}
+              catch(e){ctx.print(`mv: ${e.message}`,'nt-err');return{exitCode:1};}
+            }
+          },
+
+          /* ── cp / copy ── */
+          {name:'cp',aliases:['copy'],description:'Copiar archivo',usage:'cp <origen> <destino>',
+            async execute(ctx){
+              const[src,dst]=ctx.args;
+              if(!src||!dst){ctx.print('Uso: cp <origen> <destino>','nt-err');return{exitCode:1};}
+              const sp=resolvePath(src);let dp=resolvePath(dst);
+              const node=await K.fs.stat(sp);
+              if(!node||node.type!=='file'){ctx.print(`cp: '${src}': no es un archivo regular`,'nt-err');return{exitCode:1};}
+              const dNode=await K.fs.stat(dp);
+              if(dNode&&dNode.type==='dir')dp=`${dp}/${node.name}`.replace(/\/+/g,'/');
+              try{
+                if(node.encoding==='binary'){const blob=await K.fs.readBlob(sp);await K.fs.writeBinary(dp,blob,node.mime);}
+                else{const c=await K.fs.read(sp);await K.fs.write(dp,c);}
+                ctx.print(`cp: '${src}' → '${dp}'`,'nt-success');return{exitCode:0};
+              }catch(e){ctx.print(`cp: ${e.message}`,'nt-err');return{exitCode:1};}
+            }
+          },
+
+          /* ── touch ── */
+          {name:'touch',description:'Crear archivo vacío o actualizar timestamp',usage:'touch <ruta>',
+            async execute(ctx){
+              const pa=ctx.args[0];if(!pa){ctx.print('Uso: touch <ruta>','nt-err');return{exitCode:1};}
+              const target=resolvePath(pa);const exists=await K.fs.exists(target);
+              try{
+                if(!exists)await K.fs.write(target,'');
+                else{const c=await K.fs.read(target).catch(()=>'');await K.fs.write(target,c);}
+                ctx.print(`touch: '${target}'`,'nt-success');return{exitCode:0};
+              }catch(e){ctx.print(`touch: ${e.message}`,'nt-err');return{exitCode:1};}
+            }
+          },
+
+          /* ── write ── */
+          {name:'write',description:'Escribir texto en archivo',usage:'write <ruta> <texto...>',
+            async execute(ctx){
+              const pa=ctx.args[0];if(!pa){ctx.print('Uso: write <ruta> <texto...>','nt-err');return{exitCode:1};}
+              const target=resolvePath(pa);const text=ctx.args.slice(1).join(' ');
+              try{await K.fs.write(target,text);ctx.print(`write: '${target}' (${text.length} chars)`,'nt-success');return{exitCode:0};}
+              catch(e){ctx.print(`write: ${e.message}`,'nt-err');return{exitCode:1};}
+            }
+          },
+
+          /* ── stat ── */
+          {name:'stat',description:'Info detallada de nodo',usage:'stat <ruta>',
+            async execute(ctx){
+              const pa=ctx.args[0];if(!pa){ctx.print('Uso: stat <ruta>','nt-err');return{exitCode:1};}
+              const target=resolvePath(pa);const node=await K.fs.stat(target);
+              if(!node){ctx.print(`stat: '${target}': No existe`,'nt-err');return{exitCode:1};}
+              ctx.print(`  Ruta   : ${node.id}`,'nt-info');
+              ctx.print(`  Tipo   : ${node.type}`,'nt-out');
+              if(node.encoding)ctx.print(`  Encoding: ${node.encoding}`,'nt-out');
+              if(node.mime)ctx.print(`  MIME    : ${node.mime}`,'nt-out');
+              ctx.print(`  Tamaño : ${node.size} bytes`,'nt-out');
+              ctx.print(`  Creado : ${new Date(node.ctime).toLocaleString('es')}`,'nt-dim');
+              ctx.print(`  Modificado: ${new Date(node.mtime).toLocaleString('es')}`,'nt-dim');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── tree ── */
+          {name:'tree',description:'Mostrar árbol de directorios',usage:'tree [ruta]',
+            async execute(ctx){
+              const pa=ctx.args[0];const root=pa?resolvePath(pa):core.cwd;
+              const node=await K.fs.stat(root);
+              if(!node||node.type!=='dir'){ctx.print(`tree: '${root}': no es directorio`,'nt-err');return{exitCode:1};}
+              async function printTree(dir,prefix){
+                const entries=await K.fs.readdir(dir);
+                const all=[...entries.filter(e=>e.type==='dir').sort((a,b)=>a.name.localeCompare(b.name)),...entries.filter(e=>e.type==='file').sort((a,b)=>a.name.localeCompare(b.name))];
+                for(let i=0;i<all.length;i++){
+                  const e=all[i];const isLast=i===all.length-1;const sym=isLast?'└── ':'├── ';
+                  const cls=e.type==='dir'?'nt-dir':'nt-file';
+                  const tag=e.encoding==='binary'?` <span style="color:var(--amber);font-size:0.85em">[bin]</span>`:'';
+                  ctx.printHTML(`${prefix}${sym}<span class="${cls}">${escapeHtml(e.name)}${e.type==='dir'?'/':''}</span>${tag}`);
+                  if(e.type==='dir')await printTree(e.id,prefix+(isLast?'    ':'│   '));
+                }
+              }
+              ctx.printHTML(`<span class="nt-dir">${root}/</span>`);
+              await printTree(root,'');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── echo ── */
+          {name:'echo',description:'Imprimir texto',usage:'echo [...texto]',
+            async execute(ctx){
+              const text=ctx.args.join(' ');
+              ctx.print(text,'nt-out');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── ps / tasklist ── */
+          {name:'ps',aliases:['tasklist'],description:'Listar procesos',usage:'ps',
+            async execute(ctx){
+              const procs=K.procs.list();
+              ctx.print(`  PID   APP                  TÍTULO                  CWD`,'nt-info');
+              ctx.print(`  ────  ───────────────────  ──────────────────────  ───`,'nt-dim');
+              procs.forEach(p=>{
+                const pid=String(p.pid).padStart(4,' ');
+                const app=p.appId.padEnd(20,' ').slice(0,20);
+                const title=(p.title||'').padEnd(22,' ').slice(0,22);
+                const cw=p.cwd||'-';
+                const myF=p.pid===termProc.pid?' ◄':'';
+                const pF=p.parentPid!==null?` (↑${p.parentPid})`:'';
+                ctx.print(`  ${pid}  ${app}  ${title}  ${cw}${myF}${pF}`,'nt-out');
+              });
+              ctx.print(`Total: ${procs.length} proceso(s)`,'nt-dim');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── kill / taskkill ── */
+/* ── kill / taskkill ── */
+/* ── kill / taskkill ── */
+          {name:'kill',aliases:['taskkill'],description:'Terminar proceso (y su ventana, si tiene)',usage:'kill [-f] <pid>',
+            flags:[{short:'f',long:'force',description:'No mostrar error si el PID no existe'}],
+            async execute(ctx){
+              const pa=ctx.args[0];if(!pa){ctx.print('Uso: kill [-f] <pid>','nt-err');return{exitCode:1};}
+              const pid=parseInt(pa,10);
+              if(isNaN(pid)){ctx.print(`kill: '${pa}' no es un PID válido`,'nt-err');return{exitCode:1};}
+              if(pid===termProc.pid){ctx.print(`kill: no puedes matar tu propia terminal (usa 'exit')`,'nt-err');return{exitCode:1};}
+              const exists=!!K.procs.get(pid);
+              if(!exists){
+                if(ctx.flags.f||ctx.flags.force)return{exitCode:0};
+                ctx.print(`kill: pid ${pid} no encontrado`,'nt-err');return{exitCode:1};
+              }
+              const wd=WM.getWindow(pid);
+              if(wd)WM.close(pid); else K.procs.kill(pid);
+              ctx.print(`kill: proceso ${pid} terminado`,'nt-success');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── history ── */
+/* ── history ── */
+          {name:'history',description:'Mostrar o limpiar el historial de comandos',usage:'history [-c]',
+            flags:[{short:'c',long:'clear',description:'Vaciar el historial'}],
+            async execute(ctx){
+              if(ctx.flags.c||ctx.flags.clear){
+                core.history.clear();
+                ctx.print('history: historial vaciado','nt-success');
+                return{exitCode:0};
+              }
+              const h=core.history.list();
+              if(!h.length){ctx.print('(historial vacío)','nt-dim');return{exitCode:0};}
+              h.forEach((cmd,i)=>{ctx.print(`  ${String(i+1).padStart(3)}  ${cmd}`,i%2===0?'nt-out':'nt-dim');});
+              return{exitCode:0};
+            }
+          },
+
+          /* ── neofetch ── */
+          {name:'neofetch',description:'Info del sistema',usage:'neofetch',
+            async execute(ctx){
+              const session=K.session;const upSec=K.uptimeSeconds;
+              const upStr=upSec>=3600?`${Math.floor(upSec/3600)}h ${Math.floor((upSec%3600)/60)}m`:`${Math.floor(upSec/60)}m ${upSec%60}s`;
+              const lines=[``,
+                `   ██╗  ██╗██╗   ██╗███████╗██████╗  ██████╗ ███████╗`,
+                `   ██║  ██║██║   ██║██╔════╝██╔══██╗██╔═══██╗██╔════╝`,
+                `   ███████║██║   ██║█████╗  ██████╔╝██║   ██║███████╗`,
+                `   ██╔══██║██║   ██║██╔══╝  ██╔══██╗██║   ██║╚════██║`,
+                `   ██║  ██║╚██████╔╝███████╗██████╔╝╚██████╔╝███████║`,
+                `   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚══════╝`,``];
+              const info=[``,`OS: HUEBOS v0.4.0 Cyberhacker Glass`,`Kernel: HUEBOS Kernel v0.4.0 (UEFI)`,
+                `Shell: Cyberhacker+Aero Glass`,`Resolution: ${screen.width}×${screen.height}`,
+                `CPU: ${navigator.hardwareConcurrency} core(s)`,
+                `Memory: ${navigator.deviceMemory?navigator.deviceMemory+' GB':'N/D'}`,
+                `Uptime: ${upStr}`,`Session: #${session.count??'?'}`,`PID: ${termProc.pid}`,`CWD: ${core.cwd}`,
+                `Safe Mode: ${K.safeMode?'ON':'off'}`];
+              lines.forEach((l,i)=>{
+                const inf=info[i-1]||'';
+                ctx.printHTML(`<span style="color:var(--g);opacity:0.9">${l}</span>  <span style="color:var(--amber)">${inf}</span>`);
+              });
+              ctx.print('','nt-line');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── clear / cls ── */
+          {name:'clear',aliases:['cls'],description:'Limpiar pantalla',usage:'clear',
+            async execute(ctx){ctx.clear();return{exitCode:0};}
+          },
+
+          /* ── env / set ── */
+          {name:'env',aliases:['set'],description:'Ver/poner variables de entorno',usage:'env [KEY=VAL]',
+            async execute(ctx){
+              if(ctx.args.length===0){
+                const all=await K.env.all();
+                const keys=Object.keys(all).sort();
+                if(!keys.length){ctx.print('(sin variables de entorno)','nt-dim');return{exitCode:0};}
+                keys.forEach(k=>ctx.printHTML(`  <span style="color:var(--g)">${k}</span>=<span style="color:var(--amber)">${escapeHtml(String(all[k]))}</span>`));
+                return{exitCode:0};
+              }
+              const kv=ctx.args.join(' ');
+              const eq=kv.indexOf('=');
+              if(eq<0){const v=await K.env.get(kv);ctx.print(v===null?'(undefined)':String(v),'nt-out');return{exitCode:0};}
+              const key=kv.slice(0,eq).trim();const val=kv.slice(eq+1).trim();
+              if(!key){ctx.print('Uso: env KEY=VAL o env KEY','nt-err');return{exitCode:1};}
+              await K.env.set(key,val);ctx.print(`env: ${key}=${val}`,'nt-success');return{exitCode:0};
+            }
+          },
+
+          /* ── whoami ── */
+          {name:'whoami',description:'Usuario actual',usage:'whoami',
+            async execute(ctx){
+              const u=await K.users.current();
+              if(u)ctx.printHTML(`  <span style="color:var(--g)">${u.id}</span> <span style="color:var(--g-dim)">(${u.name})</span> <span style="color:var(--amber)">[${u.role}]</span>`);
+              else ctx.print('(no autenticado)','nt-dim');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── useradd ── */
+          {name:'useradd',description:'Crear usuario',usage:'useradd <id> [nombre]',
+            async execute(ctx){
+              const id=ctx.args[0];const name=ctx.args.slice(1).join(' ')||id;
+              if(!id){ctx.print('Uso: useradd <id> [nombre]','nt-err');return{exitCode:1};}
+              try{const u=await K.users.create(id,name);ctx.print(`useradd: usuario '${u.id}' creado`,'nt-success');return{exitCode:0};}
+              catch(e){ctx.print(`useradd: ${e.message}`,'nt-err');return{exitCode:1};}
+            }
+          },
+
+          /* ── passwd ── */
+/* ── passwd ── */
+          {name:'passwd',description:'Cambiar contraseña',usage:'passwd [id]',
+            async execute(ctx){
+              const current=await K.users.current();
+              const id=ctx.args[0]||current?.id;
+              if(!id){ctx.print('Uso: passwd [id]  (sin sesión activa, especifica id)','nt-err');return{exitCode:1};}
+              const user=await K.users.get(id);
+              if(!user){ctx.print(`passwd: usuario '${id}' no existe`,'nt-err');return{exitCode:1};}
+              ctx.print(`passwd: escriba nueva contraseña para '${id}' (Esc para cancelar):`,'nt-info');
+              const cmdInput=core.cmdInput;
+              cmdInput.type='password';cmdInput.value='';cmdInput.placeholder='nueva contraseña…';
+              return new Promise(resolve=>{
+                const handler=async(e)=>{
+                  if(e.key==='Escape'){
+                    e.preventDefault();cmdInput.removeEventListener('keydown',handler);
+                    cmdInput.value='';cmdInput.type='text';cmdInput.placeholder='';
+                    ctx.print('passwd: cancelado','nt-dim');
+                    resolve({exitCode:1});
+                    return;
+                  }
+                  if(e.key==='Enter'){
+                    e.preventDefault();cmdInput.removeEventListener('keydown',handler);
+                    const pw=cmdInput.value;cmdInput.value='';cmdInput.type='text';cmdInput.placeholder='';
+                    user.password=pw;
+                    const list=await K.users.list();
+                    const idx=list.findIndex(u=>u.id===id);
+                    if(idx>=0){list[idx]=user;await K.prefs.set('users.list',list);}
+                    /* Sincronizar security.password igual que Users.setPassword, o el
+                       lock screen seguirá exigiendo la contraseña vieja para siempre. */
+                    if(current&&current.id===id){await K.prefs.set('security.password',pw||'');}
+                    ctx.print(`passwd: contraseña actualizada para '${id}'`,'nt-success');
+                    resolve({exitCode:0});
+                  }
+                };
+                cmdInput.addEventListener('keydown',handler);
+              });
+            }
+          },
+
+          /* ── reboot / shutdown ── */
+          {name:'reboot',aliases:['shutdown'],description:'Reiniciar sistema',usage:'reboot [safe]',
+            async execute(ctx){
+              const safe=ctx.args[0]==='safe';
+              if(safe){sessionStorage.setItem('huebos_safe_mode','1');ctx.print('reboot: reiniciando en SAFE MODE…','nt-amber');}
+              else{sessionStorage.removeItem('huebos_safe_mode');ctx.print('reboot: reiniciando…','nt-info');}
+              setTimeout(()=>window.location.href='./index.html',800);
+              return{exitCode:0};
+            }
+          },
+
+          /* ── uefi ── */
+          {name:'uefi',description:'Abrir firmware UEFI',usage:'uefi',
+            async execute(ctx){
+              ctx.print('uefi: abriendo firmware UEFI…','nt-info');
+              window.open('./uefi.html','_blank');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── safe-mode ── */
+          {name:'safe-mode',description:'Estado safe mode',usage:'safe-mode',
+            async execute(ctx){
+              ctx.print(`Safe Mode: ${K.safeMode?'ACTIVO ⚠':'inactivo'}`,'nt-info');
+              ctx.print('Use "reboot safe" para iniciar en Safe Mode.','nt-dim');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── ver ── */
+          {name:'ver',description:'Versión del sistema',usage:'ver',
+            async execute(ctx){
+              ctx.print(`HUEBOS [Versión ${K.version||'0.4.0'}]`,'nt-info');
+              ctx.print('(c) HUEBOS Cyberhacker Glass. Todos los derechos reservados.','nt-dim');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── systeminfo ── */
+          {name:'systeminfo',description:'Información del sistema',usage:'systeminfo',
+            async execute(ctx){
+              const upSec=K.uptimeSeconds;
+              const upStr=upSec>=3600?`${Math.floor(upSec/3600)}h ${Math.floor((upSec%3600)/60)}m`:`${Math.floor(upSec/60)}m ${upSec%60}s`;
+              ctx.print('Información del sistema:','nt-info');
+              ctx.print(`  Kernel         : ${K.version||'0.4.0'}`,'nt-out');
+              ctx.print(`  Shell          : HUEBOS Terminal Modular`,'nt-out');
+              ctx.print(`  Resolución     : ${screen.width}×${screen.height}`,'nt-out');
+              ctx.print(`  CPU            : ${navigator.hardwareConcurrency} core(s)`,'nt-out');
+              ctx.print(`  Memoria        : ${navigator.deviceMemory?navigator.deviceMemory+' GB':'N/D'}`,'nt-out');
+              ctx.print(`  Uptime         : ${upStr}`,'nt-out');
+              ctx.print(`  Session        : #${K.session?.count??'?'}`,'nt-out');
+              ctx.print(`  Safe Mode      : ${K.safeMode?'ON':'off'}`,'nt-out');
+              ctx.print(`  PID Terminal   : ${termProc.pid}`,'nt-out');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── date ── */
+          {name:'date',description:'Mostrar fecha actual',usage:'date',
+            async execute(ctx){
+              ctx.print(new Date().toLocaleDateString('es',{weekday:'long',year:'numeric',month:'long',day:'numeric'}),'nt-out');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── time ── */
+          {name:'time',description:'Mostrar hora actual',usage:'time',
+            async execute(ctx){
+              ctx.print(new Date().toLocaleTimeString('es'),'nt-out');
+              return{exitCode:0};
+            }
+          },
+
+/* ── exit ── */
+          {name:'exit',description:'Cerrar terminal',usage:'exit',
+            async execute(ctx){
+              ctx.print('exit: cerrando terminal…','nt-info');
+              const wd=WM.getWindow(termProc.pid);
+              if(wd)WM.close(termProc.pid); else K.procs.kill(termProc.pid);
+              return{exitCode:0};
+            }
+          },
+
+          /* ── find ── */
+          {name:'find',description:'Buscar texto en archivos',usage:'find <texto> [ruta]',
+            async execute(ctx){
+              const needle=ctx.args[0];if(!needle){ctx.print('Uso: find <texto> [ruta]','nt-err');return{exitCode:1};}
+              const root=ctx.args[1]?resolvePath(ctx.args[1]):core.cwd;
+              let count=0;
+              async function search(dir){
+                const entries=await K.fs.readdir(dir);
+                for(const e of entries){
+                  if(e.type==='dir'){await search(e.id);}
+                  else if(e.encoding!=='binary'){
+                    const content=await K.fs.read(e.id).catch(()=>'');
+                    if(content.includes(needle)){ctx.print(`${e.id}`,'nt-file');count++;}
+                  }
+                }
+              }
+              await search(root);
+              if(count===0)ctx.print('(sin coincidencias)','nt-dim');
+              else ctx.print(`Encontradas ${count} coincidencia(s)`,'nt-success');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── findstr ── */
+          {name:'findstr',description:'Buscar texto (alias de find)',usage:'findstr <texto> [ruta]',
+            async execute(ctx){
+              const spec=core.registry.resolve('find');
+              return spec.execute(ctx);
+            }
+          },
+
+          /* ── sort ── */
+          {name:'sort',description:'Ordenar líneas',usage:'sort [archivo]',
+            flags:[{short:'r',long:'reverse',description:'Orden inverso'}],
+            async execute(ctx){
+              let input=ctx.stdin||'';
+              if(ctx.args[0]){input=await K.fs.read(resolvePath(ctx.args[0])).catch(()=>'');}
+              if(!input){ctx.print('(sin entrada)','nt-dim');return{exitCode:0};}
+              let lines=input.split('\n').filter(Boolean);
+              lines.sort((a,b)=>a.localeCompare(b));
+              if(ctx.flags.r||ctx.flags.reverse)lines.reverse();
+              lines.forEach(l=>ctx.print(l,'nt-out'));
+              return{exitCode:0};
+            }
+          },
+
+          /* ── more ── */
+/* ── more ── */
+          {name:'more',description:'Mostrar contenido paginado (pausa real entre páginas)',usage:'more <archivo>',
+            async execute(ctx){
+              const pa=ctx.args[0];if(!pa){ctx.print('Uso: more <archivo>','nt-err');return{exitCode:1};}
+              const target=resolvePath(pa);const content=await K.fs.read(target).catch(()=>null);
+              if(content===null){ctx.print(`more: ${target}: No existe`,'nt-err');return{exitCode:1};}
+              const lines=content.split('\n');
+              const pageSize=20;
+              const cmdInput=core.cmdInput;
+              function waitEnter(){
+                return new Promise(resolve=>{
+                  const handler=(e)=>{
+                    if(e.key==='Enter'){e.preventDefault();cmdInput.removeEventListener('keydown',handler);resolve(true);}
+                    else if(e.key==='q'||e.key==='Escape'){e.preventDefault();cmdInput.removeEventListener('keydown',handler);resolve(false);}
+                  };
+                  cmdInput.addEventListener('keydown',handler);
+                });
+              }
+              for(let i=0;i<lines.length;i+=pageSize){
+                for(let j=i;j<Math.min(i+pageSize,lines.length);j++)ctx.print(lines[j],'nt-out');
+                if(i+pageSize<lines.length){
+                  ctx.print('-- más -- (Enter para continuar, q para salir)','nt-dim');
+                  ctx.scrollBottom();
+                  const cont=await waitEnter();
+                  if(!cont){ctx.print('(more: interrumpido)','nt-dim');return{exitCode:0};}
+                }
+              }
+              return{exitCode:0};
+            }
+          },
+
+          /* ── assoc ── */
+{name:'assoc',description:'Asociaciones de extensiones',usage:'assoc [ext]',
+  async execute(ctx){
+    const bindings=Object.fromEntries(K.extensions.list().map(e=>[e.extension,e.handler]));
+    const keys=Object.keys(bindings).sort();
+    if(ctx.args[0]){
+      const ext=ctx.args[0].startsWith('.')?ctx.args[0]:'.'+ctx.args[0];
+      const app=bindings[ext];
+      if(app)ctx.print(`${ext}=${app}`,'nt-out');
+      else ctx.print(`assoc: sin asociación para ${ext}`,'nt-dim');
+      return{exitCode:0};
+    }
+    if(!keys.length){ctx.print('(sin asociaciones)','nt-dim');return{exitCode:0};}
+    keys.forEach(k=>ctx.print(`${k}=${bindings[k]}`,'nt-out'));
+    return{exitCode:0};
+  }
+},
+
+/* ── start ── */
+          {name:'start',description:'Iniciar aplicación',usage:'start <appId> [archivo]',
+            async execute(ctx){
+              const appId=ctx.args[0];if(!appId){ctx.print('Uso: start <appId> [archivo]','nt-err');return{exitCode:1};}
+              const app=await K.apps.get(appId);
+              if(!app){ctx.print(`start: aplicación '${appId}' no encontrada`,'nt-err');return{exitCode:1};}
+              const filePath=ctx.args[1]?resolvePath(ctx.args[1]):null;
+              if(window.__wos?.launch)window.__wos.launch(appId,filePath?{filePath}:{});
+              else K.emit('shell:launch',{appId,filePath});
+              ctx.print(`start: ${appId}${filePath?' '+filePath:''} iniciada`,'nt-success');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── prompt ── */
+/* ── prompt ── */
+          {name:'prompt',description:'Cambiar estilo de prompt (default, minimal, arrow, full)',usage:'prompt [estilo]',
+            async execute(ctx){
+              const valid=Object.keys(TerminalCore.PROMPT_STYLES);
+              if(!ctx.args[0]){
+                ctx.print(`Estilo actual: '${core.promptStyle}'`,'nt-info');
+                ctx.print(`Disponibles: ${valid.join(', ')}`,'nt-dim');
+                return{exitCode:0};
+              }
+              const style=ctx.args[0];
+              if(!valid.includes(style)){
+                ctx.print(`prompt: estilo inválido '${style}'. Usa: ${valid.join(', ')}`,'nt-err');
+                return{exitCode:1};
+              }
+              core.promptStyle=style;
+              core._applyPromptStyle();
+              await K.prefs.set('terminal.promptStyle',style);
+              ctx.print(`prompt: estilo cambiado a '${style}'`,'nt-success');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── color ── */
+/* ── color ── */
+          {name:'color',description:'Cambiar tema de color del sistema (dark, amber, blue)',usage:'color [tema]',
+            async execute(ctx){
+              const valid=['dark','amber','blue'];
+              if(!ctx.args[0]){
+                const current=await K.prefs.get('system.theme','dark');
+                ctx.print(`Tema actual: '${current}'`,'nt-info');
+                ctx.print(`Disponibles: ${valid.join(', ')}`,'nt-dim');
+                return{exitCode:0};
+              }
+              const theme=ctx.args[0];
+              if(!valid.includes(theme)){
+                ctx.print(`color: tema inválido '${theme}'. Usa: ${valid.join(', ')}`,'nt-err');
+                return{exitCode:1};
+              }
+              await K.prefs.set('system.theme',theme);
+              ctx.print(`color: tema del sistema cambiado a '${theme}'`,'nt-success');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── title ── */
+{name:'title',description:'Cambiar título de ventana',usage:'title <texto>',
+  async execute(ctx){
+    const text=ctx.args.join(' ')||'Terminal';
+    const wd=WM.getWindow(termProc.pid);
+    if(wd){
+      const titleEl=wd.el?.querySelector('.win-title');
+      if(titleEl)titleEl.textContent=text;
+    }
+    const tb=document.querySelector(`.tb-app[data-pid="${termProc.pid}"] .tb-label`);
+    if(tb)tb.textContent=text;
+    K.procs.update?.(termProc.pid,{title:text});
+    ctx.print(`title: ${text}`,'nt-success');
+    return{exitCode:0};
+  }
+},
+
+          /* ── alias / doskey ── */
+          {name:'alias',aliases:['doskey'],description:'Crear/listar alias',usage:'alias [nombre=comando]',
+            async execute(ctx){
+              const all=await K.prefs.get('terminal.aliases')||{};
+              if(ctx.args.length===0){
+                const keys=Object.keys(all).sort();
+                if(!keys.length){ctx.print('(sin alias)','nt-dim');return{exitCode:0};}
+                keys.forEach(k=>ctx.printHTML(`  <span style="color:var(--g)">${k}</span>=<span style="color:var(--amber)">${escapeHtml(all[k])}</span>`));
+                return{exitCode:0};
+              }
+              const kv=ctx.args.join(' ');
+              const eq=kv.indexOf('=');
+              if(eq<0){const v=all[kv];ctx.print(v||'(undefined)','nt-out');return{exitCode:0};}
+              const key=kv.slice(0,eq).trim();const val=kv.slice(eq+1).trim();
+              all[key]=val;await K.prefs.set('terminal.aliases',all);
+              ctx.print(`alias: ${key}=${val}`,'nt-success');return{exitCode:0};
+            }
+          },
+
+          /* ── path ── */
+          {name:'path',description:'Mostrar ruta de búsqueda',usage:'path',
+            async execute(ctx){
+              const p=await K.env.get('PATH')||'/system/bin:/home/bin';
+              p.split(':').forEach(d=>ctx.print(d,'nt-out'));
+              return{exitCode:0};
+            }
+          },
+
+          /* ── chcp ── */
+          {name:'chcp',description:'Code page (informativo)',usage:'chcp',
+            async execute(ctx){
+              ctx.print('Página de códigos activa: 65001 (UTF-8)','nt-info');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── mode ── */
+          {name:'mode',description:'Modo de terminal (informativo)',usage:'mode',
+            async execute(ctx){
+              ctx.print('Modo de terminal: 80×24 (emulado)','nt-info');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── attrib ── */
+          {name:'attrib',description:'Atributos de archivo',usage:'attrib <ruta>',
+            async execute(ctx){
+              const pa=ctx.args[0];if(!pa){ctx.print('Uso: attrib <ruta>','nt-err');return{exitCode:1};}
+              const target=resolvePath(pa);const node=await K.fs.stat(target);
+              if(!node){ctx.print(`attrib: ${target}: No existe`,'nt-err');return{exitCode:1};}
+const attrs=[];
+              if(node.type==='dir')attrs.push('D');
+              if(node.encoding==='binary')attrs.push('B');
+              if(node.meta?.protected||node.meta?.systemApp||target.startsWith('/system'))attrs.push('S');
+              ctx.print(`  ${attrs.join('')||'---'}  ${target}`,'nt-out');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── comp / fc ── */
+          {name:'comp',aliases:['fc'],description:'Comparar dos archivos',usage:'comp <archivo1> <archivo2>',
+            async execute(ctx){
+              const[a,b]=ctx.args;
+              if(!a||!b){ctx.print('Uso: comp <archivo1> <archivo2>','nt-err');return{exitCode:1};}
+              const c1=await K.fs.read(resolvePath(a)).catch(()=>null);
+              const c2=await K.fs.read(resolvePath(b)).catch(()=>null);
+              if(c1===null){ctx.print(`comp: ${a}: No existe`,'nt-err');return{exitCode:1};}
+              if(c2===null){ctx.print(`comp: ${b}: No existe`,'nt-err');return{exitCode:1};}
+              if(c1===c2){ctx.print('Los archivos son idénticos.','nt-success');return{exitCode:0};}
+              const l1=c1.split('\n'),l2=c2.split('\n');
+              const maxLen=Math.max(l1.length,l2.length);
+              let diffs=0;
+              for(let i=0;i<maxLen;i++){
+                if(l1[i]!==l2[i]){ctx.print(`  línea ${i+1}:`,'nt-err');ctx.print(`    < ${l1[i]??'(vacío)'}`,'nt-dim');ctx.print(`    > ${l2[i]??'(vacío)'}`,'nt-dim');diffs++;}
+              }
+              ctx.print(`Diferencias: ${diffs}`,'nt-info');
+              return{exitCode:diffs>0?1:0};
+            }
+          },
+
+          /* ── echo ERRORLEVEL ── */
+          {name:'errorlevel',description:'Mostrar último código de salida',usage:'errorlevel',
+            async execute(ctx){
+              ctx.print(`%ERRORLEVEL% = ${core.exitCode}`,'nt-out');
+              return{exitCode:0};
+            }
+          },
+
+          /* ── rem ── */
+          {name:'rem',description:'Comentario (no-op)',usage:'rem [...texto]',
+            async execute(ctx){return{exitCode:0};}
+          },
+
+          /* ── pause ── */
+          {name:'pause',description:'Pausar hasta presionar Enter',usage:'pause',
+            async execute(ctx){
+              ctx.print('Presione Enter para continuar…','nt-dim');
+              const cmdInput=core.cmdInput;
+              return new Promise(resolve=>{
+                const handler=(e)=>{if(e.key==='Enter'){e.preventDefault();cmdInput.removeEventListener('keydown',handler);resolve({exitCode:0});}};
+                cmdInput.addEventListener('keydown',handler);
+              });
+            }
+          },
+
+        ];
+      }
+
+return{Parser,CommandRegistry,ArgResolver,ErrorHandler,EnvStore,Redirect,Pipe,History,Completer,Renderer,TerminalCore,buildCommandSpecs};    })();
+
+    /* ── createNativeTerminal: uses TerminalModule ── */
+    async function createNativeTerminal(parentPid){
       const termProc=Kernel.procs.spawn('terminal',{title:'Terminal',icon:'⌨',cwd:'/home',parentPid:parentPid??null});
       const wrap=document.createElement('div'); wrap.className='native-terminal';
       const header=document.createElement('div'); header.className='nt-header';
       header.innerHTML=`<span class="nt-title-wrap"><span class="nt-leds"><span class="nt-led"></span><span class="nt-led"></span><span class="nt-led"></span></span><span class="nt-title">⌨ HUEBOS Terminal v0.4.0</span></span><span class="nt-cwd">/home</span>`;
       const cwdDisplay=header.querySelector('.nt-cwd');
       const output=document.createElement('div'); output.className='nt-output';
-      const inputWrap=document.createElement('div'); inputWrap.className='nt-input-wrap';
+const inputWrap=document.createElement('div'); inputWrap.className='nt-input-wrap';
       inputWrap.innerHTML=`<span class="nt-prompt"><span class="nt-ph">huebos</span><span class="nt-pp">@local</span>:<span class="nt-pid nt-ph">~</span><span class="nt-pp">$</span></span>&nbsp;<input class="nt-cmd-input" type="text" autocomplete="off" spellcheck="false" />`;
+      const promptEl=inputWrap.querySelector('.nt-prompt');
       const promptPath=inputWrap.querySelector('.nt-pid');
       const cmdInput=inputWrap.querySelector('.nt-cmd-input');
       wrap.appendChild(header); wrap.appendChild(output); wrap.appendChild(inputWrap);
 
-      let cwd='/home'; const history=[]; let histIdx=-1;
-      function setCwd(p){cwd=p;const d=cwd==='/home'?'~':cwd.replace(/^\/home/,'~');promptPath.textContent=d;cwdDisplay.textContent=cwd;Kernel.procs.setCwd(termProc.pid,cwd);}
-      function resolvePath(p){
-        if(!p||p==='~')return'/home';if(p.startsWith('~/'))return'/home/'+p.slice(2);
-        if(p.startsWith('/'))return p.replace(/\/+/g,'/').replace(/\/$/,'')||'/';
-        const parts=(cwd+'/'+p).split('/').filter(Boolean);const stack=[];
-        for(const pt of parts){if(pt==='.')continue;if(pt==='..')stack.pop();else stack.push(pt);}
-        return'/'+stack.join('/')||'/';
-      }
-      function print(t,c='nt-out'){const l=document.createElement('div');l.className='nt-line '+c;l.textContent=t;output.appendChild(l);}
-      function printHTML(h,c='nt-out'){const l=document.createElement('div');l.className='nt-line '+c;l.innerHTML=h;output.appendChild(l);}
-      function scrollBottom(){output.scrollTop=output.scrollHeight;}
-
-      printHTML(`<span style="color:var(--g);text-shadow:0 0 8px #00ff88aa">HUEBOS Terminal</span> <span style="color:var(--g-dim)">v0.4.0 · pid=${termProc.pid}</span>`);
-      print('Escribe "help" para ver los comandos disponibles.','nt-dim');
-      print('','nt-line');
-
-      async function exec(raw){
-        const trimmed=raw.trim(); if(!trimmed)return;
-        const ps=`huebos@local:${cwd==='/home'?'~':cwd.replace(/^\/home/,'~')}$ ${trimmed}`;
-        print(ps,'nt-cmd'); history.unshift(trimmed); histIdx=-1;
-        if(history.length>200)history.pop();
-        const [cmd,...args]=trimmed.split(/\s+/);
-        if(!COMMANDS[cmd]){
-          print(`bash: ${cmd}: command not found`,'nt-err');
-          scrollBottom();
-          return;
-        }
-        try{await COMMANDS[cmd](args);}
-        catch(err){print(`Error: ${err.message}`,'nt-err');}
-        scrollBottom();
-      }
-
-      const COMMANDS={
-        async help(){
-          const cmds=[
-            ['ls [path]','Listar directorio'],['cd [path]','Cambiar directorio'],['pwd','Mostrar ruta actual'],
-            ['cat <path>','Mostrar contenido'],['mkdir <path>','Crear directorio'],['rm [-r] <path>','Eliminar'],
-            ['mv <src> <dst>','Mover/renombrar'],['cp <src> <dst>','Copiar'],['touch <path>','Crear vacío'],
-            ['write <path> ...','Escribir texto'],['stat <path>','Info detallada'],['tree [path]','Árbol'],
-            ['echo [...txt]','Imprimir'],['ps','Listar procesos'],['kill <pid>','Matar proceso'],
-            ['history','Historial'],['neofetch','Info sistema'],['clear','Limpiar'],
-            ['env [key=val]','Ver/poner variables'],['whoami','Usuario actual'],
-            ['useradd <id> <name>','Crear usuario'],['passwd [id]','Cambiar contraseña'],
-            ['reboot [safe]','Reiniciar sistema'],['uefi','Abrir firmware UEFI'],
-            ['safe-mode','Estado safe mode'],
-          ];
-          print('Comandos disponibles:','nt-info');
-          cmds.forEach(([c,d])=>{const pad=c.padEnd(22,' ');printHTML(`  <span style="color:var(--g)">${pad}</span><span style="color:var(--g-dim)">${d}</span>`);});
-        },
-        async ls([pa]){
-          const target=pa?resolvePath(pa):cwd;const node=await Kernel.fs.stat(target);
-          if(!node){print(`ls: no se puede acceder a '${target}': No existe`,'nt-err');return;}
-          if(node.type==='file'){print(node.name+(node.encoding==='binary'?` [${node.mime||'bin'}]`:''),'nt-file');return;}
-          const entries=await Kernel.fs.readdir(target);
-          if(!entries.length){print('(directorio vacío)','nt-dim');return;}
-          const dirs=entries.filter(e=>e.type==='dir').sort((a,b)=>a.name.localeCompare(b.name));
-          const files=entries.filter(e=>e.type==='file').sort((a,b)=>a.name.localeCompare(b.name));
-          const parts=[];
-          dirs.forEach(d=>parts.push(`<span class="nt-dir">${escapeHtml(d.name)}/</span>`));
-          files.forEach(f=>parts.push(`<span class="nt-file">${escapeHtml(f.name)}</span>${f.encoding==='binary'?`<span style="color:var(--amber);font-size:0.85em"> [bin]</span>`:''}`));
-          printHTML(parts.join('  '));
-        },
-        async cd([pa]){
-          const target=pa?resolvePath(pa):'/home';const node=await Kernel.fs.stat(target);
-          if(!node){print(`cd: ${target}: No existe`,'nt-err');return;}
-          if(node.type!=='dir'){print(`cd: ${target}: No es un directorio`,'nt-err');return;}
-          setCwd(target);
-        },
-        async pwd(){print(cwd,'nt-out');},
-        async cat([pa]){
-          if(!pa){print('Uso: cat <ruta>','nt-err');return;}
-          const target=resolvePath(pa);const node=await Kernel.fs.stat(target);
-          if(!node){print(`cat: ${target}: No existe`,'nt-err');return;}
-          if(node.type==='dir'){print(`cat: ${target}: Es un directorio`,'nt-err');return;}
-          if(node.encoding==='binary'){print(`(binario: ${node.mime||'application/octet-stream'}, ${node.size} bytes)`,'nt-info');return;}
-          const content=await Kernel.fs.read(target);
-          content.split('\n').forEach(l=>print(l,'nt-out'));
-        },
-        async mkdir([pa]){if(!pa){print('Uso: mkdir <ruta>','nt-err');return;}await Kernel.fs.mkdir(resolvePath(pa));print(`mkdir: creado '${resolvePath(pa)}'`,'nt-success');},
-        async rm(args){
-          const r=args[0]==='-r'||args[0]==='-rf';const pa=r?args[1]:args[0];
-          if(!pa){print('Uso: rm [-r] <ruta>','nt-err');return;}
-          await Kernel.fs.remove(resolvePath(pa),{recursive:r});print(`rm: eliminado '${resolvePath(pa)}'`,'nt-success');
-        },
-        async mv([src,dst]){
-          if(!src||!dst){print('Uso: mv <origen> <destino>','nt-err');return;}
-          await Kernel.fs.move(resolvePath(src),resolvePath(dst));print(`mv: '${src}' → '${dst}'`,'nt-success');
-        },
-async cp([src,dst]){
-          if(!src||!dst){print('Uso: cp <origen> <destino>','nt-err');return;}
-          const sp=resolvePath(src);let dp=resolvePath(dst);const node=await Kernel.fs.stat(sp);
-          if(!node||node.type!=='file'){print(`cp: '${src}': no es un archivo regular`,'nt-err');return;}
-          const dNode=await Kernel.fs.stat(dp);
-          if(dNode&&dNode.type==='dir')dp=`${dp}/${node.name}`.replace(/\/+/g,'/');
-          if(node.encoding==='binary'){const blob=await Kernel.fs.readBlob(sp);await Kernel.fs.writeBinary(dp,blob,node.mime);}
-          else{const c=await Kernel.fs.read(sp);await Kernel.fs.write(dp,c);}
-          print(`cp: '${src}' → '${dp}'`,'nt-success');
-        },
-        async touch([pa]){
-          if(!pa){print('Uso: touch <ruta>','nt-err');return;}
-          const target=resolvePath(pa);const exists=await Kernel.fs.exists(target);
-          if(!exists)await Kernel.fs.write(target,'');
-          else{const c=await Kernel.fs.read(target).catch(()=>'');await Kernel.fs.write(target,c);}
-          print(`touch: '${target}'`,'nt-success');
-        },
-        async write([pa,...rest]){
-          if(!pa){print('Uso: write <ruta> <texto...>','nt-err');return;}
-          const target=resolvePath(pa);const text=rest.join(' ');
-          await Kernel.fs.write(target,text);print(`write: '${target}' (${text.length} chars)`,'nt-success');
-        },
-        async stat([pa]){
-          if(!pa){print('Uso: stat <ruta>','nt-err');return;}
-          const target=resolvePath(pa);const node=await Kernel.fs.stat(target);
-          if(!node){print(`stat: '${target}': No existe`,'nt-err');return;}
-          print(`  Ruta   : ${node.id}`,'nt-info'); print(`  Tipo   : ${node.type}`,'nt-out');
-          if(node.encoding)print(`  Encoding: ${node.encoding}`,'nt-out');
-          if(node.mime)print(`  MIME    : ${node.mime}`,'nt-out');
-          print(`  Tamaño : ${node.size} bytes`,'nt-out');
-          print(`  Creado : ${new Date(node.ctime).toLocaleString('es')}`,'nt-dim');
-          print(`  Modificado: ${new Date(node.mtime).toLocaleString('es')}`,'nt-dim');
-        },
-        async tree([pa]){
-          const root=pa?resolvePath(pa):cwd;const node=await Kernel.fs.stat(root);
-          if(!node||node.type!=='dir'){print(`tree: '${root}': no es directorio`,'nt-err');return;}
-          async function printTree(dir,prefix){
-            const entries=await Kernel.fs.readdir(dir);
-            const all=[...entries.filter(e=>e.type==='dir').sort((a,b)=>a.name.localeCompare(b.name)),...entries.filter(e=>e.type==='file').sort((a,b)=>a.name.localeCompare(b.name))];
-            for(let i=0;i<all.length;i++){
-              const e=all[i];const isLast=i===all.length-1;const sym=isLast?'└── ':'├── ';
-              const cls=e.type==='dir'?'nt-dir':'nt-file';
-              const tag=e.encoding==='binary'?` <span style="color:var(--amber);font-size:0.85em">[bin]</span>`:'';
-printHTML(`${prefix}${sym}<span class="${cls}">${escapeHtml(e.name)}${e.type==='dir'?'/':''}</span>${tag}`);
-              if(e.type==='dir')await printTree(e.id,prefix+(isLast?'    ':'│   '));
-            }
-          }
-          printHTML(`<span class="nt-dir">${root}/</span>`); await printTree(root,'');
-        },
-        async echo(args){print(args.join(' '),'nt-out');},
-        async ps(){
-          const procs=Kernel.procs.list();
-          print(`  PID   APP                  TÍTULO                  CWD`,'nt-info');
-          print(`  ────  ───────────────────  ──────────────────────  ───`,'nt-dim');
-          procs.forEach(p=>{
-            const pid=String(p.pid).padStart(4,' ');const app=p.appId.padEnd(20,' ').slice(0,20);
-            const title=(p.title||'').padEnd(22,' ').slice(0,22);const cw=p.cwd||'-';
-            const myF=p.pid===termProc.pid?' ◄':'';const pF=p.parentPid!==null?` (↑${p.parentPid})`:'';
-            print(`  ${pid}  ${app}  ${title}  ${cw}${myF}${pF}`,'nt-out');
-          });
-          print(`Total: ${procs.length} proceso(s)`,'nt-dim');
-        },
-        async kill([pa]){
-          if(!pa){print('Uso: kill <pid>','nt-err');return;}
-          const pid=parseInt(pa,10);
-          if(pid===termProc.pid){print(`kill: no puedes matar tu propia terminal`,'nt-err');return;}
-          const ok=Kernel.procs.kill(pid);
-          if(ok)print(`kill: proceso ${pid} terminado`,'nt-success');
-          else print(`kill: pid ${pid} no encontrado`,'nt-err');
-        },
-        async history(){
-          if(!history.length){print('(historial vacío)','nt-dim');return;}
-          history.slice().reverse().forEach((cmd,i)=>{print(`  ${String(i+1).padStart(3)}  ${cmd}`,i%2===0?'nt-out':'nt-dim');});
-        },
-        async neofetch(){
-          const session=Kernel.session;const upSec=Kernel.uptimeSeconds;
-          const upStr=upSec>=3600?`${Math.floor(upSec/3600)}h ${Math.floor((upSec%3600)/60)}m`:`${Math.floor(upSec/60)}m ${upSec%60}s`;
-          const lines=[``,
-            `   ██╗  ██╗██╗   ██╗███████╗██████╗  ██████╗ ███████╗`,
-            `   ██║  ██║██║   ██║██╔════╝██╔══██╗██╔═══██╗██╔════╝`,
-            `   ███████║██║   ██║█████╗  ██████╔╝██║   ██║███████╗`,
-            `   ██╔══██║██║   ██║██╔══╝  ██╔══██╗██║   ██║╚════██║`,
-            `   ██║  ██║╚██████╔╝███████╗██████╔╝╚██████╔╝███████║`,
-            `   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚══════╝`,``];
-          const info=[``,`OS: HUEBOS v0.4.0 Cyberhacker Glass`,`Kernel: HUEBOS Kernel v0.4.0 (UEFI)`,
-            `Shell: Cyberhacker+Aero Glass`,`Resolution: ${screen.width}×${screen.height}`,
-            `CPU: ${navigator.hardwareConcurrency} core(s)`,
-            `Memory: ${navigator.deviceMemory?navigator.deviceMemory+' GB':'N/D'}`,
-            `Uptime: ${upStr}`,`Session: #${session.count??'?'}`,`PID: ${termProc.pid}`,`CWD: ${cwd}`,
-            `Safe Mode: ${Kernel.safeMode?'ON':'off'}`];
-          lines.forEach((l,i)=>{
-            const inf=info[i-1]||'';
-            printHTML(`<span style="color:var(--g);opacity:0.9">${l}</span>  <span style="color:var(--amber)">${inf}</span>`);
-          });
-          print('','nt-line');
-        },
-        async clear(){output.innerHTML='';},
-        async env(args){
-          if(args.length===0){
-            const all=await Kernel.env.all();
-            const keys=Object.keys(all).sort();
-            if(!keys.length){print('(sin variables de entorno)','nt-dim');return;}
-            keys.forEach(k=>printHTML(`  <span style="color:var(--g)">${k}</span>=<span style="color:var(--amber)">${escapeHtml(String(all[k]))}</span>`));
-          }else{
-            const kv=args.join(' ');
-            const eq=kv.indexOf('=');
-            if(eq<0){const v=await Kernel.env.get(kv);print(v===null?'(undefined)':String(v),'nt-out');return;}
-            const key=kv.slice(0,eq).trim();const val=kv.slice(eq+1).trim();
-            if(!key){print('Uso: env KEY=VAL o env KEY','nt-err');return;}
-            await Kernel.env.set(key,val);print(`env: ${key}=${val}`,'nt-success');
-          }
-        },
-        async whoami(){
-          const u=await Kernel.users.current();
-          if(u)printHTML(`  <span style="color:var(--g)">${u.id}</span> <span style="color:var(--g-dim)">(${u.name})</span> <span style="color:var(--amber)">[${u.role}]</span>`);
-          else print('(no autenticado)','nt-dim');
-        },
-        async useradd(args){
-          const id=args[0];const name=args.slice(1).join(' ')||id;
-          if(!id){print('Uso: useradd <id> [nombre]','nt-err');return;}
-          try{const u=await Kernel.users.create(id,name);print(`useradd: usuario '${u.id}' creado`,'nt-success');}
-          catch(e){print(`useradd: ${e.message}`,'nt-err');}
-        },
-        async passwd(args){
-          const id=args[0]||(await Kernel.users.current())?.id;
-          if(!id){print('Uso: passwd [id]  (sin sesión activa, especifica id)','nt-err');return;}
-          const user=await Kernel.users.get(id);
-          if(!user){print(`passwd: usuario '${id}' no existe`,'nt-err');return;}
-          /* Prompt inline simple */
-          print(`passwd: escriba nueva contraseña para '${id}':`,'nt-info');
-          cmdInput.type='password';cmdInput.value='';cmdInput.placeholder='nueva contraseña…';
-          const handler=async(e)=>{
-            if(e.key==='Enter'){
-              e.preventDefault();cmdInput.removeEventListener('keydown',handler);
-              const pw=cmdInput.value;cmdInput.value='';cmdInput.type='text';cmdInput.placeholder='';
-              user.password=pw;
-              const list=await Kernel.users.list();
-              const idx=list.findIndex(u=>u.id===id);
-              if(idx>=0){list[idx]=user;await Kernel.prefs.set('users.list',list);}
-              print(`passwd: contraseña actualizada para '${id}'`,'nt-success');
-            }
-          };
-          cmdInput.addEventListener('keydown',handler);
-        },
-        async reboot(args){
-          const safe=args[0]==='safe';
-          if(safe){sessionStorage.setItem('huebos_safe_mode','1');print('reboot: reiniciando en SAFE MODE…','nt-amber');}
-          else{sessionStorage.removeItem('huebos_safe_mode');print('reboot: reiniciando…','nt-info');}
-          setTimeout(()=>window.location.href='./index.html',800);
-        },
-        async uefi(){
-          print('uefi: abriendo firmware UEFI…','nt-info');
-          window.open('./uefi.html','_blank');
-        },
-        async safe_mode(){
-          print(`Safe Mode: ${Kernel.safeMode?'ACTIVO ⚠':'inactivo'}`,'nt-info');
-          print('Use "reboot safe" para iniciar en Safe Mode.','nt-dim');
-        },
-      };
-
-      cmdInput.addEventListener('keydown',async e=>{
-        if(e.key==='Enter'){const v=cmdInput.value;cmdInput.value='';histIdx=-1;await exec(v);}
-        else if(e.key==='ArrowUp'){e.preventDefault();if(histIdx<history.length-1){histIdx++;cmdInput.value=history[histIdx]||'';setTimeout(()=>{cmdInput.selectionStart=cmdInput.selectionEnd=cmdInput.value.length;},0);}}
-        else if(e.key==='ArrowDown'){e.preventDefault();if(histIdx>0){histIdx--;cmdInput.value=history[histIdx]||'';}else{histIdx=-1;cmdInput.value='';}}
-        else if(e.key==='Tab'){
-          e.preventDefault();
-          const v=cmdInput.value;const parts=v.split(/\s+/);if(parts.length<=1)return;
-          const partial=parts[parts.length-1];
-          const dir=partial.includes('/')?resolvePath(partial.slice(0,partial.lastIndexOf('/')+1)):cwd;
-          const pfx=partial.includes('/')?partial.slice(partial.lastIndexOf('/')+1):partial;
-          try{
-            const entries=await Kernel.fs.readdir(dir);const matches=entries.filter(e=>e.name.startsWith(pfx));
-            if(matches.length===1){parts[parts.length-1]=(partial.includes('/')?partial.slice(0,partial.lastIndexOf('/')+1):'')+matches[0].name+(matches[0].type==='dir'?'/':'');cmdInput.value=parts.join(' ');}
-            else if(matches.length>1){print(parts.join(' '),'nt-dim');printHTML(matches.map(m=>`<span class="${m.type==='dir'?'nt-dir':'nt-file'}">${escapeHtml(m.name)}${m.type==='dir'?'/':''}</span>`).join('  '));scrollBottom();}          }catch{}
-        }
-        else if(e.key==='l'&&e.ctrlKey){e.preventDefault();output.innerHTML='';}
+      const renderer=new TerminalModule.Renderer(output);
+      const core=new TerminalModule.TerminalCore({
+        kernel:Kernel,termProc,renderer,cmdInput,promptEl,promptPath,cwdDisplay,
       });
+      core.registry.registerAll(TerminalModule.buildCommandSpecs(core));
+      await core.init();
+
+      renderer.printHTML(`<span style="color:var(--g);text-shadow:0 0 8px #00ff88aa">HUEBOS Terminal</span> <span style="color:var(--g-dim)">v0.4.0 · pid=${termProc.pid} · modular</span>`);
+      renderer.print('Escribe "help" para ver los comandos disponibles.','nt-dim');
+      renderer.print('','nt-line');
+
+      cmdInput.addEventListener('keydown',async e=>{await core.handleKey(e);});
       output.addEventListener('click',()=>cmdInput.focus());
       wrap.addEventListener('click',e=>{if(e.target!==cmdInput)cmdInput.focus();});
 
@@ -2758,10 +3771,31 @@ async function resolveShellApps(kernel){
         _unlocking=false;
       });
 
-      /* Botón reiniciar en lock screen */
+      /* Botón reiniciar en lock screen — diálogo personalizado (no nativo) */
       const lockRebootBtn=document.getElementById('lock-reboot-btn');
+      const lockConfirmOverlay=document.getElementById('lock-confirm-overlay');
+      const lockConfirmCancel=document.getElementById('lock-confirm-cancel');
+      const lockConfirmYes=document.getElementById('lock-confirm-yes');
       if(lockRebootBtn)lockRebootBtn.addEventListener('click',()=>{
-        if(confirm('¿Reiniciar HUEBOS?'))location.reload();
+        if(lockConfirmOverlay){
+          lockConfirmOverlay.style.display='flex';
+          requestAnimationFrame(()=>lockConfirmOverlay.classList.add('show'));
+        }
+      });
+      if(lockConfirmCancel)lockConfirmCancel.addEventListener('click',()=>{
+        lockConfirmOverlay.classList.remove('show');
+        setTimeout(()=>{lockConfirmOverlay.style.display='none';},250);
+      });
+      if(lockConfirmYes)lockConfirmYes.addEventListener('click',()=>{
+        lockConfirmOverlay.classList.remove('show');
+        setTimeout(()=>{window.location.href='./index.html';},300);
+      });
+      /* Escape cierra el diálogo */
+      if(lockConfirmOverlay)lockConfirmOverlay.addEventListener('click',e=>{
+        if(e.target===lockConfirmOverlay){
+          lockConfirmOverlay.classList.remove('show');
+          setTimeout(()=>{lockConfirmOverlay.style.display='none';},250);
+        }
       });
 
       /* Win+L = bloquear (solo si NO estamos ya en lock screen) */

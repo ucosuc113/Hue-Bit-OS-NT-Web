@@ -403,6 +403,54 @@
       display: flex; gap: 10px; justify-content: flex-end;
     }
 
+    /* ── Password verify modal ── */
+    #pwd-modal {
+      display: none;
+      position: fixed; inset: 0; z-index: 510;
+      background: rgba(0,0,0,0.82);
+      align-items: center; justify-content: center;
+    }
+    #pwd-modal.visible { display: flex; }
+    .pwd-box {
+      background: #020d06;
+      border: 1px solid rgba(255,179,0,0.5);
+      border-radius: 6px;
+      padding: 24px;
+      width: 360px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.9), 0 0 24px rgba(255,179,0,0.15);
+    }
+    .pwd-box h3 {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      color: var(--amber);
+      margin-bottom: 10px;
+      text-shadow: 0 0 8px rgba(255,179,0,0.5);
+    }
+    .pwd-box p {
+      font-size: 0.72rem;
+      color: rgba(255,200,136,0.8);
+      line-height: 1.7;
+      margin-bottom: 14px;
+    }
+    .pwd-input {
+      width: 100%; box-sizing: border-box;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,179,0,0.3);
+      border-radius: 4px;
+      padding: 10px 12px;
+      color: var(--amber);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      margin-bottom: 14px;
+      outline: none;
+    }
+    .pwd-input:focus { border-color: var(--amber); box-shadow: 0 0 8px rgba(255,179,0,0.2); }
+    .pwd-error {
+      font-size: 0.68rem; color: var(--red-err);
+      margin-bottom: 10px; min-height: 1em;
+    }
+    .pwd-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
     /* Toast */
     #toast-container {
       position: fixed; bottom: 12px; right: 12px;
@@ -447,9 +495,6 @@
       </div>
       <div class="nav-sep"></div>
       <div class="nav-group-label">Avanzado</div>
-      <div class="nav-item" data-panel="panel-uefi">
-        <span class="ni-icon">🔌</span> UEFI / Firmware
-      </div>
       <div class="nav-item" data-panel="panel-seguridad">
         <span class="ni-icon">🔐</span> Seguridad
       </div>
@@ -592,99 +637,6 @@
         <button class="btn btn-primary" id="btn-save-shell">💾 GUARDAR CAMBIOS</button>
       </div>
 
-      <!-- ── UEFI / FIRMWARE ── -->
-      <div id="panel-uefi" class="panel">
-        <div class="section-title">🔌 UEFI / Firmware</div>
-        <div class="section-desc">Configuración del firmware virtual. Estos valores se leen durante el arranque (F2 para entrar al setup).</div>
-
-        <div class="info-box ok">
-          El firmware UEFI virtual se ejecuta antes del Kernel. Los cambios aquí afectan el proceso de boot la próxima vez que reinicies.
-        </div>
-
-        <div class="cfg-card">
-          <div class="cfg-card-header">Arranque</div>
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Modo de arranque</div>
-              <div class="cfg-hint">Normal = boot estándar · Diagnóstico = verbose + logs detallados</div>
-            </div>
-            <div class="cfg-control">
-              <select class="cfg-select" id="uefi-boot-mode">
-                <option value="normal">Normal</option>
-                <option value="diagnostic">Diagnóstico (verbose)</option>
-              </select>
-            </div>
-          </div>
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Arranque rápido</div>
-              <div class="cfg-hint">Omite animaciones y delays del boot</div>
-            </div>
-            <div class="cfg-control">
-              <label class="cfg-toggle">
-                <input type="checkbox" id="uefi-fast-boot" />
-                <div class="cfg-toggle-track"></div>
-                <div class="cfg-toggle-thumb"></div>
-              </label>
-            </div>
-          </div>
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Timeout de selección</div>
-              <div class="cfg-hint">Segundos antes de auto-arrancar (0 = sin espera)</div>
-            </div>
-            <div class="cfg-control">
-              <input type="number" class="cfg-input-num" id="uefi-timeout" min="0" max="30" step="1" value="3" />
-            </div>
-          </div>
-        </div>
-
-        <div class="cfg-card">
-          <div class="cfg-card-header">Seguridad de boot</div>
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Secure Boot</div>
-              <div class="cfg-hint">Verifica la integridad del Kernel al arrancar</div>
-            </div>
-            <div class="cfg-control">
-              <label class="cfg-toggle">
-                <input type="checkbox" id="uefi-secure-boot" checked />
-                <div class="cfg-toggle-track"></div>
-                <div class="cfg-toggle-thumb"></div>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <div class="cfg-card">
-          <div class="cfg-card-header">Recuperación</div>
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Modo seguro</div>
-              <div class="cfg-hint">Arranca con subsistemas mínimos (sin apps de terceros)</div>
-            </div>
-            <div class="cfg-control">
-              <label class="cfg-toggle">
-                <input type="checkbox" id="uefi-safe-mode" />
-                <div class="cfg-toggle-track"></div>
-                <div class="cfg-toggle-thumb"></div>
-              </label>
-            </div>
-          </div>
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Entrar a UEFI en próximo reinicio</div>
-              <div class="cfg-hint">Fuerza la apertura del setup UEFI al reiniciar</div>
-            </div>
-            <div class="cfg-control">
-              <button class="btn btn-amber" id="btn-uefi-enter-setup">🔌 ENTRAR AL SETUP</button>
-            </div>
-          </div>
-        </div>
-
-        <button class="btn btn-primary" id="btn-save-uefi">💾 GUARDAR UEFI</button>
-      </div>
-
       <!-- ── SEGURIDAD ── -->
       <div id="panel-seguridad" class="panel">
         <div class="section-title">🔐 Seguridad</div>
@@ -720,6 +672,17 @@
               </label>
             </div>
           </div>
+          <div id="sec-password-row" style="display:none">
+            <div class="cfg-row">
+              <div>
+                <div class="cfg-label">Establecer contraseña</div>
+                <div class="cfg-hint" id="sec-password-hint">Se pedirá al desbloquear la pantalla</div>
+              </div>
+              <div class="cfg-control">
+                <input type="password" class="cfg-input-num" id="sec-new-password" placeholder="Contraseña" style="width:120px" />
+              </div>
+            </div>
+          </div>
           <div class="cfg-row">
             <div>
               <div class="cfg-label">Bloquear ahora</div>
@@ -743,15 +706,6 @@
             </div>
             <div class="cfg-control">
               <input type="text" class="cfg-input-num" id="sec-new-username" placeholder="Nuevo nombre" style="width:120px" />
-            </div>
-          </div>
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Establecer contraseña</div>
-              <div class="cfg-hint">Se pedirá al desbloquear la pantalla (si está activado)</div>
-            </div>
-            <div class="cfg-control">
-              <input type="password" class="cfg-input-num" id="sec-new-password" placeholder="Contraseña" style="width:120px" />
             </div>
           </div>
         </div>
@@ -924,6 +878,20 @@
   </div>
 </div>
 
+<!-- Password verify modal -->
+<div id="pwd-modal">
+  <div class="pwd-box">
+    <h3 id="pwd-title">🔒 VERIFICAR CONTRASEÑA</h3>
+    <p id="pwd-body">Introduce tu contraseña actual para continuar.</p>
+    <input type="password" class="pwd-input" id="pwd-input" placeholder="Contraseña actual" autocomplete="off" />
+    <div class="pwd-error" id="pwd-error"></div>
+    <div class="pwd-actions">
+      <button class="btn btn-primary" id="pwd-cancel">CANCELAR</button>
+      <button class="btn btn-amber" id="pwd-ok">VERIFICAR</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast-container"></div>
 
@@ -970,6 +938,45 @@
     const cb = _confirmCb;
     _confirmCb = null;
     if (cb) cb();
+  });
+
+  /* ── Password verify modal ── */
+  let _pwdCb = null;
+  const PwdVerify = {
+    show(title, body, cb) {
+      $('pwd-title').textContent = title;
+      $('pwd-body').textContent  = body;
+      $('pwd-input').value = '';
+      $('pwd-error').textContent = '';
+      $('pwd-modal').classList.add('visible');
+      _pwdCb = cb;
+      setTimeout(() => $('pwd-input').focus(), 100);
+    },
+    hide() {
+      $('pwd-modal').classList.remove('visible');
+      _pwdCb = null;
+    }
+  };
+  $('pwd-cancel').addEventListener('click', () => {
+    PwdVerify.hide();
+  });
+  $('pwd-ok').addEventListener('click', async () => {
+    const input = $('pwd-input').value;
+    if (!input) { $('pwd-error').textContent = 'Escribe tu contraseña.'; return; }
+    try {
+      const cur = await K.users.current();
+      if (!cur) { $('pwd-error').textContent = 'No hay sesión activa.'; return; }
+      await K.users.login(cur.id, input);
+      const cb = _pwdCb; _pwdCb = null;
+      PwdVerify.hide();
+      if (cb) cb();
+    } catch(e) {
+      $('pwd-error').textContent = 'Contraseña incorrecta.';
+    }
+  });
+  $('pwd-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); $('pwd-ok').click(); }
+    if (e.key === 'Escape') { e.preventDefault(); PwdVerify.hide(); }
   });
 
   /* ── Kernel ── */
@@ -1263,34 +1270,6 @@ $('btn-format-fs').addEventListener('click', () => {
     `).join('');
   }
 
-  /* ── UEFI / Firmware ── */
-  async function loadUEFI() {
-    const cfg = await K.prefs.get('uefi.config') || {};
-    if (cfg.bootMode) $('uefi-boot-mode').value = cfg.bootMode;
-    if (cfg.fastBoot !== undefined) $('uefi-fast-boot').checked = cfg.fastBoot;
-    if (cfg.timeout !== undefined) $('uefi-timeout').value = cfg.timeout;
-    if (cfg.secureBoot !== undefined) $('uefi-secure-boot').checked = cfg.secureBoot;
-    if (cfg.safeMode !== undefined) $('uefi-safe-mode').checked = cfg.safeMode;
-  }
-
-  $('btn-save-uefi').addEventListener('click', async () => {
-    const cfg = {
-      bootMode:   $('uefi-boot-mode').value,
-      fastBoot:   $('uefi-fast-boot').checked,
-      timeout:    parseInt($('uefi-timeout').value) || 0,
-      secureBoot: $('uefi-secure-boot').checked,
-      safeMode:   $('uefi-safe-mode').checked
-    };
-    await K.prefs.set('uefi.config', cfg);
-    Toast.show('Configuración UEFI guardada ✓', 'ok');
-  });
-
-  $('btn-uefi-enter-setup').addEventListener('click', async () => {
-    await K.prefs.set('uefi.enterSetup', true);
-    Toast.show('Entrando a UEFI en el próximo reinicio…', 'info', 2000);
-    rebootSystem(1400);
-  });
-
   /* ── Seguridad ── */
   async function loadSecurity() {
     // Autolock
@@ -1298,6 +1277,16 @@ $('btn-format-fs').addEventListener('click', () => {
     $('sec-autolock').value = String(autolock);
     const lockPwd = await K.prefs.get('security.lockPassword') || false;
     $('sec-lock-password').checked = lockPwd;
+
+    // Mostrar/ocultar campo de contraseña según el toggle
+    const secPwd = await K.prefs.get('security.password') || '';
+    const hasPwd = !!secPwd;
+    $('sec-password-row').style.display = lockPwd ? '' : 'none';
+    if (lockPwd && hasPwd) {
+      $('sec-password-hint').textContent = 'Ya tienes una contraseña guardada. Escribe una nueva para cambiarla.';
+    } else if (lockPwd && !hasPwd) {
+      $('sec-password-hint').textContent = 'Escribe una contraseña para proteger el desbloqueo';
+    }
 
     // Usuario actual (desde Users del Kernel)
     const cur = await K.users.current();
@@ -1309,11 +1298,48 @@ $('btn-format-fs').addEventListener('click', () => {
     // Estado del sistema
     const env = K.env || {};
     $('sec-safemode').textContent = env.safeMode ? '🔴 Activado' : '🟢 Desactivado';
-    const uefiCfg = await K.prefs.get('uefi.config') || {};
-    $('sec-secureboot').textContent = uefiCfg.secureBoot === false ? '🔴 Desactivado' : '🟢 Activado';
+    $('sec-secureboot').textContent = '🟢 Activado';
     const sessionCount = await K.prefs.get('boot.sessionCount') || 0;
     $('sec-session-count').textContent = String(sessionCount);
   }
+
+  // Mostrar/ocultar campo de contraseña al cambiar el toggle
+  // Si se DESACTIVA y ya hay contraseña, pedir verificación antes de permitir
+  $('sec-lock-password').addEventListener('change', async () => {
+    const checked = $('sec-lock-password').checked;
+    if (!checked) {
+      /* ¿Hay contraseña establecida? */
+      const secPwd = await K.prefs.get('security.password') || '';
+      if (secPwd) {
+        /* Revertir el toggle visualmente y pedir contraseña */
+        $('sec-lock-password').checked = true;
+        PwdVerify.show(
+          '🔒 DESACTIVAR CONTRASEÑA',
+          'Para desactivar el requerimiento de contraseña, verifica tu identidad introduciendo la contraseña actual.',
+          async () => {
+            /* Verificación OK: desactivar de verdad y BORRAR la contraseña */
+            try {
+              await K.users.setPassword('');
+            } catch(e) { console.error('setPassword(borrar):', e); }
+            $('sec-lock-password').checked = false;
+            $('sec-password-row').style.display = 'none';
+            $('sec-password-hint').textContent = '';
+            Toast.show('Contraseña desactivada. Guarda los cambios.', 'info');
+          }
+        );
+        return;
+      }
+    }
+    $('sec-password-row').style.display = checked ? '' : 'none';
+    if (checked) {
+      const secPwd = await K.prefs.get('security.password') || '';
+      if (secPwd) {
+        $('sec-password-hint').textContent = 'Ya tienes una contraseña guardada. Escribe una nueva para cambiarla.';
+      } else {
+        $('sec-password-hint').textContent = 'Escribe una contraseña para proteger el desbloqueo';
+      }
+    }
+  });
 
   $('btn-save-security').addEventListener('click', async () => {
     await K.prefs.set('security.autolock', parseInt($('sec-autolock').value) || 0);
@@ -1326,16 +1352,48 @@ $('btn-format-fs').addEventListener('click', () => {
         await K.users.updateProfile({ name: newName });
       } catch(e) { console.error('updateProfile:', e); }
     }
+    $('sec-new-username').value = '';
 
-    // Establecer contraseña (sincroniza user.password y security.password)
+    // Si el toggle está desactivado y no hay nueva contraseña, asegurar
+    // que cualquier contraseña residual se borre (fix: la contraseña debía
+    // borrarse al desactivar, pero por seguridad lo reforzamos al guardar).
+    const lockEnabled = $('sec-lock-password').checked;
     const newPwd = $('sec-new-password').value;
-    if (newPwd) {
-      try {
-        await K.users.setPassword(newPwd);
-      } catch(e) { console.error('setPassword:', e); }
+    if (!lockEnabled && !newPwd) {
+      const existingPwd = await K.prefs.get('security.password') || '';
+      if (existingPwd) {
+        try { await K.users.setPassword(''); } catch(e) { console.error('setPassword(borrar):', e); }
+      }
     }
 
-    $('sec-new-username').value = '';
+    // Establecer contraseña (sincroniza user.password y security.password)
+    // Si ya hay contraseña y se quiere cambiar, pedir verificación primero
+    if (newPwd) {
+      const existingPwd = await K.prefs.get('security.password') || '';
+      if (existingPwd) {
+        /* Hay contraseña: pedir verificación antes de cambiar */
+        PwdVerify.show(
+          '🔒 CAMBIAR CONTRASEÑA',
+          'Para cambiar tu contraseña, verifica tu identidad introduciendo la contraseña actual.',
+          async () => {
+            try {
+              await K.users.setPassword(newPwd);
+              $('sec-new-password').value = '';
+              Toast.show('Contraseña actualizada ✓', 'ok');
+              loadSecurity();
+            } catch(e) { console.error('setPassword:', e); Toast.show('Error al cambiar contraseña', 'error'); }
+          }
+        );
+        /* El resto ya se guardó arriba; solo falta la contraseña */
+        Toast.show('Configuración guardada. Verifica contraseña para cambiarla.', 'info');
+        return;
+      } else {
+        try {
+          await K.users.setPassword(newPwd);
+        } catch(e) { console.error('setPassword:', e); }
+      }
+    }
+
     $('sec-new-password').value = '';
     Toast.show('Configuración de seguridad guardada ✓', 'ok');
     loadSecurity();
@@ -1355,7 +1413,6 @@ $('btn-format-fs').addEventListener('click', () => {
     K = kernel;
     fillSysInfo();
     loadPrefs();
-    loadUEFI();
     loadSecurity();
     loadAbout();
   }

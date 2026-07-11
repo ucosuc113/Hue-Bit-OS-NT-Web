@@ -1111,6 +1111,14 @@ async move(src, dst) {
         }
       },
 
+      update(pid,patch){
+  const proc=_table[pid];
+  if(!proc)return false;
+  Object.assign(proc,patch);
+  EventBus.emit('procs:update',{pid,patch});
+  return true;
+},
+
       list() {
         return Object.values(_table);
       },
