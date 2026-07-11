@@ -1327,6 +1327,7 @@ async move(src, dst) {
      SESSION TRACKER                           [Alpha 1.0]
   ═══════════════════════════════════════════════════ */
   let _bootStartedAt = Date.now();
+  let _safeModeThisBoot = false;
 
   let _session = {
     id           : null,
@@ -1696,8 +1697,12 @@ async function _ensureFsHierarchy() {
     } catch {}
 
     /* ── Safe mode (detectado por index.html vía F8) ── */
-    const safeMode = sessionStorage.getItem('huebos_safe_mode') === '1';
-    if (safeMode) console.warn('[Kernel:boot] ⚠ SAFE MODE activo — apps y atajos omitidos');
+const safeMode = sessionStorage.getItem('huebos_safe_mode') === '1';
+_safeModeThisBoot = safeMode;
+if (safeMode) {
+  sessionStorage.removeItem('huebos_safe_mode'); // one-shot: se consume en este arranque
+  console.warn('[Kernel:boot] ⚠ SAFE MODE activo — apps y atajos omitidos');
+}
 
     console.group(`[Kernel] ══ BOOT SEQUENCE (v${KERNEL_VERSION}) ══`);
 
@@ -1818,9 +1823,9 @@ async function _ensureFsHierarchy() {
       return _db !== null;
     },
 
-    get safeMode() {
-      return sessionStorage.getItem('huebos_safe_mode') === '1';
-    },
+get safeMode() {
+  return _safeModeThisBoot;
+},
 
     get uptime() {
       return Date.now() - _bootStartedAt;
