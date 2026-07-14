@@ -3,7 +3,7 @@
     "files.html",
     "editor.html",
     "config.html",
-    "# task-manager.html",
-    "terminal/terminal.html"
+    "terminal/terminal.html",
+    "# task-manager.html"
   ]
 }
