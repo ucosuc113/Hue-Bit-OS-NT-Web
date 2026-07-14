@@ -23,6 +23,10 @@
   const TEMP_DIR = '/temp';
   const FS_HIERARCHY_VERSION = 1; // Incrementar cuando cambie la jerarquía base
 
+  const REPAIR_PAGE        = 'repairboot.html';   // pantalla de recuperación
+  const BOOT_WATCHDOG_MS   = 15000;                // boot() no debe tardar más que esto
+  const BOOT_FAILURE_KEY   = 'huebos_boot_failure'; // sessionStorage: motivo del último fallo crítico
+
   const SYSTEM_EXECUTABLES = [
     { path: `${SYSTEM_DIR}/archivos.exe`, appId: 'files', name: 'Archivos', icon: '📁' },
     { path: `${SYSTEM_DIR}/bloc_notas.exe`, appId: 'text-editor', name: 'Bloc de notas', icon: '📝' },
@@ -88,23 +92,49 @@
   let _db = null;
 
   const DB = {
-    open() {
+open(attempt = 0) {
+      const MAX_OPEN_ATTEMPTS = 3;
       return new Promise((resolve, reject) => {
         let settled = false;
+        let blockedNotified = false;
         const req = indexedDB.open(DB_NAME, DB_VERSION);
 
-        // Timeout: si la DB está bloqueada por un deleteDatabase pendiente,
-        // onsuccess/onerror/onblocked nunca disparan. Forzamos cierre y reintento.
+        // Timeout: SOLO dispara si tras 4s no hubo ninguna respuesta en
+        // absoluto (ni onsuccess, ni onerror, ni onblocked). Eso sí es un
+        // estado colgado de verdad (p. ej. un deleteDatabase anterior
+        // quedó a medias). Si en cambio onblocked SÍ disparó, sabemos
+        // exactamente qué pasa: otra instancia de HUEBOS sigue abierta
+        // reteniendo la conexión. Eso NO es corrupción, es el candado de
+        // instancia única funcionando como debería — así que aquí no
+        // forzamos ningún borrado (ver req.onblocked más abajo).
         const timeoutId = setTimeout(() => {
-          if (!settled) {
-            console.warn('[Kernel:db] open() timeout — forzando deleteDatabase y reintento');
-            settled = true;
-            try { req.onupgradeneeded = null; req.onsuccess = null; req.onerror = null; req.onblocked = null; } catch(_) {}
-            const delReq = indexedDB.deleteDatabase(DB_NAME);
-            delReq.onsuccess = () => { console.info('[Kernel:db] DB stale eliminada, reintentando open()'); setTimeout(() => resolve(DB.open()), 200); };
-            delReq.onerror = () => { setTimeout(() => resolve(DB.open()), 500); };
-            delReq.onblocked = () => { setTimeout(() => resolve(DB.open()), 1000); };
+          if (settled || blockedNotified) return;
+          settled = true;
+          try { req.onupgradeneeded = null; req.onsuccess = null; req.onerror = null; req.onblocked = null; } catch(_) {}
+
+          if (attempt >= MAX_OPEN_ATTEMPTS) {
+            console.error(`[Kernel:db] open() agotó ${MAX_OPEN_ATTEMPTS} intentos sin respuesta — abortando`);
+            reject(new Error('DB_OPEN_UNRECOVERABLE'));
+            return;
           }
+
+          console.warn(`[Kernel:db] open() sin respuesta tras 4s — forzando deleteDatabase y reintento (${attempt + 1}/${MAX_OPEN_ATTEMPTS})`);
+          const delReq = indexedDB.deleteDatabase(DB_NAME);
+          delReq.onsuccess = () => { console.info('[Kernel:db] DB stale eliminada, reintentando open()'); setTimeout(() => resolve(DB.open(attempt + 1)), 200); };
+          delReq.onerror = () => { setTimeout(() => resolve(DB.open(attempt + 1)), 500); };
+delReq.onblocked = () => {
+            // También aquí: bloqueado = otra instancia sigue abierta, no
+            // corrupción. No cuenta como intento fallido — reintentamos con
+            // el mismo `attempt` (no lo incrementamos) para no disparar el
+            // aborto por MAX_OPEN_ATTEMPTS mientras solo estamos esperando.
+            EventBus.emit('boot:singleInstance', {
+              ts: Date.now(),
+              phase: 'recovery',
+              tone: 'security',
+              message: 'Protección de seguridad: solo puede existir una instancia del sistema abierta en este navegador.',
+            });
+            setTimeout(() => resolve(DB.open(attempt)), 1500);
+          };
         }, 4000);
 
         req.onupgradeneeded = (e) => {
@@ -144,12 +174,24 @@
           if (!settled) { settled = true; reject(e.target.error); }
         };
 
-        req.onblocked = () => {
-          clearTimeout(timeoutId);
-          console.warn('[Kernel:db] open() bloqueado — otra conexión retiene la DB. Reintentando…');
-          if (!settled) {
-            settled = true;
-            setTimeout(() => resolve(DB.open()), 500);
+req.onblocked = () => {
+          // No es un fallo del Kernel: otra pestaña/ventana con HUEBOS
+          // abierto sigue reteniendo una conexión a la misma base de
+          // datos. Es exactamente la protección de instancia única
+          // funcionando — avisamos una sola vez y dejamos la request
+          // original viva; onsuccess disparará solo cuando esa otra
+          // instancia cierre su conexión, sin que nosotros reintentemos
+          // ni borremos nada.
+if (!blockedNotified) {
+            blockedNotified = true;
+            clearTimeout(timeoutId);
+            console.info('[Kernel:db] candado de instancia única: otra pestaña de HUEBOS sigue abierta');
+            EventBus.emit('boot:singleInstance', {
+              ts: Date.now(),
+              phase: 'open',
+              tone: 'security',
+              message: 'Protección de seguridad: solo puede existir una instancia del sistema abierta en este navegador.',
+            });
           }
         };
       });
@@ -1682,10 +1724,38 @@ async function _ensureFsHierarchy() {
     }
   }
 
+/* ═══════════════════════════════════════════════════
+     CRITICAL FAILURE → REPAIR REDIRECT
+     Cualquier fallo del que boot() no pueda recuperarse
+     (IndexedDB corrupta, excepción del Kernel, timeout de
+     arranque, etc.) termina aquí en vez de dejar la
+     pantalla congelada o en blanco.
+  ═══════════════════════════════════════════════════ */
+  let _singleInstanceWaiting = false;
+  EventBus.on('boot:singleInstance', () => { _singleInstanceWaiting = true; });
+  EventBus.on('boot:step', ({ step }) => { if (step !== 'db') _singleInstanceWaiting = false; });
+
+  const CriticalFailure = {
+    redirectToRepair(reason, extra = {}) {
+      try {
+        sessionStorage.setItem(BOOT_FAILURE_KEY, JSON.stringify({
+          reason, ts: Date.now(), ...extra,
+        }));
+      } catch (_) { /* sessionStorage no disponible: continuamos igual */ }
+
+      console.error(`[Kernel:repair] fallo crítico de arranque (${reason}) — redirigiendo a ${REPAIR_PAGE}`);
+      EventBus.emit('boot:critical', { reason, ...extra, ts: Date.now() });
+
+      const here = (location.pathname.split('/').pop() || '').toLowerCase();
+      if (here === REPAIR_PAGE) return; // ya estamos en repairboot.html: evitar loop
+      setTimeout(() => { window.location.href = REPAIR_PAGE; }, 250);
+    },
+  };
+
   /* ═══════════════════════════════════════════════════
      BOOT SEQUENCE
   ═══════════════════════════════════════════════════ */
-  async function boot() {
+  async function _bootAttempt() {
     _bootStartedAt = Date.now();
 
     /* ── UEFI config (pre-IndexedDB, de localStorage) ── */
@@ -1784,13 +1854,50 @@ if (safeMode) {
       user         : loggedUser,
     });
 
-    } catch (err) {
+} catch (err) {
       console.groupEnd();
       console.error('[Kernel] ✗ Fallo en el boot:', err);
       CrashReporter.report('Boot failure: ' + err.message, err, { phase: 'boot' });
       EventBus.emit('boot:error', { error: err.message });
       throw err;
     }
+  }
+
+  /* boot() público: envuelve _bootAttempt() con un watchdog. Si el arranque
+     no resuelve dentro de BOOT_WATCHDOG_MS —y no es una espera legítima por
+     candado de instancia única (boot:singleInstance)—, o si _bootAttempt()
+     lanza un error, se redirige automáticamente a repairboot.html en vez de
+     dejar la página congelada o en blanco. */
+  function boot() {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let timeoutId = null;
+
+      function armWatchdog() {
+        timeoutId = setTimeout(() => {
+          if (settled) return;
+          if (_singleInstanceWaiting) { armWatchdog(); return; } // espera legítima, no es un fallo
+          settled = true;
+          CriticalFailure.redirectToRepair('timeout', {});
+          reject(new Error('BOOT_TIMEOUT'));
+        }, BOOT_WATCHDOG_MS);
+      }
+      armWatchdog();
+
+      _bootAttempt().then(result => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        try { sessionStorage.removeItem(BOOT_FAILURE_KEY); } catch (_) {}
+        resolve(result);
+      }).catch(err => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        CriticalFailure.redirectToRepair('boot-error', { message: err && err.message });
+        reject(err);
+      });
+    });
   }
 
   /* ═══════════════════════════════════════════════════
@@ -1817,6 +1924,7 @@ if (safeMode) {
     STORES,
 
     boot,
+    repair: CriticalFailure,
     openFile: AppBinding.openFile.bind(AppBinding),
 
     get isReady() {

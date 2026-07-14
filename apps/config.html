@@ -1199,13 +1199,17 @@ $('btn-clear-tmp').addEventListener('click', () => {
       await new Promise(r => setTimeout(r, 300));
 
       // Intentar deleteDatabase con reintentos automáticos si queda bloqueado.
+      let sawInstanceLock = false;
       const tryDeleteDB = (attempt = 0) => new Promise((resolve) => {
         const req = indexedDB.deleteDatabase('huebos_db');
         req.onsuccess = () => resolve(true);
         req.onerror = () => resolve(false);
         req.onblocked = () => {
+          if (!sawInstanceLock) {
+            sawInstanceLock = true;
+            Toast.show('🔒 Solo puede haber una instancia de HUEBOS abierta. Cierra otras pestañas para completar el formateo…', 'info', 4000);
+          }
           if (attempt < 5) {
-            // Reintentar: la conexión anterior aún no se cerró del todo.
             setTimeout(() => resolve(tryDeleteDB(attempt + 1)), 500);
           } else {
             resolve(false);
@@ -1216,6 +1220,8 @@ $('btn-clear-tmp').addEventListener('click', () => {
       const deleted = await tryDeleteDB();
       if (deleted) {
         Toast.show('Base de datos eliminada. Reiniciando sistema…', 'ok', 2000);
+      } else if (sawInstanceLock) {
+        Toast.show('🔒 Sigue bloqueada por otra instancia. Reiniciando de todos modos…', 'info', 3000);
       } else {
         Toast.show('DB bloqueada. Reiniciando forzado…', 'error', 3000);
       }
@@ -1241,12 +1247,21 @@ $('btn-format-fs').addEventListener('click', () => {
   });
 
   /* ── System info (panel Sistema) ── */
+function detectEngine(ua) {
+    if (/Edg\//.test(ua))                          return 'Blink (Edge)';
+    if (/OPR\//.test(ua))                          return 'Blink (Opera)';
+    if (/Chrome\//.test(ua) && !/Chromium/.test(ua)) return 'Blink (Chrome)';
+    if (/Firefox\//.test(ua))                      return 'Gecko (Firefox)';
+    if (/Safari\//.test(ua) && !/Chrome/.test(ua)) return 'WebKit (Safari)';
+    return 'Desconocido';
+  }
+
   function fillSysInfo() {
     $('sys-platform').textContent = navigator.platform || 'N/D';
     $('sys-cores').textContent    = navigator.hardwareConcurrency || 'N/D';
     $('sys-mem').textContent      = navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'N/D';
     $('sys-res').textContent      = `${screen.width}×${screen.height}`;
-    $('sys-ua').textContent       = navigator.userAgent.split(' ').slice(-1)[0];
+    $('sys-ua').textContent       = detectEngine(navigator.userAgent);
   }
 
   /* ── About ── */

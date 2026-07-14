@@ -2,6 +2,8 @@
   "apps": [
     "files.html",
     "editor.html",
-    "config.html"
+    "config.html",
+    "# task-manager.html",
+    "terminal/terminal.html"
   ]
 }

@@ -135,6 +135,7 @@
     .log-line .tag.ok    { color: var(--green); }
     .log-line .tag.wait  { color: var(--amber); text-shadow: 0 0 6px #ffb30088; }
     .log-line .tag.fail  { color: var(--red-err); text-shadow: 0 0 6px #ff444488; }
+    .log-line .tag.lock  { color: #29e0ff; text-shadow: 0 0 6px #29e0ff88; }
     .log-line .msg       { flex: 1; }
 
     @keyframes logIn {
@@ -478,19 +479,47 @@
     }
 
     /* ── Boot recovery: mostrar advertencia si el boot anterior falló ── */
+/* ── Boot recovery: mostrar advertencia si el boot anterior falló ── */
     Kernel.on('boot:recovery', ({ failedStep, failedAt }) => {
       const when = failedAt ? new Date(failedAt).toLocaleTimeString() : '?';
       addLog('WAIT', `Recuperando boot fallido · paso="${failedStep}" · ${when}`);
     });
 
+    /* ── Candado de instancia única: NO es un error del Kernel, es la
+       protección contra corrupción por múltiples pestañas funcionando
+       correctamente. Se muestra una sola vez con su propio tag [LOCK]. ── */
+    let singleInstanceLine = null;
+    Kernel.on('boot:singleInstance', () => {
+      if (singleInstanceLine) return;
+      logDelay += 80;
+      const delay = logDelay;
+      setTimeout(() => {
+        const line = document.createElement('div');
+        line.className = 'log-line';
+        line.innerHTML = `
+          <span class="tag lock">[LOCK]</span>
+          <span class="msg">Solo puede haber una instancia de HUEBOS abierta en este navegador. Cierra las otras pestañas o ventanas para continuar…</span>
+        `;
+        logEl.appendChild(line);
+        logEl.scrollTop = logEl.scrollHeight;
+        singleInstanceLine = line;
+      }, delay);
+    });
+
     /* ── Pasos de boot ── */
-    Kernel.on('boot:step', ({ step, detail }) => {
+Kernel.on('boot:step', ({ step, detail }) => {
       const info = STEPS[step];
       if (!info) return;
       setProgress(info.pct, info.label);
       if (tagMap[step]) {
         const [tag, msg] = tagMap[step];
         addLog(tag, msg);
+      }
+      /* Si veníamos de un candado de instancia única y el boot avanzó más
+         allá de 'db', la otra pestaña cerró su conexión. */
+      if (singleInstanceLine && step !== 'db') {
+        addLog('OK', 'Instancia única liberada, continuando arranque…');
+        singleInstanceLine = null;
       }
       /* Verbose: mostrar detalles extra de cada subsistema */
       if (verbose && detail) {
@@ -507,6 +536,11 @@
       statEl.style.color = 'var(--red-err)';
       statEl.style.textShadow = '0 0 8px #ff444488';
       statEl.classList.add('visible');
+    });
+
+    /* ── Fallo crítico irrecuperable: Kernel va a redirigir a repairboot.html ── */
+    Kernel.on('boot:critical', ({ reason }) => {
+      addLog('FAIL', `Fallo crítico (${reason}) · redirigiendo a modo de reparación…`);
     });
 
     /* ── Boot completo ── */

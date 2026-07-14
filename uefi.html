@@ -284,19 +284,43 @@
       overlay.querySelector('#cf2-yes').addEventListener('click',()=>{close();doFormat('full');});
     }
 
+    function deleteDatabaseSafely(dbName, maxWaitMs = 6000, onBlocked){
+      return new Promise((resolve)=>{
+        let settled = false;
+        const finish = (result) => { if(!settled){ settled = true; resolve(result); } };
+        const hardTimeout = setTimeout(()=>finish('timeout'), maxWaitMs);
+        const req = indexedDB.deleteDatabase(dbName);
+        req.onsuccess = () => { clearTimeout(hardTimeout); finish('deleted'); };
+        req.onerror   = () => { clearTimeout(hardTimeout); finish('error:'+(req.error?.message||'desconocido')); };
+        req.onblocked = () => {
+          console.info('[UEFI] candado de instancia única: otra pestaña de HUEBOS sigue abierta');
+          if(typeof onBlocked === 'function') onBlocked();
+          // dejamos correr hardTimeout; si la otra pestaña cierra a tiempo,
+          // onsuccess aún puede disparar antes del límite.
+        };
+      });
+    }
+
     async function doFormat(type){
       showToast(type==='full'?'Formateando sistema…':type==='fs'?'Borrando archivos…':'Restableciendo prefs…');
-      document.body.classList.add('leaving');
       try{
         if(type==='full'){
-          // deleteDatabase directo desde firmware (no hay Kernel cargado)
-          await new Promise((resolve)=>{
-            const req=indexedDB.deleteDatabase('huebos_db');
-            req.onsuccess=()=>resolve();
-            req.onerror=()=>resolve();
-            req.onblocked=()=>{setTimeout(()=>resolve(),1000);};
+          let blockedShown = false;
+          const result = await deleteDatabaseSafely('huebos_db', 6000, () => {
+            if(!blockedShown){
+              blockedShown = true;
+              showToast('🔒 Solo puede haber una instancia de HUEBOS abierta. Cierra otras pestañas para completar el formateo…');
+            }
           });
-          showToast('Base de datos eliminada. Reiniciando…');
+          if(result === 'deleted'){
+            showToast('Base de datos eliminada. Reiniciando…');
+          }else if(result === 'timeout'){
+            showToast(blockedShown
+              ? '🔒 Sigue bloqueada por otra instancia. Reiniciando de todos modos…'
+              : '⚠ No se pudo confirmar el borrado. Reiniciando de todos modos…');
+          }else{
+            showToast('⚠ '+result+'. Reiniciando…');
+          }
         }else{
           // Abrir DB y limpiar stores específicos
           await new Promise((resolve)=>{
@@ -317,9 +341,10 @@
           });
           showToast(type==='fs'?'Archivos borrados. Reiniciando…':'Preferencias restablecidas. Reiniciando…');
         }
-      }catch(err){
+}catch(err){
         showToast('Error: '+err.message);
       }
+      document.body.classList.add('leaving');
       setTimeout(()=>{window.location.href='index.html?boot=1';},1200);
     }
 

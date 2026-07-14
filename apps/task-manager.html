@@ -1,0 +1,517 @@
+# AHHHH NO ME MIREEEN XDDDDDDDDDDD, se supone que soy sorpresa para la siguiente ap :c, no deberian mirarme
+si me estas viendo... pq vrg te metistes en mi XD, soy una app q aparecera luego kalajo el ajo >:c
+
+pq demonios sigues leyendo????
+cierra este archivo, y finge q nunca lo vistes :3
+
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Administrador de tareas</title>
+
+<script id="wos-manifest" type="application/json">
+{
+  "id": "task-manager",
+  "name": "Administrador de tareas",
+  "version": "0.1.0",
+  "icon": "📊",
+  "category": "system",
+  "singleton": true,
+  "description": "Muestra los procesos activos del sistema (apps, servicios, APIs y componentes) y permite iniciarlos o finalizarlos.",
+  "winWidth": 780,
+  "winHeight": 560,
+  "author": "HUEBOS"
+}
+</script>
+
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --g:#00ff88; --g-dim:#00bb66; --g-faint:rgba(0,255,136,0.08);
+    --cyan:#00d4ff; --violet:#7b4fff; --amber:#ffcc44; --dim:#6a8a78; --red:#ff4466;
+    --bg:#020c06; --panel:rgba(4,20,12,0.72); --panel-solid:#04140c;
+    --border:rgba(0,255,136,0.16); --border-hot:rgba(0,255,136,0.42);
+    --mono:'Share Tech Mono',monospace; --display:'Orbitron',monospace;
+  }
+  html,body{width:100%;height:100%;background:var(--bg);color:var(--g);font-family:var(--mono);overflow:hidden;}
+  body::before{
+    content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,0.05) 0 1px,transparent 1px 4px);
+  }
+  #app{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;}
+
+  /* ── Header ── */
+  header{
+    display:flex;align-items:center;gap:14px;
+    padding:12px 16px;border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg,rgba(0,255,136,0.05),transparent);
+    flex-shrink:0;
+  }
+  .h-icon{font-size:1.3rem;filter:drop-shadow(0 0 6px rgba(0,255,136,0.6));}
+  .h-title{font-family:var(--display);font-size:0.95rem;letter-spacing:0.14em;color:var(--g);text-shadow:0 0 10px rgba(0,255,136,0.4);}
+  .h-sub{font-size:0.62rem;color:var(--g-dim);letter-spacing:0.1em;margin-top:2px;}
+  .tabs{display:flex;gap:6px;margin-left:auto;}
+  .tab{
+    font-size:0.64rem;letter-spacing:0.09em;padding:6px 12px;border-radius:7px;
+    border:1px solid var(--border);color:var(--g-dim);cursor:default;
+  }
+  .tab.active{color:var(--g);border-color:var(--border-hot);background:var(--g-faint);text-shadow:0 0 6px rgba(0,255,136,0.4);}
+  .tab.disabled{opacity:0.35;cursor:not-allowed;}
+  .tab.disabled:hover::after{content:' · próximamente';}
+
+  /* ── Toolbar ── */
+  .toolbar{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;
+  }
+  #search{
+    flex:1;max-width:280px;background:rgba(0,255,136,0.05);border:1px solid var(--border);
+    border-radius:7px;padding:7px 11px;color:var(--g);font-family:var(--mono);font-size:0.72rem;outline:none;
+  }
+  #search:focus{border-color:var(--border-hot);box-shadow:0 0 8px rgba(0,255,136,0.15);}
+  #search::placeholder{color:rgba(0,180,90,0.4);}
+  .count-pill{
+    font-size:0.64rem;color:var(--g-dim);letter-spacing:0.06em;
+    padding:6px 10px;border:1px solid var(--border);border-radius:7px;
+  }
+  .spacer{flex:1;}
+  #btn-new{
+    font-family:var(--mono);font-size:0.68rem;letter-spacing:0.08em;
+    padding:8px 14px;border-radius:7px;cursor:pointer;
+    background:rgba(0,255,136,0.10);border:1px solid var(--border-hot);color:var(--g);
+    transition:background 0.15s,box-shadow 0.15s;
+  }
+  #btn-new:hover{background:rgba(0,255,136,0.18);box-shadow:0 0 12px rgba(0,255,136,0.18);}
+
+  /* ── Table ── */
+  .table-wrap{flex:1;overflow-y:auto;padding:0 16px;}
+  table{width:100%;border-collapse:collapse;font-size:0.72rem;}
+  thead th{
+    position:sticky;top:0;background:var(--bg);z-index:2;
+    text-align:left;padding:9px 8px;color:var(--g-dim);
+    font-size:0.62rem;letter-spacing:0.1em;font-weight:400;
+    border-bottom:1px solid var(--border);
+  }
+  tbody tr{border-bottom:1px solid rgba(0,255,136,0.06);transition:background 0.12s;}
+  tbody tr:hover{background:rgba(0,255,136,0.04);}
+  tbody td{padding:9px 8px;vertical-align:middle;color:rgba(220,255,238,0.88);}
+  .pid{font-family:var(--mono);color:var(--g-dim);letter-spacing:0.03em;}
+  .type-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:3px 9px;border-radius:20px;font-size:0.62rem;letter-spacing:0.05em;
+    border:1px solid; white-space:nowrap;
+  }
+  .type-chip .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  .t-app   { color:var(--g);     border-color:rgba(0,255,136,0.32); background:rgba(0,255,136,0.06); }
+  .t-app .dot{background:var(--g);box-shadow:0 0 6px var(--g);}
+  .t-servicio { color:var(--cyan);  border-color:rgba(0,212,255,0.32); background:rgba(0,212,255,0.06); }
+  .t-servicio .dot{background:var(--cyan);box-shadow:0 0 6px var(--cyan);}
+  .t-api   { color:var(--violet); border-color:rgba(123,79,255,0.36); background:rgba(123,79,255,0.07); }
+  .t-api .dot{background:var(--violet);box-shadow:0 0 6px var(--violet);}
+  .t-componente { color:var(--amber); border-color:rgba(255,204,68,0.34); background:rgba(255,204,68,0.06); }
+  .t-componente .dot{background:var(--amber);box-shadow:0 0 6px var(--amber);}
+  .t-sistema { color:var(--dim); border-color:rgba(106,138,120,0.3); background:rgba(106,138,120,0.06); }
+  .t-sistema .dot{background:var(--dim);}
+  .proc-name{display:flex;align-items:center;gap:8px;}
+  .proc-icon{font-size:0.95rem;}
+  .proc-path{font-size:0.6rem;color:var(--g-dim);opacity:0.7;}
+  .proc-self{font-size:0.58rem;color:var(--cyan);letter-spacing:0.06em;margin-left:6px;}
+  td.actions{text-align:right;}
+  .btn-kill{
+    font-family:var(--mono);font-size:0.62rem;letter-spacing:0.05em;
+    padding:5px 11px;border-radius:6px;cursor:pointer;
+    background:rgba(255,68,102,0.08);border:1px solid rgba(255,68,102,0.3);color:#ff8fa3;
+    transition:all 0.15s;
+  }
+  .btn-kill:hover{background:rgba(255,68,102,0.18);border-color:rgba(255,68,102,0.55);color:#ffb3c0;}
+  .btn-kill.confirm{background:var(--red);border-color:var(--red);color:#fff;}
+  .btn-kill:disabled{opacity:0.3;cursor:not-allowed;}
+
+  .empty-row td{text-align:center;padding:40px 10px;color:var(--g-dim);font-size:0.7rem;letter-spacing:0.06em;}
+
+  /* ── Footer ── */
+  footer{
+    display:flex;gap:16px;padding:9px 16px;border-top:1px solid var(--border);
+    font-size:0.62rem;color:var(--g-dim);letter-spacing:0.05em;flex-shrink:0;
+  }
+  footer b{color:var(--g);font-weight:400;}
+
+  /* ── Modal: nuevo proceso ── */
+  #modal-overlay{
+    position:fixed;inset:0;z-index:50;background:rgba(0,5,3,0.75);backdrop-filter:blur(6px);
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;pointer-events:none;transition:opacity 0.18s;
+  }
+  #modal-overlay.show{opacity:1;pointer-events:all;}
+  #modal{
+    width:min(480px,90vw);max-height:78vh;display:flex;flex-direction:column;
+    background:var(--panel-solid);border:1px solid var(--border-hot);border-radius:14px;
+    box-shadow:0 30px 90px rgba(0,0,0,0.8),0 0 40px rgba(0,255,136,0.06);
+    transform:scale(0.95);transition:transform 0.18s;
+  }
+  #modal-overlay.show #modal{transform:scale(1);}
+  .modal-head{
+    display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);
+  }
+  .modal-title{font-family:var(--display);font-size:0.78rem;letter-spacing:0.1em;color:var(--g);}
+  .modal-close{margin-left:auto;cursor:pointer;color:var(--g-dim);font-size:0.9rem;padding:2px 6px;}
+  .modal-close:hover{color:var(--g);}
+  .modal-body{overflow-y:auto;padding:6px 10px 14px;}
+  .group-label{
+    font-size:0.6rem;letter-spacing:0.14em;color:var(--g-dim);
+    padding:12px 8px 6px;text-transform:uppercase;
+  }
+  .avail-item{
+    display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;
+    transition:background 0.12s;
+  }
+  .avail-item:hover{background:rgba(0,255,136,0.05);}
+  .avail-icon{font-size:1rem;width:22px;text-align:center;flex-shrink:0;}
+  .avail-name{flex:1;font-size:0.72rem;color:rgba(220,255,238,0.9);}
+  .avail-path{font-size:0.58rem;color:var(--g-dim);}
+  .btn-start{
+    font-family:var(--mono);font-size:0.6rem;letter-spacing:0.05em;
+    padding:5px 12px;border-radius:6px;cursor:pointer;flex-shrink:0;
+    background:rgba(0,255,136,0.09);border:1px solid var(--border-hot);color:var(--g);
+    transition:all 0.15s;
+  }
+  .btn-start:hover{background:rgba(0,255,136,0.2);box-shadow:0 0 10px rgba(0,255,136,0.2);}
+  .group-empty{padding:8px 10px 16px;font-size:0.62rem;color:var(--dim);line-height:1.6;}
+
+  ::-webkit-scrollbar{width:5px;}
+  ::-webkit-scrollbar-thumb{background:rgba(0,180,90,0.25);border-radius:3px;}
+
+  #boot-msg{
+    flex:1;display:flex;align-items:center;justify-content:center;
+    color:var(--g-dim);font-size:0.72rem;letter-spacing:0.08em;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <span class="h-icon">📊</span>
+    <div>
+      <div class="h-title">ADMINISTRADOR DE TAREAS</div>
+      <div class="h-sub">Procesos activos del sistema</div>
+    </div>
+    <div class="tabs">
+      <div class="tab active">Procesos</div>
+      <div class="tab disabled" title="Próximamente">Rendimiento</div>
+      <div class="tab disabled" title="Próximamente">Memoria</div>
+      <div class="tab disabled" title="Próximamente">Red</div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <input id="search" type="text" placeholder="⌕  Filtrar por nombre o ruta…" autocomplete="off" spellcheck="false" />
+    <span class="count-pill" id="count-pill">0 procesos</span>
+    <span class="spacer"></span>
+    <button id="btn-new">+ Nuevo proceso</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:64px">PID</th>
+          <th style="width:120px">Tipo</th>
+          <th>Nombre</th>
+          <th style="width:90px">Iniciado</th>
+          <th style="width:90px"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr class="empty-row"><td colspan="5">Cargando procesos…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer id="footer"></footer>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal">
+    <div class="modal-head">
+      <span class="modal-title">🚀 INICIAR NUEVO PROCESO</span>
+      <span class="modal-close" id="modal-close">✕</span>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+;(function(){
+  'use strict';
+
+  const K = (window.parent && window.parent.Kernel) ? window.parent.Kernel : window.Kernel;
+  const WOS = (window.parent && window.parent.__wos) ? window.parent.__wos : null;
+  const SELF_APP_ID = 'task-manager';
+
+  const MODULES_ROOT = '/Modulos';
+  const MOD_TYPES = {
+    Servicios:   { path: MODULES_ROOT + '/Servicios',   label: 'Servicio',   cls: 't-servicio',   icon: '⚙' },
+    API:         { path: MODULES_ROOT + '/API',         label: 'API',        cls: 't-api',        icon: '🔌' },
+    Componentes: { path: MODULES_ROOT + '/Componentes', label: 'Componente', cls: 't-componente', icon: '🧩' },
+  };
+
+  const tbody       = document.getElementById('tbody');
+  const footerEl     = document.getElementById('footer');
+  const countPill    = document.getElementById('count-pill');
+  const searchInput  = document.getElementById('search');
+  const btnNew       = document.getElementById('btn-new');
+  const modalOverlay = document.getElementById('modal-overlay');
+  const modalBody    = document.getElementById('modal-body');
+  const modalClose   = document.getElementById('modal-close');
+
+  let _rows = [];
+  let _filter = '';
+  let _pendingKillPid = null;
+
+  function escapeHtml(str){
+    return String(str ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+
+  function toast(msg, type){
+    if (WOS && WOS.toast) { WOS.toast(msg, type || 'ok'); return; }
+    console.log('[task-manager]', msg);
+  }
+
+  /* ── Asegura que exista /Modulos y sus tres subcarpetas ── */
+  async function ensureModulesTree(){
+    await K.fs.mkdir(MODULES_ROOT).catch(()=>{});
+    for (const key of Object.keys(MOD_TYPES)) {
+      await K.fs.mkdir(MOD_TYPES[key].path).catch(()=>{});
+    }
+  }
+
+  /* ── Clasifica un proceso: Aplicación / Servicio / API / Componente / Sistema ── */
+  async function classify(proc){
+    for (const key of Object.keys(MOD_TYPES)) {
+      const t = MOD_TYPES[key];
+      if (proc.appId && proc.appId.startsWith(t.path + '/')) {
+        return { label: t.label, cls: t.cls, icon: t.icon, path: proc.appId };
+      }
+    }
+    const app = await K.apps.get(proc.appId).catch(() => null);
+    if (app) return { label: 'Aplicación', cls: 't-app', icon: app.icon || '▪', path: null };
+    return { label: 'Proceso del sistema', cls: 't-sistema', icon: '▪', path: null };
+  }
+
+  async function loadActive(){
+    const procs = K.procs.list();
+    const rows = [];
+    for (const p of procs) {
+      const type = await classify(p);
+      rows.push({
+        pid: p.pid, appId: p.appId, title: p.title || p.appId,
+        icon: type.icon, type, spawnedAt: p.spawnedAt,
+        isSelf: p.appId === SELF_APP_ID,
+      });
+    }
+    rows.sort((a, b) => a.pid - b.pid);
+    return rows;
+  }
+
+  async function loadAvailable(){
+    const activeIds = new Set(K.procs.list().map(p => p.appId));
+
+    const allApps = await K.apps.list().catch(() => []);
+    const apps = allApps
+      .filter(a => !activeIds.has(a.id))
+      .map(a => ({ kind: 'app', id: a.id, name: a.name || a.id, icon: a.icon || '▪' }));
+
+    const modules = {};
+    for (const key of Object.keys(MOD_TYPES)) {
+      const t = MOD_TYPES[key];
+      let entries = [];
+      try { entries = await K.fs.readdir(t.path); } catch { entries = []; }
+      modules[key] = entries
+        .filter(e => e.type === 'file' && e.name.endsWith('.js') && !activeIds.has(e.id))
+        .map(e => ({ kind: 'module', id: e.id, name: e.name.replace(/\.js$/, ''), icon: t.icon, dirKey: key }));
+    }
+
+    return { apps, modules };
+  }
+
+  function fmtTime(ts){
+    if (!ts) return '—';
+    return new Date(ts).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function render(){
+    const q = _filter.trim().toLowerCase();
+    const visible = q
+      ? _rows.filter(r => r.title.toLowerCase().includes(q) || r.appId.toLowerCase().includes(q))
+      : _rows;
+
+    if (!visible.length) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="5">${q ? 'Sin coincidencias.' : 'No hay procesos activos.'}</td></tr>`;
+    } else {
+      tbody.innerHTML = visible.map(r => `
+        <tr data-pid="${r.pid}">
+          <td class="pid">#${String(r.pid).padStart(4,'0')}</td>
+          <td><span class="type-chip ${r.type.cls}"><span class="dot"></span>${r.type.label}</span></td>
+          <td>
+            <div class="proc-name"><span class="proc-icon">${r.icon}</span>${escapeHtml(r.title)}${r.isSelf ? '<span class="proc-self">(este proceso)</span>' : ''}</div>
+            ${r.type.path ? `<div class="proc-path">${escapeHtml(r.type.path)}</div>` : ''}
+          </td>
+          <td>${fmtTime(r.spawnedAt)}</td>
+          <td class="actions">
+            <button class="btn-kill" data-pid="${r.pid}" ${r.isSelf ? 'disabled title="No puedes finalizar el Administrador de tareas desde sí mismo"' : ''}>Finalizar</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    countPill.textContent = `${_rows.length} proceso${_rows.length === 1 ? '' : 's'}`;
+
+    const counts = { Aplicación: 0, Servicio: 0, API: 0, Componente: 0, 'Proceso del sistema': 0 };
+    _rows.forEach(r => { counts[r.type.label] = (counts[r.type.label] || 0) + 1; });
+    footerEl.innerHTML = `
+      <span><b>${counts['Aplicación']}</b> aplicaciones</span>
+      <span><b>${counts['Servicio']}</b> servicios</span>
+      <span><b>${counts['API']}</b> APIs</span>
+      <span><b>${counts['Componente']}</b> componentes</span>
+      <span><b>${counts['Proceso del sistema']}</b> del sistema</span>
+    `;
+  }
+
+  async function refresh(){
+    _rows = await loadActive();
+    render();
+  }
+
+  /* ── Finalizar proceso (con confirmación inline de un clic) ── */
+  tbody.addEventListener('click', async e => {
+    const btn = e.target.closest('.btn-kill');
+    if (!btn || btn.disabled) return;
+    const pid = Number(btn.dataset.pid);
+
+    if (_pendingKillPid !== pid) {
+      _pendingKillPid = pid;
+      btn.textContent = '¿Seguro?';
+      btn.classList.add('confirm');
+      setTimeout(() => {
+        if (_pendingKillPid === pid) {
+          _pendingKillPid = null;
+          btn.textContent = 'Finalizar';
+          btn.classList.remove('confirm');
+        }
+      }, 2800);
+      return;
+    }
+
+    _pendingKillPid = null;
+    if (WOS && WOS.kill) WOS.kill(pid);
+    else K.procs.kill(pid);
+    toast(`Proceso #${pid} finalizado`, 'ok');
+  });
+
+  /* ── Modal: nuevo proceso ── */
+  async function openModal(){
+    const { apps, modules } = await loadAvailable();
+    let html = '';
+
+    html += `<div class="group-label">Aplicaciones</div>`;
+    html += apps.length
+      ? apps.map(a => `
+          <div class="avail-item">
+            <span class="avail-icon">${a.icon}</span>
+            <span class="avail-name">${escapeHtml(a.name)}</span>
+            <button class="btn-start" data-kind="app" data-id="${escapeHtml(a.id)}">Iniciar</button>
+          </div>`).join('')
+      : `<div class="group-empty">Todas las aplicaciones registradas ya están en ejecución.</div>`;
+
+    for (const key of Object.keys(MOD_TYPES)) {
+      const t = MOD_TYPES[key];
+      const list = modules[key] || [];
+      html += `<div class="group-label">${t.icon} ${t.label}s — ${t.path}</div>`;
+      html += list.length
+        ? list.map(m => `
+            <div class="avail-item">
+              <span class="avail-icon">${m.icon}</span>
+              <div style="flex:1">
+                <div class="avail-name">${escapeHtml(m.name)}</div>
+                <div class="avail-path">${escapeHtml(m.id)}</div>
+              </div>
+              <button class="btn-start" data-kind="module" data-id="${escapeHtml(m.id)}" data-name="${escapeHtml(m.name)}" data-icon="${m.icon}" data-dir="${key}">Iniciar</button>
+            </div>`).join('')
+        : `<div class="group-empty">Aún no hay archivos .js en ${t.path}. Cuando agregues uno, aparecerá aquí para iniciarlo.</div>`;
+    }
+
+    modalBody.innerHTML = html;
+    modalOverlay.classList.add('show');
+  }
+
+  function closeModal(){ modalOverlay.classList.remove('show'); }
+
+  btnNew.addEventListener('click', openModal);
+  modalClose.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  modalBody.addEventListener('click', async e => {
+    const btn = e.target.closest('.btn-start');
+    if (!btn) return;
+    btn.disabled = true; btn.textContent = '…';
+
+    if (btn.dataset.kind === 'app') {
+      const appId = btn.dataset.id;
+      if (WOS && WOS.launch) WOS.launch(appId);
+      else K.emit('shell:launch', { appId });
+      toast(`Iniciando "${appId}"…`, 'ok');
+    } else {
+      K.procs.spawn(btn.dataset.id, {
+        title: btn.dataset.name,
+        icon: btn.dataset.icon,
+        cwd: MOD_TYPES[btn.dataset.dir].path,
+      });
+      toast(`"${btn.dataset.name}" cargado como proceso`, 'ok');
+    }
+
+    setTimeout(closeModal, 250);
+  });
+
+  searchInput.addEventListener('input', () => { _filter = searchInput.value; render(); });
+
+  /* ── Ciclo de vida ── */
+  let _fsRefreshTimer = null;
+  function scheduleFsRefresh(path){
+    if (path && !String(path).startsWith(MODULES_ROOT)) return;
+    clearTimeout(_fsRefreshTimer);
+    _fsRefreshTimer = setTimeout(refresh, 150);
+  }
+
+  async function boot(){
+    if (!K) {
+      document.getElementById('app').innerHTML = '<div id="boot-msg">⚠ No se pudo acceder al Kernel. Abre esta app desde el escritorio de HUEBOS.</div>';
+      return;
+    }
+    if (!K.isReady) { await new Promise(res => K.once('ready', res)); }
+
+    await ensureModulesTree();
+    await refresh();
+
+    K.on('procs:spawn', refresh);
+    K.on('procs:kill', refresh);
+    K.on('procs:update', refresh);
+    K.on('apps:registered', refresh);
+    K.on('apps:unregistered', refresh);
+    K.on('fs:write',  p => scheduleFsRefresh(p && p.path));
+    K.on('fs:remove', p => scheduleFsRefresh(p && p.path));
+    K.on('fs:mkdir',  p => scheduleFsRefresh(p && p.path));
+
+    /* Refresco de respaldo por si algún evento se pierde */
+    setInterval(refresh, 5000);
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HUEBOS · Modo de Reparación</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    :root{
+      --red:#ff5555;--red-dim:#a33636;--red-faint:#2a0a0a;
+      --amber:#ffb300;--green:#5bff9b;--blue:#5b9bf5;
+      --bg:#0a0505;--panel:#160a0a;--panel-border:#3a1a1a;
+      --text:#f0d8d8;--text-dim:#9a6a6a;
+    }
+    html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;}
+    body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.15) 0,rgba(0,0,0,0.15) 1px,transparent 1px,transparent 3px);}
+    body::after{content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;background:radial-gradient(ellipse 90% 85% at 50% 50%,transparent 55%,rgba(0,0,0,0.75) 100%);}
+
+    #repair{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;padding:1.6rem 2.4rem;gap:1rem;max-width:760px;margin:0 auto;}
+    .repair-header{display:flex;flex-direction:column;gap:0.3rem;border-bottom:1px solid var(--panel-border);padding-bottom:0.8rem;}
+    .repair-title{font-family:'VT323',monospace;font-size:1.9rem;color:var(--red);text-shadow:0 0 10px #ff555588;letter-spacing:0.08em;}
+    .repair-sub{font-size:0.7rem;color:var(--text-dim);letter-spacing:0.15em;}
+
+    .diag-box{background:var(--panel);border:1px solid var(--panel-border);padding:0.9rem 1rem;font-size:0.72rem;line-height:1.7;color:var(--text-dim);}
+    .diag-box strong{color:var(--amber);}
+    .diag-box .diag-none{color:var(--text-dim);opacity:0.6;}
+
+    .view{display:none;flex-direction:column;gap:0.8rem;flex:1;overflow-y:auto;padding-right:0.3rem;}
+    .view.active{display:flex;}
+
+    .big-btn{
+      display:flex;align-items:center;gap:1rem;
+      padding:1rem 1.2rem;background:var(--panel);
+      border:1px solid var(--panel-border);cursor:pointer;
+      transition:all 0.15s;text-align:left;
+    }
+    .big-btn:hover{border-color:var(--amber);background:rgba(255,179,0,0.06);box-shadow:0 0 14px rgba(255,179,0,0.12);}
+    .big-btn .bi{font-size:1.5rem;flex-shrink:0;}
+    .big-btn .bt{flex:1;}
+    .big-btn .bt .bt-label{font-size:0.85rem;color:var(--text);letter-spacing:0.05em;margin-bottom:0.2rem;}
+    .big-btn .bt .bt-desc{font-size:0.68rem;color:var(--text-dim);line-height:1.5;}
+    .big-btn.primary:hover{border-color:var(--green);background:rgba(91,255,155,0.06);box-shadow:0 0 14px rgba(91,255,155,0.12);}
+    .big-btn.danger:hover{border-color:var(--red);background:rgba(255,85,85,0.07);box-shadow:0 0 14px rgba(255,85,85,0.15);}
+    .big-btn.disabled{opacity:0.4;cursor:not-allowed;}
+    .big-btn.disabled:hover{border-color:var(--panel-border);background:var(--panel);box-shadow:none;}
+    .big-btn .bt-tag{font-size:0.58rem;letter-spacing:0.12em;color:var(--text-dim);border:1px solid var(--panel-border);padding:1px 6px;margin-left:0.5rem;}
+
+    .repair-footer{border-top:1px solid var(--panel-border);padding-top:0.7rem;font-size:0.65rem;color:var(--text-dim);letter-spacing:0.08em;display:flex;justify-content:space-between;align-items:center;}
+    .repair-footer kbd{background:var(--panel);border:1px solid var(--panel-border);padding:1px 6px;font-family:inherit;color:var(--amber);}
+
+    .toast{position:fixed;bottom:2.4rem;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--amber);color:var(--amber);padding:0.6rem 1.5rem;font-size:0.75rem;letter-spacing:0.1em;box-shadow:0 0 16px rgba(255,179,0,0.3);z-index:10000;opacity:0;transition:opacity 0.3s;pointer-events:none;}
+    .toast.show{opacity:1;}
+    .leaving{animation:fadeOut 0.6s ease forwards;}
+    @keyframes fadeOut{to{opacity:0;}}
+
+    .confirm-overlay{position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s;}
+    .confirm-overlay.show{opacity:1;pointer-events:auto;}
+    .confirm-box{background:var(--panel);border:1px solid var(--red);padding:1.5rem;max-width:420px;text-align:center;box-shadow:0 0 24px rgba(255,85,85,0.3);}
+    .confirm-box h3{color:var(--red);font-size:0.85rem;letter-spacing:0.1em;margin-bottom:0.8rem;text-shadow:0 0 8px rgba(255,85,85,0.5);}
+    .confirm-box p{font-size:0.72rem;color:var(--text-dim);line-height:1.5;margin-bottom:1.2rem;}
+    .btn{padding:0.45rem 1.2rem;font-family:inherit;font-size:0.75rem;letter-spacing:0.1em;cursor:pointer;border:1px solid;transition:all 0.15s;margin:0 0.4rem;background:transparent;}
+    .btn-danger{border-color:var(--red);color:var(--red);background:rgba(255,85,85,0.1);}
+    .btn-danger:hover{background:var(--red);color:var(--bg);box-shadow:0 0 12px rgba(255,85,85,0.4);}
+    .btn-discard{border-color:var(--text-dim);color:var(--text-dim);}
+    .btn-discard:hover{border-color:var(--text);color:var(--text);}
+
+    .corner{position:fixed;width:18px;height:18px;border-color:var(--red-dim);border-style:solid;opacity:0.5;}
+    .corner-tl{top:14px;left:14px;border-width:1px 0 0 1px;}
+    .corner-tr{top:14px;right:14px;border-width:1px 1px 0 0;}
+    .corner-bl{bottom:14px;left:14px;border-width:0 0 1px 1px;}
+    .corner-br{bottom:14px;right:14px;border-width:0 1px 1px 0;}
+  </style>
+</head>
+<body>
+  <div class="corner corner-tl"></div>
+  <div class="corner corner-tr"></div>
+  <div class="corner corner-bl"></div>
+  <div class="corner corner-br"></div>
+
+  <div id="repair">
+    <div class="repair-header">
+      <div class="repair-title">⚠ HUEBOS · MODO DE REPARACIÓN</div>
+      <div class="repair-sub">EL SISTEMA NO PUDO ARRANCAR NORMALMENTE</div>
+    </div>
+
+    <div class="diag-box" id="diag-box">Cargando diagnóstico…</div>
+
+    <!-- ══ VISTA PRINCIPAL ══ -->
+    <div class="view active" id="view-main">
+      <div class="big-btn primary" id="btn-continue">
+        <span class="bi">▶</span>
+        <span class="bt">
+          <div class="bt-label">Continuar</div>
+          <div class="bt-desc">Intenta arrancar el sistema nuevamente. Si vuelve a fallar, regresarás automáticamente aquí.</div>
+        </span>
+      </div>
+      <div class="big-btn" id="btn-open-repair">
+        <span class="bi">🛠</span>
+        <span class="bt">
+          <div class="bt-label">Reparar</div>
+          <div class="bt-desc">Abre las herramientas de recuperación del sistema.</div>
+        </span>
+      </div>
+    </div>
+
+    <!-- ══ VISTA REPARAR (poblada por JS desde REPAIR_TOOLS) ══ -->
+    <div class="view" id="view-repair">
+      <div id="repair-tools-list"></div>
+      <div class="big-btn" id="btn-back">
+        <span class="bi">←</span>
+        <span class="bt"><div class="bt-label">Volver</div><div class="bt-desc">Regresar al menú principal.</div></span>
+      </div>
+    </div>
+
+    <div class="repair-footer">
+      <span>HUEBOS FIRMWARE DE RECUPERACIÓN</span>
+      <span><kbd>Esc</kbd> volver</span>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-box">
+      <h3 id="confirm-title">¿Confirmar?</h3>
+      <p id="confirm-msg"></p>
+      <button class="btn btn-discard" id="confirm-no">Cancelar</button>
+      <button class="btn btn-danger" id="confirm-yes">Confirmar</button>
+    </div>
+  </div>
+
+  <script>
+  ;(function(){
+    'use strict';
+
+    const BOOT_FAILURE_KEY = 'huebos_boot_failure';
+
+    /* ════════════════════════════════════════════
+       REGISTRO DE HERRAMIENTAS DE REPARACIÓN
+       Añadir una nueva herramienta = añadir una entrada
+       aquí con enabled:true y su función action().
+       No requiere tocar el resto del archivo.
+    ════════════════════════════════════════════ */
+    const REPAIR_TOOLS = [
+      {
+        id: 'factory-reset',
+        icon: '💥',
+        label: 'Restablecer de fábrica',
+        desc: 'Elimina la instalación actual (base de datos, sistema de archivos, preferencias) y reinstala HUEBOS desde cero usando el arranque normal del Kernel.',
+        danger: true,
+        enabled: true,
+        confirmTitle: '💥 RESTABLECER DE FÁBRICA',
+        confirmMsg: 'Se eliminará por completo la base de datos huebos_db: archivos, preferencias, usuarios y apps registradas. El sistema se reinstalará desde cero al reiniciar. Esta acción es irreversible.',
+        action: runFactoryReset,
+      },
+      { id: 'fix-permissions', icon: '🔐', label: 'Reparar permisos',       desc: 'Próximamente.', enabled: false },
+      { id: 'check-integrity', icon: '🔎', label: 'Comprobar integridad',   desc: 'Próximamente.', enabled: false },
+      { id: 'rebuild-index',   icon: '📇', label: 'Reconstruir índices',    desc: 'Próximamente.', enabled: false },
+      { id: 'repair-files',    icon: '🗂️', label: 'Reparar archivos',       desc: 'Próximamente.', enabled: false },
+    ];
+
+    const viewMain   = document.getElementById('view-main');
+    const viewRepair = document.getElementById('view-repair');
+    const diagBox    = document.getElementById('diag-box');
+    const toolsList  = document.getElementById('repair-tools-list');
+    const toastEl    = document.getElementById('toast');
+    const overlay    = document.getElementById('confirm-overlay');
+
+    function showToast(msg){
+      toastEl.textContent = msg; toastEl.classList.add('show');
+      setTimeout(()=>toastEl.classList.remove('show'), 2200);
+    }
+
+    function showView(id){
+      [viewMain, viewRepair].forEach(v => v.classList.toggle('active', v.id === id));
+    }
+
+    function renderDiagnostic(){
+      let info = null;
+      try { info = JSON.parse(sessionStorage.getItem(BOOT_FAILURE_KEY) || 'null'); } catch {}
+      if (!info){
+        diagBox.innerHTML = '<span class="diag-none">Sin datos de diagnóstico disponibles para este fallo.</span>';
+        return;
+      }
+      const when = info.ts ? new Date(info.ts).toLocaleString() : '?';
+      const reasonLabels = { 'timeout':'Tiempo de arranque agotado', 'boot-error':'Excepción durante el arranque' };
+      const reasonText = reasonLabels[info.reason] || info.reason || 'desconocido';
+      diagBox.innerHTML =
+        `<div><strong>Motivo:</strong> ${reasonText}</div>` +
+        `<div><strong>Cuándo:</strong> ${when}</div>` +
+        (info.message ? `<div><strong>Detalle:</strong> ${info.message}</div>` : '');
+    }
+
+    function renderTools(){
+      toolsList.innerHTML = '';
+      REPAIR_TOOLS.forEach(tool => {
+        const el = document.createElement('div');
+        el.className = 'big-btn' + (tool.danger ? ' danger' : '') + (tool.enabled ? '' : ' disabled');
+        el.innerHTML = `<span class="bi">${tool.icon}</span>
+          <span class="bt">
+            <div class="bt-label">${tool.label}${tool.enabled ? '' : '<span class="bt-tag">PRÓXIMAMENTE</span>'}</div>
+            <div class="bt-desc">${tool.desc}</div>
+          </span>`;
+        if (tool.enabled){
+          el.addEventListener('click', () => {
+            if (tool.confirmTitle){
+              confirmAction(tool.confirmTitle, tool.confirmMsg, () => tool.action());
+            } else {
+              tool.action();
+            }
+          });
+        }
+        toolsList.appendChild(el);
+      });
+    }
+
+    function confirmAction(title, msg, onYes){
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-msg').textContent = msg;
+      overlay.style.display = 'flex';
+      requestAnimationFrame(()=>overlay.classList.add('show'));
+      const yesBtn = document.getElementById('confirm-yes');
+      const noBtn  = document.getElementById('confirm-no');
+      const close = () => { overlay.classList.remove('show'); setTimeout(()=>{overlay.style.display='none';}, 250); };
+      const onYesClick = () => { close(); cleanup(); onYes(); };
+      const onNoClick  = () => { close(); cleanup(); };
+      function cleanup(){ yesBtn.removeEventListener('click', onYesClick); noBtn.removeEventListener('click', onNoClick); }
+      yesBtn.addEventListener('click', onYesClick);
+      noBtn.addEventListener('click', onNoClick);
+    }
+
+    /* ── Borrado seguro de IndexedDB: misma técnica que uefi.html.
+       No reimplementa el instalador: solo prepara el terreno (DB vacía)
+       para que el Kernel reconstruya todo en el próximo arranque normal. ── */
+    function deleteDatabaseSafely(dbName, maxWaitMs, onBlocked){
+      return new Promise((resolve) => {
+        let settled = false;
+        const finish = (result) => { if(!settled){ settled = true; resolve(result); } };
+        const hardTimeout = setTimeout(()=>finish('timeout'), maxWaitMs);
+        const req = indexedDB.deleteDatabase(dbName);
+        req.onsuccess = () => { clearTimeout(hardTimeout); finish('deleted'); };
+        req.onerror   = () => { clearTimeout(hardTimeout); finish('error:'+(req.error?.message||'desconocido')); };
+        req.onblocked = () => { if (typeof onBlocked === 'function') onBlocked(); };
+      });
+    }
+
+    async function runFactoryReset(){
+      showToast('Formateando sistema…');
+      let blockedShown = false;
+      const result = await deleteDatabaseSafely('huebos_db', 6000, () => {
+        if(!blockedShown){
+          blockedShown = true;
+          showToast('🔒 Cierra otras pestañas de HUEBOS para completar el formateo…');
+        }
+      });
+      if (result === 'deleted') showToast('Base de datos eliminada. Reinstalando…');
+      else showToast('⚠ ' + result + '. Reiniciando de todos modos…');
+
+      try { sessionStorage.removeItem(BOOT_FAILURE_KEY); } catch {}
+      document.body.classList.add('leaving');
+      setTimeout(()=>{ window.location.href = 'index.html?boot=1'; }, 1000);
+    }
+
+    function goContinue(){
+      document.body.classList.add('leaving');
+      setTimeout(()=>{ window.location.href = 'index.html?boot=1'; }, 400);
+    }
+
+    document.getElementById('btn-continue').addEventListener('click', goContinue);
+    document.getElementById('btn-open-repair').addEventListener('click', () => showView('view-repair'));
+    document.getElementById('btn-back').addEventListener('click', () => showView('view-main'));
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && viewRepair.classList.contains('active')) showView('view-main');
+    });
+
+    renderDiagnostic();
+    renderTools();
+  })();
+  </script>
+</body>
+</html>
