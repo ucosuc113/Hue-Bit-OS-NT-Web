@@ -3,6 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script>
+(function () {
+  try {
+    const GUARD_KEY = 'huebos_redirect_guard';
+    const now = Date.now();
+    let guard = null;
+    try { guard = JSON.parse(sessionStorage.getItem(GUARD_KEY) || 'null'); } catch (e) {}
+
+    const hasTicket = !!sessionStorage.getItem('huebos_shell_ticket');
+
+    if (!hasTicket) {
+      const count = (guard && now - guard.ts < 5000) ? guard.count + 1 : 1;
+      sessionStorage.setItem(GUARD_KEY, JSON.stringify({ count, ts: now }));
+
+      if (count > 3) {
+        document.documentElement.innerHTML =
+          '<body style="font-family:monospace;background:#100;color:#f88;padding:2rem">' +
+          '⚠ Bucle de redirección detectado entre shell.html e index.html.<br>' +
+          'El ticket de arranque nunca se generó. Abre la consola (F12) y revisa si <code>Kernel.build</code> existe.<br>' +
+          '<a href="index.html" style="color:#8cf">Volver manualmente a index.html</a></body>';
+        return;
+      }
+      window.location.replace('index.html');
+    } else {
+      sessionStorage.removeItem(GUARD_KEY);
+    }
+  } catch (e) { /* sessionStorage no disponible: no bloqueamos el arranque */ }
+})();
+</script>
   <title>HUEBOS · UEFI Setup</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');

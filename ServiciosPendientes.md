@@ -10,7 +10,7 @@ Kernel
 ├── 🟩 Base de datos
 ├── 🟩 Gestión de aplicaciones
 ├── 🟩 Registro de aplicaciones
-├── ❌ Registro de servicios
+├── 🟩 Registro de servicios
 ├── 🟨 IPC (comunicación entre procesos)
 ├── 🟩 Bus de eventos
 ├── ❌ Scheduler
@@ -25,7 +25,7 @@ Kernel
 ├── ❌ Gestión de energía
 ├── 🟩 Reinicio y apagado
 ├── 🟩 Bloqueo de pantalla
-├── ❌ Portapapeles
+├── 🟩 Portapapeles
 ├── ❌ Gestor de almacenamiento
 ├── 🟨 Sistema de permisos
 ├── ❌ Gestor de paquetes
@@ -70,7 +70,7 @@ Shell
 ├── 🟩 Menú de aplicaciones
 ├── 🟨 Explorador de archivos
 ├── 🟩 Gestor de ventanas
-├── ❌ Centro de notificaciones
+├── 🟩 Centro de notificaciones
 ├── ❌ Centro de control
 ├── 🟩 Pantalla de bloqueo
 ├── ❌ Pantalla de inicio de sesión
@@ -98,11 +98,11 @@ Servicios del Sistema
 ├── Servicios
 │   │   (módulos en segundo plano que exponen funcionalidad al resto del sistema)
 │   │
-│   ├── ❌ Notificaciones — cola y persistencia de notificaciones, consumida por el Centro de notificaciones del Shell.
+│   ├── 🟩 Notificaciones — cola y persistencia de notificaciones, consumida por el Centro de notificaciones del Shell.
 │   ├── ❌ Bluetooth — descubre, empareja y mantiene conexión con dispositivos Bluetooth cercanos.
 │   ├── ❌ Sincronización — mantiene archivos y preferencias al día entre este dispositivo y una copia remota u otros dispositivos.
 │   ├── ❌ Actualizaciones — comprueba, descarga y aplica nuevas versiones del sistema o de las apps registradas.
-│   ├── ❌ Indexador de archivos — recorre el FS en segundo plano y construye un índice de contenido para búsquedas.
+│   ├── 🟩 Indexador de archivos — recorre el FS en segundo plano y construye un índice de contenido para búsquedas.
 │   ├── ❌ Motor de búsqueda — resuelve consultas de búsqueda global (nombre + contenido), apoyado en el Indexador de archivos.
 │   ├── ❌ Miniaturas — genera y cachea previsualizaciones de imágenes y otros archivos para el Explorador.
 │   ├── ❌ Papelera de reciclaje — intercepta los borrados del FS y los mueve a una zona recuperable en vez de eliminarlos al instante.

@@ -401,13 +401,14 @@
     let uefiEntered = false;
     countdownEl.textContent = uefiCountdown;
 
-    function enterUefi(){
-      if(uefiEntered) return;
-      uefiEntered = true;
-      uefiPrompt.classList.add('hidden');
-      document.body.classList.add('leaving');
-      setTimeout(()=>{ window.location.href='uefi.html'; }, 500);
-    }
+function enterUefi(){
+  if(uefiEntered) return;
+  uefiEntered = true;
+  try { sessionStorage.setItem('huebos_uefi_ticket', '1'); } catch(e) {}
+  uefiPrompt.classList.add('hidden');
+  document.body.classList.add('leaving');
+  setTimeout(()=>{ window.location.href='uefi.html'; }, 500);
+}
 
     function enterSafeMode(){
       if(uefiEntered) return;
@@ -545,6 +546,22 @@ Kernel.on('boot:step', ({ step, detail }) => {
 
     /* ── Boot completo ── */
     Kernel.once('ready', ({ version, sessionCount, recoveredBoot }) => {
+  try {
+    if (!Kernel.build || !Kernel.build.buildId) {
+      throw new Error('Kernel.build.buildId no está definido — revisa Kernel.js');
+    }
+    sessionStorage.setItem('huebos_shell_ticket', JSON.stringify({
+      buildId: Kernel.build.buildId,
+      ts: Date.now(),
+    }));
+  } catch (e) {
+        console.error('[boot] No se pudo emitir el ticket de shell:', e);
+    addLog('FAIL', `No se pudo generar el ticket de arranque: ${e.message}`);
+  }
+
+  addLog('OK', `Kernel v${version} · sesión #${sessionCount ?? '?'}`);
+
+  addLog('OK', `Kernel v${version} · sesión #${sessionCount ?? '?'}`);
       addLog('OK', `Kernel v${version} · sesión #${sessionCount ?? '?'}`);
       addLog('OK', `FS montado · /home /temp /sys /sys/crashes`);
       addLog('OK', `FS Binario activo · Blob/ArrayBuffer habilitado`);

@@ -1,0 +1,9 @@
+{
+  "services": [
+    "notificaciones.js",
+    "indexador.js",
+    "ipc-bridge.js",
+    "scheduler.js",
+    "window-registry.js"
+  ]
+}

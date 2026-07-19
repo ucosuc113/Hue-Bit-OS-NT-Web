@@ -17,7 +17,9 @@
     body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.15) 0,rgba(0,0,0,0.15) 1px,transparent 1px,transparent 3px);}
     body::after{content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;background:radial-gradient(ellipse 90% 85% at 50% 50%,transparent 55%,rgba(0,0,0,0.75) 100%);}
 
-    #repair{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;padding:1.6rem 2.4rem;gap:1rem;max-width:760px;margin:0 auto;}
+    #app-wrapper{position:relative;z-index:1;display:flex;height:100vh;}
+
+    #repair{flex:1 1 auto;min-width:0;height:100vh;display:flex;flex-direction:column;padding:1.6rem 2.4rem;gap:1rem;max-width:760px;margin:0 auto;}
     .repair-header{display:flex;flex-direction:column;gap:0.3rem;border-bottom:1px solid var(--panel-border);padding-bottom:0.8rem;}
     .repair-title{font-family:'VT323',monospace;font-size:1.9rem;color:var(--red);text-shadow:0 0 10px #ff555588;letter-spacing:0.08em;}
     .repair-sub{font-size:0.7rem;color:var(--text-dim);letter-spacing:0.15em;}
@@ -65,6 +67,37 @@
     .btn-discard{border-color:var(--text-dim);color:var(--text-dim);}
     .btn-discard:hover{border-color:var(--text);color:var(--text);}
 
+    .report-box{background:var(--panel);border:1px solid var(--amber);padding:1.4rem;max-width:520px;width:90%;max-height:70vh;overflow-y:auto;text-align:left;box-shadow:0 0 24px rgba(255,179,0,0.25);}
+    .report-box h3{color:var(--amber);font-size:0.85rem;letter-spacing:0.1em;margin-bottom:0.9rem;text-shadow:0 0 8px rgba(255,179,0,0.4);}
+    .report-log{font-size:0.7rem;line-height:1.9;color:var(--text);white-space:pre-wrap;}
+    .report-actions{margin-top:1.1rem;text-align:center;}
+    .btn-ok{border-color:var(--amber);color:var(--amber);background:rgba(255,179,0,0.1);}
+    .btn-ok:hover{background:var(--amber);color:var(--bg);box-shadow:0 0 12px rgba(255,179,0,0.4);}
+
+    /* ── Terminal de diagnóstico (solo lectura) ── */
+    #terminal{width:380px;flex:0 0 380px;display:flex;flex-direction:column;border-left:1px solid var(--panel-border);background:#050808;}
+    #terminal-header{padding:0.7rem 1rem;border-bottom:1px solid var(--panel-border);display:flex;justify-content:space-between;align-items:center;font-family:'VT323',monospace;font-size:1.05rem;color:var(--green);letter-spacing:0.06em;text-shadow:0 0 8px rgba(91,255,155,0.35);}
+    #terminal-header .term-title{display:flex;align-items:center;gap:0.5rem;}
+    #terminal-header .term-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 1.4s infinite;}
+    @keyframes blink{50%{opacity:0.25;}}
+    .term-controls{display:flex;gap:0.4rem;}
+    .term-btn{background:transparent;border:1px solid var(--panel-border);color:var(--text-dim);font-size:0.7rem;padding:2px 7px;cursor:pointer;font-family:inherit;}
+    .term-btn:hover{border-color:var(--green);color:var(--green);}
+    #terminal-log{flex:1;overflow-y:auto;padding:0.7rem 0.9rem;font-size:0.65rem;line-height:1.65;}
+    #terminal-log .t-line{white-space:pre-wrap;word-break:break-word;margin-bottom:2px;}
+    .t-info{color:#7fa8f5;}
+    .t-ok{color:var(--green);}
+    .t-warn{color:var(--amber);}
+    .t-error{color:var(--red);}
+    .t-exec{color:var(--text-dim);}
+    #terminal-footer{padding:0.45rem 1rem;border-top:1px solid var(--panel-border);font-size:0.58rem;color:var(--text-dim);letter-spacing:0.06em;text-align:center;}
+
+    @media (max-width:900px){
+      #app-wrapper{flex-direction:column;}
+      #terminal{width:100%;flex:0 0 240px;border-left:none;border-top:1px solid var(--panel-border);}
+      #repair{max-width:none;height:auto;flex:1 1 auto;}
+    }
+
     .corner{position:fixed;width:18px;height:18px;border-color:var(--red-dim);border-style:solid;opacity:0.5;}
     .corner-tl{top:14px;left:14px;border-width:1px 0 0 1px;}
     .corner-tr{top:14px;right:14px;border-width:1px 1px 0 0;}
@@ -78,48 +111,63 @@
   <div class="corner corner-bl"></div>
   <div class="corner corner-br"></div>
 
-  <div id="repair">
-    <div class="repair-header">
-      <div class="repair-title">⚠ HUEBOS · MODO DE REPARACIÓN</div>
-      <div class="repair-sub">EL SISTEMA NO PUDO ARRANCAR NORMALMENTE</div>
+  <div id="app-wrapper">
+    <div id="repair">
+      <div class="repair-header">
+        <div class="repair-title">⚠ HUEBOS · MODO DE REPARACIÓN</div>
+        <div class="repair-sub">EL SISTEMA NO PUDO ARRANCAR NORMALMENTE</div>
+      </div>
+
+      <div class="diag-box" id="diag-box">Cargando diagnóstico…</div>
+
+      <!-- ══ VISTA PRINCIPAL ══ -->
+      <div class="view active" id="view-main">
+        <div class="big-btn primary" id="btn-continue">
+          <span class="bi">▶</span>
+          <span class="bt">
+            <div class="bt-label">Continuar</div>
+            <div class="bt-desc">Intenta arrancar el sistema nuevamente. Si vuelve a fallar, regresarás automáticamente aquí.</div>
+          </span>
+        </div>
+        <div class="big-btn" id="btn-open-repair">
+          <span class="bi">🛠</span>
+          <span class="bt">
+            <div class="bt-label">Reparar</div>
+            <div class="bt-desc">Abre las herramientas de recuperación del sistema.</div>
+          </span>
+        </div>
+      </div>
+
+      <!-- ══ VISTA REPARAR (poblada por JS desde REPAIR_TOOLS) ══ -->
+      <div class="view" id="view-repair">
+        <div id="repair-tools-list"></div>
+        <div class="big-btn" id="btn-back">
+          <span class="bi">←</span>
+          <span class="bt"><div class="bt-label">Volver</div><div class="bt-desc">Regresar al menú principal.</div></span>
+        </div>
+      </div>
+
+      <div class="repair-footer">
+        <span>HUEBOS FIRMWARE DE RECUPERACIÓN</span>
+        <span><kbd>Esc</kbd> volver</span>
+      </div>
     </div>
 
-    <div class="diag-box" id="diag-box">Cargando diagnóstico…</div>
-
-    <!-- ══ VISTA PRINCIPAL ══ -->
-    <div class="view active" id="view-main">
-      <div class="big-btn primary" id="btn-continue">
-        <span class="bi">▶</span>
-        <span class="bt">
-          <div class="bt-label">Continuar</div>
-          <div class="bt-desc">Intenta arrancar el sistema nuevamente. Si vuelve a fallar, regresarás automáticamente aquí.</div>
+    <div id="terminal">
+      <div id="terminal-header">
+        <span class="term-title"><span class="term-dot"></span> TERMINAL · DIAGNÓSTICO</span>
+        <span class="term-controls">
+          <button class="term-btn" id="term-copy" title="Copiar todo el log">copiar</button>
+          <button class="term-btn" id="term-clear" title="Limpiar">limpiar</button>
         </span>
       </div>
-      <div class="big-btn" id="btn-open-repair">
-        <span class="bi">🛠</span>
-        <span class="bt">
-          <div class="bt-label">Reparar</div>
-          <div class="bt-desc">Abre las herramientas de recuperación del sistema.</div>
-        </span>
-      </div>
-    </div>
-
-    <!-- ══ VISTA REPARAR (poblada por JS desde REPAIR_TOOLS) ══ -->
-    <div class="view" id="view-repair">
-      <div id="repair-tools-list"></div>
-      <div class="big-btn" id="btn-back">
-        <span class="bi">←</span>
-        <span class="bt"><div class="bt-label">Volver</div><div class="bt-desc">Regresar al menú principal.</div></span>
-      </div>
-    </div>
-
-    <div class="repair-footer">
-      <span>HUEBOS FIRMWARE DE RECUPERACIÓN</span>
-      <span><kbd>Esc</kbd> volver</span>
+      <div id="terminal-log"></div>
+      <div id="terminal-footer">solo lectura · no acepta comandos</div>
     </div>
   </div>
 
   <div class="toast" id="toast"></div>
+
   <div class="confirm-overlay" id="confirm-overlay">
     <div class="confirm-box">
       <h3 id="confirm-title">¿Confirmar?</h3>
@@ -129,35 +177,223 @@
     </div>
   </div>
 
+  <div class="confirm-overlay" id="report-overlay">
+    <div class="report-box">
+      <h3 id="report-title">Resultado</h3>
+      <div class="report-log" id="report-log"></div>
+      <div class="report-actions">
+        <button class="btn btn-ok" id="report-close">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
   ;(function(){
     'use strict';
 
+    /* ════════════════════════════════════════════
+       TERMINAL DE DIAGNÓSTICO
+       Se define ANTES que cualquier otra cosa para
+       poder capturar hasta los errores de inicialización.
+       Es de solo lectura: no ejecuta nada que se le escriba,
+       solo muestra lo que el resto del script va haciendo.
+    ════════════════════════════════════════════ */
+    const termLogEl = document.getElementById('terminal-log');
+
+    function pad2(n){ return String(n).padStart(2,'0'); }
+    function nowStamp(){
+      const d = new Date();
+      return pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds())+'.'+String(d.getMilliseconds()).padStart(3,'0');
+    }
+    function term(msg, level){
+      level = level || 'info';
+      try {
+        const line = document.createElement('div');
+        line.className = 't-line t-' + level;
+        line.textContent = '['+nowStamp()+'] ' + msg;
+        termLogEl.appendChild(line);
+        termLogEl.scrollTop = termLogEl.scrollHeight;
+      } catch (e) {
+        // si hasta el propio logger falla, al menos que quede en la consola real
+        console.error('[terminal] fallo al escribir log:', e, msg);
+      }
+    }
+
+    window.addEventListener('error', (e) => {
+      term('Error no capturado: ' + (e.message || (e.error && e.error.message) || e) +
+           (e.filename ? ' — ' + e.filename + ':' + e.lineno + ':' + e.colno : ''), 'error');
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      const reason = e.reason;
+      term('Promesa rechazada sin manejar: ' + (reason && reason.stack ? reason.stack : (reason && reason.message) || reason), 'error');
+    });
+
+    term('Terminal de diagnóstico iniciado.', 'ok');
+    term('URL: ' + location.href, 'info');
+    term('Protocolo: ' + location.protocol, location.protocol === 'file:' ? 'warn' : 'info');
+    if (location.protocol === 'file:'){
+      term('⚠ Ejecutando desde file:// — IndexedDB puede no persistir o comportarse distinto que sobre http(s)://', 'warn');
+    }
+    term('indexedDB disponible: ' + (typeof indexedDB !== 'undefined'), typeof indexedDB !== 'undefined' ? 'ok' : 'error');
+    term('serviceWorker soportado: ' + ('serviceWorker' in navigator), 'info');
+    term('Cache Storage soportado: ' + (typeof caches !== 'undefined'), 'info');
+    term('indexedDB.databases() soportado: ' + (typeof indexedDB !== 'undefined' && !!indexedDB.databases), 'info');
+
+    document.getElementById('term-clear').addEventListener('click', () => {
+      termLogEl.innerHTML = '';
+      term('Log limpiado.', 'info');
+    });
+    document.getElementById('term-copy').addEventListener('click', async () => {
+      const text = Array.from(termLogEl.querySelectorAll('.t-line')).map(l => l.textContent).join('\n');
+      try {
+        await navigator.clipboard.writeText(text);
+        term('Log copiado al portapapeles.', 'ok');
+      } catch (e) {
+        term('No se pudo copiar automáticamente (permiso denegado). Selecciona el texto manualmente.', 'warn');
+      }
+    });
+
     const BOOT_FAILURE_KEY = 'huebos_boot_failure';
+    const DB_NAME = 'huebos_db';
 
     /* ════════════════════════════════════════════
-       REGISTRO DE HERRAMIENTAS DE REPARACIÓN
-       Añadir una nueva herramienta = añadir una entrada
-       aquí con enabled:true y su función action().
-       No requiere tocar el resto del archivo.
+       ACCESO DIRECTO A INDEXEDDB (SIN window.Kernel)
+       Ver terminal para el rastro exacto de cada operación.
     ════════════════════════════════════════════ */
-    const REPAIR_TOOLS = [
-      {
-        id: 'factory-reset',
-        icon: '💥',
-        label: 'Restablecer de fábrica',
-        desc: 'Elimina la instalación actual (base de datos, sistema de archivos, preferencias) y reinstala HUEBOS desde cero usando el arranque normal del Kernel.',
-        danger: true,
-        enabled: true,
-        confirmTitle: '💥 RESTABLECER DE FÁBRICA',
-        confirmMsg: 'Se eliminará por completo la base de datos huebos_db: archivos, preferencias, usuarios y apps registradas. El sistema se reinstalará desde cero al reiniciar. Esta acción es irreversible.',
-        action: runFactoryReset,
-      },
-      { id: 'fix-permissions', icon: '🔐', label: 'Reparar permisos',       desc: 'Próximamente.', enabled: false },
-      { id: 'check-integrity', icon: '🔎', label: 'Comprobar integridad',   desc: 'Próximamente.', enabled: false },
-      { id: 'rebuild-index',   icon: '📇', label: 'Reconstruir índices',    desc: 'Próximamente.', enabled: false },
-      { id: 'repair-files',    icon: '🗂️', label: 'Reparar archivos',       desc: 'Próximamente.', enabled: false },
-    ];
+
+    function openDbRaw(){
+      term('$ indexedDB.open("'+DB_NAME+'")', 'exec');
+      return new Promise((resolve, reject) => {
+        let req;
+        try {
+          req = indexedDB.open(DB_NAME);
+        } catch (e) {
+          term('✗ indexedDB.open() lanzó una excepción síncrona: ' + e.message, 'error');
+          return reject(e);
+        }
+        req.onsuccess = () => {
+          const db = req.result;
+          const stores = Array.from(db.objectStoreNames);
+          term('✓ DB abierta (versión ' + db.version + '). Stores encontrados: [' + (stores.join(', ') || 'ninguno') + ']', stores.length ? 'ok' : 'warn');
+          resolve(db);
+        };
+        req.onerror = () => {
+          const err = req.error || new Error('No se pudo abrir la base de datos');
+          term('✗ Error al abrir DB "'+DB_NAME+'": ' + err.message, 'error');
+          reject(err);
+        };
+        req.onblocked = () => {
+          term('⚠ Apertura de "'+DB_NAME+'" bloqueada por otra pestaña/instancia abierta', 'warn');
+        };
+        req.onupgradeneeded = () => {
+          // No definimos schema aquí a propósito: si esto dispara, significa que
+          // la DB no existía y el navegador la está creando vacía (versión 1, sin stores).
+          term('⚠ onupgradeneeded disparado: la base de datos "'+DB_NAME+'" NO existía. Se está creando una nueva, vacía.', 'warn');
+        };
+      });
+    }
+
+    function getAll(db, storeName){
+      if (!db.objectStoreNames.contains(storeName)){
+        term('⚠ Store "'+storeName+'" no existe en la DB — devolviendo []', 'warn');
+        return Promise.resolve([]);
+      }
+      term('$ '+storeName+'.getAll()', 'exec');
+      return new Promise((resolve, reject) => {
+        let tx, req;
+        try {
+          tx = db.transaction(storeName, 'readonly');
+          req = tx.objectStore(storeName).getAll();
+        } catch (e) {
+          term('✗ No se pudo leer store "'+storeName+'": ' + e.message, 'error');
+          return reject(e);
+        }
+        req.onsuccess = () => {
+          const result = req.result || [];
+          term('→ '+storeName+': ' + result.length + ' registro(s) leído(s)', 'info');
+          resolve(result);
+        };
+        req.onerror = () => {
+          term('✗ Error leyendo store "'+storeName+'": ' + req.error, 'error');
+          reject(req.error);
+        };
+      });
+    }
+
+    function putAll(db, storeName, records){
+      if (!db.objectStoreNames.contains(storeName)){
+        if (records.length) term('✗ No se puede escribir en store "'+storeName+'" — no existe', 'error');
+        return Promise.resolve();
+      }
+      if (!records.length){
+        term('(sin cambios que escribir en '+storeName+')', 'info');
+        return Promise.resolve();
+      }
+      term('$ '+storeName+'.put() × ' + records.length, 'exec');
+      return new Promise((resolve, reject) => {
+        let tx, store;
+        try {
+          tx = db.transaction(storeName, 'readwrite');
+          store = tx.objectStore(storeName);
+        } catch (e) {
+          term('✗ No se pudo abrir transacción de escritura en "'+storeName+'": ' + e.message, 'error');
+          return reject(e);
+        }
+        records.forEach(r => {
+          try { store.put(r); }
+          catch (e) { term('✗ put() falló para un registro en "'+storeName+'" (id='+(r && r.id)+'): ' + e.message, 'error'); }
+        });
+        tx.oncomplete = () => { term('✓ '+storeName+': ' + records.length + ' registro(s) escrito(s)', 'ok'); resolve(); };
+        tx.onerror = () => { term('✗ Transacción de escritura falló en "'+storeName+'": ' + tx.error, 'error'); reject(tx.error); };
+      });
+    }
+
+    function deleteKeys(db, storeName, keys){
+      if (!db.objectStoreNames.contains(storeName) || !keys.length) return Promise.resolve();
+      term('$ '+storeName+'.delete() × ' + keys.length, 'exec');
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        keys.forEach(k => store.delete(k));
+        tx.oncomplete = () => { term('✓ '+storeName+': ' + keys.length + ' registro(s) eliminado(s)', 'ok'); resolve(); };
+        tx.onerror = () => { term('✗ Error eliminando de "'+storeName+'": ' + tx.error, 'error'); reject(tx.error); };
+      });
+    }
+
+    /* ── Utilidades de path ── */
+    function dirnameOf(path){
+      const parts = String(path).split('/').filter(Boolean);
+      parts.pop();
+      return '/' + parts.join('/');
+    }
+    function basenameOf(path){
+      if (path === '/') return '/';
+      const parts = String(path).split('/').filter(Boolean);
+      return parts[parts.length - 1] || '/';
+    }
+    function ensureAncestors(path, byId, toPut, now){
+      const chain = [];
+      let p = dirnameOf(path);
+      while (p !== '/' && !byId.has(p)){
+        chain.push(p);
+        p = dirnameOf(p);
+      }
+      if (!byId.has('/')){
+        const root = { id:'/', type:'directory', name:'/', parent:null, ctime:now, mtime:now, meta:{} };
+        byId.set('/', root); toPut.push(root);
+      }
+      chain.reverse().forEach(dirPath => {
+        const node = {
+          id: dirPath, type: 'directory', name: basenameOf(dirPath),
+          parent: dirnameOf(dirPath), ctime: now, mtime: now,
+          meta: (dirPath === '/system' || dirPath.startsWith('/system/')) ? { protected:true } : {}
+        };
+        byId.set(dirPath, node);
+        toPut.push(node);
+      });
+    }
+
+    const REQUIRED_DIRS = ['/home','/home/desktop','/home/docs','/home/media','/home/downloads','/system','/sys','/sys/crashes','/temp'];
 
     const viewMain   = document.getElementById('view-main');
     const viewRepair = document.getElementById('view-repair');
@@ -165,6 +401,7 @@
     const toolsList  = document.getElementById('repair-tools-list');
     const toastEl    = document.getElementById('toast');
     const overlay    = document.getElementById('confirm-overlay');
+    const reportOverlay = document.getElementById('report-overlay');
 
     function showToast(msg){
       toastEl.textContent = msg; toastEl.classList.add('show');
@@ -175,46 +412,117 @@
       [viewMain, viewRepair].forEach(v => v.classList.toggle('active', v.id === id));
     }
 
+    function showReport(title, lines){
+      term('── REPORTE: ' + title + ' ──', 'info');
+      lines.forEach(l => term(l, l.indexOf('✗') === 0 ? 'error' : (l.indexOf('⚠') === 0 ? 'warn' : 'info')));
+      document.getElementById('report-title').textContent = title;
+      document.getElementById('report-log').textContent = lines.join('\n');
+      reportOverlay.style.display = 'flex';
+      requestAnimationFrame(()=>reportOverlay.classList.add('show'));
+    }
+    document.getElementById('report-close').addEventListener('click', () => {
+      reportOverlay.classList.remove('show');
+      setTimeout(()=>{reportOverlay.style.display='none';}, 250);
+    });
+
     function renderDiagnostic(){
       let info = null;
-      try { info = JSON.parse(sessionStorage.getItem(BOOT_FAILURE_KEY) || 'null'); } catch {}
+      try { info = JSON.parse(sessionStorage.getItem(BOOT_FAILURE_KEY) || 'null'); } catch (e) {
+        term('No se pudo leer/parsear ' + BOOT_FAILURE_KEY + ' de sessionStorage: ' + e.message, 'warn');
+      }
       if (!info){
         diagBox.innerHTML = '<span class="diag-none">Sin datos de diagnóstico disponibles para este fallo.</span>';
+        term('Diagnóstico de arranque: sin datos en sessionStorage["'+BOOT_FAILURE_KEY+'"]', 'warn');
         return;
       }
       const when = info.ts ? new Date(info.ts).toLocaleString() : '?';
       const reasonLabels = { 'timeout':'Tiempo de arranque agotado', 'boot-error':'Excepción durante el arranque' };
       const reasonText = reasonLabels[info.reason] || info.reason || 'desconocido';
       diagBox.innerHTML =
-        `<div><strong>Motivo:</strong> ${reasonText}</div>` +
-        `<div><strong>Cuándo:</strong> ${when}</div>` +
-        (info.message ? `<div><strong>Detalle:</strong> ${info.message}</div>` : '');
+        '<div><strong>Motivo:</strong> ' + reasonText + '</div>' +
+        '<div><strong>Cuándo:</strong> ' + when + '</div>' +
+        (info.message ? '<div><strong>Detalle:</strong> ' + info.message + '</div>' : '');
+      term('Diagnóstico de arranque → motivo: ' + reasonText + ' | cuándo: ' + when + (info.message ? ' | detalle: ' + info.message : ''), 'warn');
     }
+
+    /* ════════════════════════════════════════════
+       REGISTRO DE HERRAMIENTAS DE REPARACIÓN
+    ════════════════════════════════════════════ */
+    const REPAIR_TOOLS = [
+      {
+        id: 'factory-reset', icon: '💥', label: 'Restablecer de fábrica',
+        desc: 'Reset profundo: borra TODAS las bases de datos de HUEBOS, sessionStorage/localStorage relacionados, Service Workers y Cache Storage, y recarga sin caché.',
+        danger: true, enabled: true,
+        confirmTitle: '💥 RESTABLECER DE FÁBRICA',
+        confirmMsg: 'Esto eliminará por completo todas las bases de datos de HUEBOS, además de cachés, Service Workers y almacenamiento de sesión relacionado. Irreversible.',
+        action: runFactoryReset,
+      },
+      {
+        id: 'fix-permissions', icon: '🔐', label: 'Reparar permisos',
+        desc: 'Restaura la protección de /system, y recrea el usuario admin y la preferencia de contraseña global si faltan.',
+        enabled: true, action: runFixPermissions,
+      },
+      {
+        id: 'check-integrity', icon: '🔎', label: 'Comprobar integridad',
+        desc: 'Analiza la base de datos (sin modificarla) y reporta nodos huérfanos, tipos inválidos, directorios base faltantes y archivos binarios sin datos.',
+        enabled: true, action: runCheckIntegrity,
+      },
+      {
+        id: 'rebuild-index', icon: '📇', label: 'Reconstruir índices',
+        desc: 'Recalcula "parent" de cada nodo del sistema de archivos y recrea directorios base/intermedios faltantes.',
+        enabled: true, action: runRebuildIndex,
+      },
+      {
+        id: 'repair-files', icon: '🗂️', label: 'Reparar archivos',
+        desc: 'Recupera como archivo de texto vacío cualquier archivo binario sin datos, corrige tipos inválidos y elimina blobs huérfanos.',
+        enabled: true,
+        confirmTitle: '🗂️ REPARAR ARCHIVOS',
+        confirmMsg: 'Puede eliminar blobs binarios huérfanos y vaciar archivos binarios que ya perdieron sus datos. No se puede deshacer.',
+        action: runRepairFiles,
+      },
+    ];
 
     function renderTools(){
       toolsList.innerHTML = '';
       REPAIR_TOOLS.forEach(tool => {
         const el = document.createElement('div');
         el.className = 'big-btn' + (tool.danger ? ' danger' : '') + (tool.enabled ? '' : ' disabled');
-        el.innerHTML = `<span class="bi">${tool.icon}</span>
-          <span class="bt">
-            <div class="bt-label">${tool.label}${tool.enabled ? '' : '<span class="bt-tag">PRÓXIMAMENTE</span>'}</div>
-            <div class="bt-desc">${tool.desc}</div>
-          </span>`;
+        el.innerHTML = '<span class="bi">'+tool.icon+'</span>'+
+          '<span class="bt">'+
+            '<div class="bt-label">'+tool.label+(tool.enabled ? '' : '<span class="bt-tag">PRÓXIMAMENTE</span>')+'</div>'+
+            '<div class="bt-desc">'+tool.desc+'</div>'+
+          '</span>';
         if (tool.enabled){
           el.addEventListener('click', () => {
+            term('Click: "' + tool.label + '"', 'info');
+            const run = () => {
+              try {
+                const maybePromise = tool.action();
+                if (maybePromise && typeof maybePromise.then === 'function'){
+                  maybePromise.catch(err => {
+                    term('✗ Excepción no controlada en "'+tool.label+'": ' + (err && err.stack ? err.stack : err), 'error');
+                  });
+                }
+              } catch (err){
+                term('✗ Excepción síncrona en "'+tool.label+'": ' + (err && err.stack ? err.stack : err), 'error');
+              }
+            };
             if (tool.confirmTitle){
-              confirmAction(tool.confirmTitle, tool.confirmMsg, () => tool.action());
+              confirmAction(tool.confirmTitle, tool.confirmMsg, () => {
+                term('Confirmado: "' + tool.label + '"', 'ok');
+                run();
+              }, () => term('Cancelado: "' + tool.label + '"', 'warn'));
             } else {
-              tool.action();
+              run();
             }
           });
         }
         toolsList.appendChild(el);
       });
+      term('Panel de herramientas renderizado (' + REPAIR_TOOLS.filter(t=>t.enabled).length + ' habilitadas).', 'ok');
     }
 
-    function confirmAction(title, msg, onYes){
+    function confirmAction(title, msg, onYes, onNo){
       document.getElementById('confirm-title').textContent = title;
       document.getElementById('confirm-msg').textContent = msg;
       overlay.style.display = 'flex';
@@ -223,58 +531,404 @@
       const noBtn  = document.getElementById('confirm-no');
       const close = () => { overlay.classList.remove('show'); setTimeout(()=>{overlay.style.display='none';}, 250); };
       const onYesClick = () => { close(); cleanup(); onYes(); };
-      const onNoClick  = () => { close(); cleanup(); };
+      const onNoClick  = () => { close(); cleanup(); if (onNo) onNo(); };
       function cleanup(){ yesBtn.removeEventListener('click', onYesClick); noBtn.removeEventListener('click', onNoClick); }
       yesBtn.addEventListener('click', onYesClick);
       noBtn.addEventListener('click', onNoClick);
     }
 
-    /* ── Borrado seguro de IndexedDB: misma técnica que uefi.html.
-       No reimplementa el instalador: solo prepara el terreno (DB vacía)
-       para que el Kernel reconstruya todo en el próximo arranque normal. ── */
     function deleteDatabaseSafely(dbName, maxWaitMs, onBlocked){
+      term('$ indexedDB.deleteDatabase("'+dbName+'")', 'exec');
       return new Promise((resolve) => {
         let settled = false;
         const finish = (result) => { if(!settled){ settled = true; resolve(result); } };
-        const hardTimeout = setTimeout(()=>finish('timeout'), maxWaitMs);
-        const req = indexedDB.deleteDatabase(dbName);
-        req.onsuccess = () => { clearTimeout(hardTimeout); finish('deleted'); };
-        req.onerror   = () => { clearTimeout(hardTimeout); finish('error:'+(req.error?.message||'desconocido')); };
-        req.onblocked = () => { if (typeof onBlocked === 'function') onBlocked(); };
+        const hardTimeout = setTimeout(()=>{ term('⚠ Timeout borrando "'+dbName+'" ('+maxWaitMs+'ms)', 'warn'); finish('timeout'); }, maxWaitMs);
+        let req;
+        try {
+          req = indexedDB.deleteDatabase(dbName);
+        } catch (e) {
+          clearTimeout(hardTimeout);
+          term('✗ deleteDatabase("'+dbName+'") lanzó excepción: ' + e.message, 'error');
+          return finish('error: ' + e.message);
+        }
+        req.onsuccess = () => { clearTimeout(hardTimeout); term('✓ "'+dbName+'" eliminada', 'ok'); finish('eliminada'); };
+        req.onerror   = () => { clearTimeout(hardTimeout); term('✗ Error eliminando "'+dbName+'": ' + (req.error && req.error.message), 'error'); finish('error: '+(req.error?.message||'desconocido')); };
+        req.onblocked = () => { term('⚠ Borrado de "'+dbName+'" bloqueado por otra pestaña', 'warn'); if (typeof onBlocked === 'function') onBlocked(); };
       });
     }
 
+    /* ════════════════════════════════════════════
+       RESTABLECER DE FÁBRICA (reset profundo)
+    ════════════════════════════════════════════ */
     async function runFactoryReset(){
+      term('▶ Iniciando: Restablecer de fábrica', 'info');
       showToast('Formateando sistema…');
-      let blockedShown = false;
-      const result = await deleteDatabaseSafely('huebos_db', 6000, () => {
-        if(!blockedShown){
-          blockedShown = true;
-          showToast('🔒 Cierra otras pestañas de HUEBOS para completar el formateo…');
+      try {
+        let dbNames = [DB_NAME];
+        try {
+          if (indexedDB.databases){
+            term('$ indexedDB.databases()', 'exec');
+            const all = await indexedDB.databases();
+            term('→ Bases de datos en este origen: [' + all.map(d=>d.name).join(', ') + ']', 'info');
+            const matches = all.map(d => d.name).filter(n => n && /huebos|wos/i.test(n));
+            if (matches.length) dbNames = matches;
+          } else {
+            term('indexedDB.databases() no soportado en este navegador — solo se borrará "'+DB_NAME+'"', 'warn');
+          }
+        } catch (e) {
+          term('✗ Fallo al enumerar bases de datos: ' + e.message + ' — se continúa solo con "'+DB_NAME+'"', 'warn');
         }
-      });
-      if (result === 'deleted') showToast('Base de datos eliminada. Reinstalando…');
-      else showToast('⚠ ' + result + '. Reiniciando de todos modos…');
 
-      try { sessionStorage.removeItem(BOOT_FAILURE_KEY); } catch {}
-      document.body.classList.add('leaving');
-      setTimeout(()=>{ window.location.href = 'index.html?boot=1'; }, 1000);
+        let blockedShown = false;
+        for (const name of dbNames){
+          const result = await deleteDatabaseSafely(name, 6000, () => {
+            if(!blockedShown){
+              blockedShown = true;
+              showToast('🔒 Cierra otras pestañas de HUEBOS para completar el formateo…');
+            }
+          });
+          if (result !== 'eliminada') showToast('⚠ ' + name + ': ' + result);
+        }
+
+        try {
+          const sKeys = Object.keys(sessionStorage).filter(k => /huebos|wos_/i.test(k));
+          sKeys.forEach(k => sessionStorage.removeItem(k));
+          term('sessionStorage: ' + sKeys.length + ' clave(s) relacionadas eliminadas', sKeys.length ? 'ok' : 'info');
+        } catch (e) { term('✗ No se pudo limpiar sessionStorage: ' + e.message, 'error'); }
+
+        try {
+          const lKeys = Object.keys(localStorage).filter(k => /huebos|wos_/i.test(k));
+          lKeys.forEach(k => localStorage.removeItem(k));
+          term('localStorage: ' + lKeys.length + ' clave(s) relacionadas eliminadas', lKeys.length ? 'ok' : 'info');
+        } catch (e) { term('✗ No se pudo limpiar localStorage: ' + e.message, 'error'); }
+
+        try {
+          if ('serviceWorker' in navigator){
+            const regs = await navigator.serviceWorker.getRegistrations();
+            term('Service Workers registrados: ' + regs.length, regs.length ? 'warn' : 'info');
+            for (const r of regs){ await r.unregister(); term('✓ Service Worker desregistrado: ' + r.scope, 'ok'); }
+          }
+        } catch (e) { term('✗ Error gestionando Service Workers: ' + e.message, 'error'); }
+
+        try {
+          if (window.caches){
+            const keys = await caches.keys();
+            term('Caches encontradas: [' + keys.join(', ') + ']', keys.length ? 'warn' : 'info');
+            for (const k of keys){ await caches.delete(k); term('✓ Cache eliminada: ' + k, 'ok'); }
+          }
+        } catch (e) { term('✗ Error limpiando Cache Storage: ' + e.message, 'error'); }
+
+        showToast('Sistema formateado. Reinstalando…');
+        term('Redirigiendo a index.html?boot=1&fresh=… en 1s', 'ok');
+        document.body.classList.add('leaving');
+        setTimeout(()=>{
+          window.location.href = 'index.html?boot=1&fresh=' + Date.now();
+        }, 1000);
+      } catch (err){
+        term('✗ Error inesperado en "Restablecer de fábrica": ' + (err && err.stack ? err.stack : err), 'error');
+        showReport('Restablecer de fábrica — ERROR', ['Ocurrió un error inesperado:', String((err && err.message) || err), '', 'Revisa la terminal para más detalles.']);
+      } finally {
+        term('■ Finalizado: Restablecer de fábrica', 'info');
+      }
+    }
+
+    /* ════════════════════════════════════════════
+       REPARAR PERMISOS
+    ════════════════════════════════════════════ */
+    async function runFixPermissions(){
+      term('▶ Iniciando: Reparar permisos', 'info');
+      showToast('Reparando permisos…');
+      try {
+        let db;
+        try { db = await openDbRaw(); }
+        catch(e){
+          showReport('Reparar permisos', ['✗ No se pudo abrir la base de datos: ' + e.message]);
+          return;
+        }
+
+        if (db.objectStoreNames.length === 0){
+          db.close();
+          showReport('Reparar permisos', ['✗ La base de datos no tiene almacenes. Se recomienda Restablecer de fábrica.']);
+          return;
+        }
+
+        const fsNodes = await getAll(db, 'fs');
+        const toPutFs = [];
+        let protectedFixed = 0;
+        fsNodes.forEach(n => {
+          if (n.id === '/system' || (typeof n.id === 'string' && n.id.startsWith('/system/'))){
+            const meta = n.meta || {};
+            if (!meta.protected && !meta.systemApp){
+              n.meta = Object.assign({}, meta, { protected: true });
+              toPutFs.push(n);
+              protectedFixed++;
+            }
+          }
+        });
+        await putAll(db, 'fs', toPutFs);
+
+        const prefsRecords = await getAll(db, 'prefs');
+        const prefsMap = new Map(prefsRecords.map(p => [p.id, p]));
+        const toPutPrefs = [];
+        let adminRestored = false, passwordPrefRestored = false;
+
+        const usersPref = prefsMap.get('users.list');
+        const users = Array.isArray(usersPref && usersPref.value) ? usersPref.value.slice() : [];
+        if (!users.some(u => u.id === 'admin')){
+          users.push({ id:'admin', name:'Administrador', avatar:'👤', role:'admin', password:'' });
+          toPutPrefs.push({ id:'users.list', value: users });
+          adminRestored = true;
+          term('⚠ Usuario "admin" no encontrado en users.list — se recreará', 'warn');
+        }
+        if (!prefsMap.has('security.password')){
+          toPutPrefs.push({ id:'security.password', value:'' });
+          passwordPrefRestored = true;
+        }
+        await putAll(db, 'prefs', toPutPrefs);
+        db.close();
+
+        const log = [
+          protectedFixed ? ('✓ ' + protectedFixed + ' nodo(s) bajo /system marcados como protegidos') : '✓ Todos los nodos de /system ya estaban protegidos',
+          adminRestored ? '⚠ Se restauró el usuario "admin" (sin contraseña — cámbiala después de entrar)' : '✓ Usuario admin presente',
+          passwordPrefRestored ? '✓ Se restauró la preferencia de contraseña global' : '✓ Preferencia de contraseña presente',
+        ];
+        showToast('Permisos reparados.');
+        showReport('Reparar permisos', log);
+      } catch (err){
+        term('✗ Error inesperado en "Reparar permisos": ' + (err && err.stack ? err.stack : err), 'error');
+        showReport('Reparar permisos — ERROR', ['Ocurrió un error inesperado:', String((err && err.message) || err), '', 'Revisa la terminal para más detalles.']);
+      } finally {
+        term('■ Finalizado: Reparar permisos', 'info');
+      }
+    }
+
+    /* ════════════════════════════════════════════
+       COMPROBAR INTEGRIDAD (solo lectura)
+    ════════════════════════════════════════════ */
+    async function runCheckIntegrity(){
+      term('▶ Iniciando: Comprobar integridad', 'info');
+      showToast('Analizando…');
+      try {
+        let db;
+        try { db = await openDbRaw(); }
+        catch(e){
+          showReport('Comprobar integridad', ['✗ No se pudo abrir la base de datos: ' + e.message]);
+          return;
+        }
+
+        if (db.objectStoreNames.length === 0){
+          db.close();
+          showReport('Comprobar integridad', ['✗ La base de datos existe pero no tiene almacenes (instalación incompleta). Se recomienda Restablecer de fábrica.']);
+          return;
+        }
+
+        const fsNodes = await getAll(db, 'fs');
+        const byId = new Map(fsNodes.map(n => [n.id, n]));
+        let badType = 0, badParent = 0, orphans = 0;
+
+        fsNodes.forEach(n => {
+          if (!['file','directory','shortcut'].includes(n.type)) badType++;
+          if (n.id !== '/'){
+            const expectedParent = dirnameOf(n.id);
+            if (n.parent !== expectedParent) badParent++;
+            if (!byId.has(expectedParent)) orphans++;
+          }
+        });
+
+        const missingDirs = REQUIRED_DIRS.filter(p => !byId.has(p));
+
+        const prefsRecords = await getAll(db, 'prefs');
+        const prefsMap = new Map(prefsRecords.map(p => [p.id, p]));
+        const usersPref = prefsMap.get('users.list');
+        const hasAdmin = Array.isArray(usersPref && usersPref.value) && usersPref.value.some(u => u.id === 'admin');
+
+        const binaryBlobs = await getAll(db, 'binary_blobs');
+        const blobIds = new Set(binaryBlobs.map(b => b.id));
+        let missingBlobs = 0;
+        fsNodes.forEach(n => { if (n.encoding === 'binary' && !blobIds.has(n.id)) missingBlobs++; });
+        const orphanBlobs = [...blobIds].filter(id => !byId.has(id)).length;
+
+        db.close();
+
+        const log = [
+          'Nodos en fs: ' + fsNodes.length,
+          missingDirs.length ? ('✗ Directorios base faltantes: ' + missingDirs.join(', ')) : '✓ Directorios base presentes',
+          badType ? ('✗ ' + badType + ' nodo(s) con tipo inválido') : '✓ Tipos de nodo correctos',
+          badParent ? ('✗ ' + badParent + ' nodo(s) con "parent" inconsistente') : '✓ Referencias "parent" correctas',
+          orphans ? ('✗ ' + orphans + ' nodo(s) huérfano(s) (directorio padre inexistente)') : '✓ Sin nodos huérfanos',
+          hasAdmin ? '✓ Usuario admin presente' : '✗ Usuario admin no encontrado',
+          missingBlobs ? ('✗ ' + missingBlobs + ' archivo(s) binario(s) sin datos asociados') : '✓ Archivos binarios con datos íntegros',
+          orphanBlobs ? ('⚠ ' + orphanBlobs + ' blob(s) huérfano(s) sin nodo asociado') : '✓ Sin blobs huérfanos',
+        ];
+        if (missingDirs.length || badParent || orphans) log.push('→ Sugerencia: correr "Reconstruir índices".');
+        if (missingBlobs || orphanBlobs || badType) log.push('→ Sugerencia: correr "Reparar archivos".');
+        if (!hasAdmin) log.push('→ Sugerencia: correr "Reparar permisos".');
+
+        showReport('Comprobar integridad', log);
+      } catch (err){
+        term('✗ Error inesperado en "Comprobar integridad": ' + (err && err.stack ? err.stack : err), 'error');
+        showReport('Comprobar integridad — ERROR', ['Ocurrió un error inesperado:', String((err && err.message) || err), '', 'Revisa la terminal para más detalles.']);
+      } finally {
+        term('■ Finalizado: Comprobar integridad', 'info');
+      }
+    }
+
+    /* ════════════════════════════════════════════
+       RECONSTRUIR ÍNDICES
+    ════════════════════════════════════════════ */
+    async function runRebuildIndex(){
+      term('▶ Iniciando: Reconstruir índices', 'info');
+      showToast('Reconstruyendo índices…');
+      try {
+        let db;
+        try { db = await openDbRaw(); }
+        catch(e){
+          showReport('Reconstruir índices', ['✗ No se pudo abrir la base de datos: ' + e.message]);
+          return;
+        }
+
+        if (!db.objectStoreNames.contains('fs')){
+          db.close();
+          showReport('Reconstruir índices', ['✗ No se encontró el almacén de archivos (fs). Se recomienda Restablecer de fábrica.']);
+          return;
+        }
+
+        const fsNodes = await getAll(db, 'fs');
+        const byId = new Map(fsNodes.map(n => [n.id, n]));
+        const now = Date.now();
+        const toPut = [];
+
+        REQUIRED_DIRS.forEach(p => {
+          if (!byId.has(p)){
+            ensureAncestors(p, byId, toPut, now);
+            const node = {
+              id: p, type: 'directory', name: basenameOf(p), parent: dirnameOf(p),
+              ctime: now, mtime: now,
+              meta: p.startsWith('/system') ? { protected:true } : {}
+            };
+            byId.set(p, node);
+            toPut.push(node);
+          }
+        });
+
+        fsNodes.forEach(n => {
+          if (n.id === '/') return;
+          const expected = dirnameOf(n.id);
+          if (n.parent !== expected){
+            n.parent = expected;
+            n.mtime = now;
+            if (!toPut.includes(n)) toPut.push(n);
+          }
+          ensureAncestors(n.id, byId, toPut, now);
+        });
+
+        term('Nodos a crear/reparar: ' + toPut.length, toPut.length ? 'warn' : 'ok');
+        await putAll(db, 'fs', toPut);
+        db.close();
+
+        const msg = toPut.length
+          ? ('Se repararon/crearon ' + toPut.length + ' nodo(s) del sistema de archivos.')
+          : 'No se encontraron inconsistencias: los índices ya estaban correctos.';
+        showToast('Índices reconstruidos.');
+        showReport('Reconstruir índices', [msg]);
+      } catch (err){
+        term('✗ Error inesperado en "Reconstruir índices": ' + (err && err.stack ? err.stack : err), 'error');
+        showReport('Reconstruir índices — ERROR', ['Ocurrió un error inesperado:', String((err && err.message) || err), '', 'Revisa la terminal para más detalles.']);
+      } finally {
+        term('■ Finalizado: Reconstruir índices', 'info');
+      }
+    }
+
+    /* ════════════════════════════════════════════
+       REPARAR ARCHIVOS
+    ════════════════════════════════════════════ */
+    async function runRepairFiles(){
+      term('▶ Iniciando: Reparar archivos', 'info');
+      showToast('Verificando archivos…');
+      try {
+        let db;
+        try { db = await openDbRaw(); }
+        catch(e){
+          showReport('Reparar archivos', ['✗ No se pudo abrir la base de datos: ' + e.message]);
+          return;
+        }
+
+        if (!db.objectStoreNames.contains('fs')){
+          db.close();
+          showReport('Reparar archivos', ['✗ No se encontró el almacén de archivos (fs). Se recomienda Restablecer de fábrica.']);
+          return;
+        }
+
+        const fsNodes = await getAll(db, 'fs');
+        const binaryBlobs = await getAll(db, 'binary_blobs');
+        const blobIds = new Set(binaryBlobs.map(b => b.id));
+        const fsIds = new Set(fsNodes.map(n => n.id));
+
+        const toPutFs = [];
+        let typeFixed = 0, downgraded = 0, contentFixed = 0;
+
+        fsNodes.forEach(n => {
+          let changed = false;
+          if (!['file','directory','shortcut'].includes(n.type)){
+            n.type = (n.children || n.entry) ? 'directory' : 'file';
+            changed = true; typeFixed++;
+          }
+          if (n.type === 'file'){
+            if (n.encoding === 'binary' && !blobIds.has(n.id)){
+              delete n.encoding; delete n.mime;
+              n.content = '';
+              changed = true; downgraded++;
+              term('⚠ ' + n.id + ': binario sin blob asociado → recuperado como texto vacío', 'warn');
+            } else if (n.encoding !== 'binary' && typeof n.content !== 'string'){
+              n.content = '';
+              changed = true; contentFixed++;
+            }
+          }
+          if (changed){ n.mtime = Date.now(); toPutFs.push(n); }
+        });
+
+        const orphanBlobIds = [...blobIds].filter(id => !fsIds.has(id));
+
+        await putAll(db, 'fs', toPutFs);
+        await deleteKeys(db, 'binary_blobs', orphanBlobIds);
+        db.close();
+
+        const log = [
+          typeFixed ? ('✓ ' + typeFixed + ' nodo(s) con tipo corregido') : '✓ Todos los tipos de nodo son válidos',
+          downgraded ? ('⚠ ' + downgraded + ' archivo(s) binario(s) sin datos: recuperados como archivos de texto vacíos') : '✓ Todos los archivos binarios tienen datos asociados',
+          contentFixed ? ('✓ ' + contentFixed + ' archivo(s) con contenido corregido') : '✓ Contenido de archivos íntegro',
+          orphanBlobIds.length ? ('✓ ' + orphanBlobIds.length + ' blob(s) huérfano(s) eliminado(s)') : '✓ Sin blobs huérfanos',
+        ];
+        showToast('Archivos verificados.');
+        showReport('Reparar archivos', log);
+      } catch (err){
+        term('✗ Error inesperado en "Reparar archivos": ' + (err && err.stack ? err.stack : err), 'error');
+        showReport('Reparar archivos — ERROR', ['Ocurrió un error inesperado:', String((err && err.message) || err), '', 'Revisa la terminal para más detalles.']);
+      } finally {
+        term('■ Finalizado: Reparar archivos', 'info');
+      }
     }
 
     function goContinue(){
+      term('Click: "Continuar" → redirigiendo a index.html?boot=1', 'info');
       document.body.classList.add('leaving');
       setTimeout(()=>{ window.location.href = 'index.html?boot=1'; }, 400);
     }
 
-    document.getElementById('btn-continue').addEventListener('click', goContinue);
-    document.getElementById('btn-open-repair').addEventListener('click', () => showView('view-repair'));
-    document.getElementById('btn-back').addEventListener('click', () => showView('view-main'));
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && viewRepair.classList.contains('active')) showView('view-main');
-    });
+    try {
+      document.getElementById('btn-continue').addEventListener('click', goContinue);
+      document.getElementById('btn-open-repair').addEventListener('click', () => { term('Click: "Reparar" → abriendo panel', 'info'); showView('view-repair'); });
+      document.getElementById('btn-back').addEventListener('click', () => { term('Click: "Volver" → panel principal', 'info'); showView('view-main'); });
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && viewRepair.classList.contains('active')){ term('Tecla Esc → volver al panel principal', 'info'); showView('view-main'); }
+      });
 
-    renderDiagnostic();
-    renderTools();
+      renderDiagnostic();
+      renderTools();
+      term('Interfaz lista. Escuchando clics.', 'ok');
+    } catch (err){
+      term('✗ ERROR FATAL durante la inicialización: ' + (err && err.stack ? err.stack : err), 'error');
+    }
   })();
   </script>
 </body>

@@ -1,10 +1,3 @@
-# AHHHH NO ME MIREEEN XDDDDDDDDDDD, se supone que soy sorpresa para la siguiente ap :c, no deberian mirarme
-si me estas viendo... pq vrg te metistes en mi XD, soy una app q aparecera luego kalajo el ajo >:c
-
-pq demonios sigues leyendo????
-cierra este archivo, y finge q nunca lo vistes :3.
-
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -16,13 +9,13 @@ cierra este archivo, y finge q nunca lo vistes :3.
 {
   "id": "task-manager",
   "name": "Administrador de tareas",
-  "version": "0.1.0",
-  "icon": "📊",
+  "version": "0.2.0",
+    "icon":        "./apps/public/TaskManager.svg",
   "category": "system",
   "singleton": true,
-  "description": "Muestra los procesos activos del sistema (apps, servicios, APIs y componentes) y permite iniciarlos o finalizarlos.",
-  "winWidth": 780,
-  "winHeight": 560,
+  "description": "Yo que se, no soy el jefe ;v, AH NO ESPERA SI SOY.",
+  "winWidth": 860,
+  "winHeight": 620,
   "author": "HUEBOS"
 }
 </script>
@@ -56,16 +49,28 @@ cierra este archivo, y finge q nunca lo vistes :3.
   .h-sub{font-size:0.62rem;color:var(--g-dim);letter-spacing:0.1em;margin-top:2px;}
   .tabs{display:flex;gap:6px;margin-left:auto;}
   .tab{
+    display:flex;align-items:center;
     font-size:0.64rem;letter-spacing:0.09em;padding:6px 12px;border-radius:7px;
-    border:1px solid var(--border);color:var(--g-dim);cursor:default;
+    border:1px solid var(--border);color:var(--g-dim);cursor:pointer;user-select:none;
+    transition:all 0.15s;
   }
+  .tab:hover{color:var(--g);border-color:var(--border-hot);}
   .tab.active{color:var(--g);border-color:var(--border-hot);background:var(--g-faint);text-shadow:0 0 6px rgba(0,255,136,0.4);}
-  .tab.disabled{opacity:0.35;cursor:not-allowed;}
-  .tab.disabled:hover::after{content:' · próximamente';}
+  .tab-badge{
+    display:none;margin-left:6px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;
+    background:var(--red);color:#fff;font-size:0.55rem;line-height:15px;text-align:center;
+    box-shadow:0 0 6px rgba(255,68,102,0.5);
+  }
+  .tab-badge.show{display:inline-block;}
+
+  /* ── Panels ── */
+  .panel{display:none;flex:1;min-height:0;flex-direction:column;overflow:hidden;}
+  .panel.active{display:flex;}
+  .panel-scroll{flex:1;overflow-y:auto;padding:16px;}
 
   /* ── Toolbar ── */
   .toolbar{
-    display:flex;align-items:center;gap:10px;
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
     padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;
   }
   #search{
@@ -87,6 +92,24 @@ cierra este archivo, y finge q nunca lo vistes :3.
   }
   #btn-new:hover{background:rgba(0,255,136,0.18);box-shadow:0 0 12px rgba(0,255,136,0.18);}
 
+  .btn-secondary{
+    font-family:var(--mono);font-size:0.64rem;letter-spacing:0.06em;
+    padding:6px 12px;border-radius:7px;cursor:pointer;white-space:nowrap;
+    background:rgba(0,255,136,0.04);border:1px solid var(--border);color:var(--g-dim);
+    transition:all 0.15s;
+  }
+  .btn-secondary:hover{background:rgba(0,255,136,0.09);color:var(--g);border-color:var(--border-hot);}
+  .btn-secondary.active{color:var(--amber);border-color:rgba(255,204,68,0.4);background:rgba(255,204,68,0.07);}
+  .btn-secondary.confirm{background:var(--red);border-color:var(--red);color:#fff;}
+
+  .chip-group{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{
+    font-size:0.62rem;letter-spacing:0.05em;padding:5px 10px;border-radius:20px;cursor:pointer;
+    border:1px solid var(--border);color:var(--g-dim);transition:all 0.15s;user-select:none;
+  }
+  .chip:hover{border-color:var(--border-hot);color:var(--g);}
+  .chip.active{background:var(--g-faint);border-color:var(--border-hot);color:var(--g);}
+
   /* ── Table ── */
   .table-wrap{flex:1;overflow-y:auto;padding:0 16px;}
   table{width:100%;border-collapse:collapse;font-size:0.72rem;}
@@ -96,7 +119,7 @@ cierra este archivo, y finge q nunca lo vistes :3.
     font-size:0.62rem;letter-spacing:0.1em;font-weight:400;
     border-bottom:1px solid var(--border);
   }
-  tbody tr{border-bottom:1px solid rgba(0,255,136,0.06);transition:background 0.12s;}
+  tbody tr{border-bottom:1px solid rgba(0,255,136,0.06);transition:background 0.12s;cursor:pointer;}
   tbody tr:hover{background:rgba(0,255,136,0.04);}
   tbody td{padding:9px 8px;vertical-align:middle;color:rgba(220,255,238,0.88);}
   .pid{font-family:var(--mono);color:var(--g-dim);letter-spacing:0.03em;}
@@ -120,7 +143,26 @@ cierra este archivo, y finge q nunca lo vistes :3.
   .proc-icon{font-size:0.95rem;}
   .proc-path{font-size:0.6rem;color:var(--g-dim);opacity:0.7;}
   .proc-self{font-size:0.58rem;color:var(--cyan);letter-spacing:0.06em;margin-left:6px;}
-  td.actions{text-align:right;}
+  .tree-branch{color:var(--g-dim);opacity:0.55;margin-right:2px;}
+  td.actions{text-align:right;white-space:nowrap;}
+
+  .status-pill{display:inline-flex;align-items:center;gap:6px;font-size:0.62rem;letter-spacing:0.04em;color:var(--dim);}
+  .status-pill .status-dot{width:6px;height:6px;border-radius:50%;background:var(--dim);flex-shrink:0;}
+  .status-running{color:var(--g);}
+  .status-running .status-dot{background:var(--g);box-shadow:0 0 6px var(--g);}
+  .status-suspended{color:var(--amber);}
+  .status-suspended .status-dot{background:var(--amber);box-shadow:0 0 6px var(--amber);animation:blink 1.4s infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+  .btn-toggle{
+    font-family:var(--mono);font-size:0.62rem;letter-spacing:0.05em;
+    padding:5px 11px;border-radius:6px;cursor:pointer;margin-right:6px;
+    background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.3);color:#7fe0ff;
+    transition:all 0.15s;
+  }
+  .btn-toggle:hover{background:rgba(0,212,255,0.18);border-color:rgba(0,212,255,0.55);color:#b3eeff;}
+  .btn-toggle:disabled{opacity:0.3;cursor:not-allowed;}
+
   .btn-kill{
     font-family:var(--mono);font-size:0.62rem;letter-spacing:0.05em;
     padding:5px 11px;border-radius:6px;cursor:pointer;
@@ -136,11 +178,72 @@ cierra este archivo, y finge q nunca lo vistes :3.
   /* ── Footer ── */
   footer{
     display:flex;gap:16px;padding:9px 16px;border-top:1px solid var(--border);
-    font-size:0.62rem;color:var(--g-dim);letter-spacing:0.05em;flex-shrink:0;
+    font-size:0.62rem;color:var(--g-dim);letter-spacing:0.05em;flex-shrink:0;flex-wrap:wrap;
   }
   footer b{color:var(--g);font-weight:400;}
 
-  /* ── Modal: nuevo proceso ── */
+  /* ── Rendimiento / Memoria (paneles de estadísticas) ── */
+  .perf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:22px;}
+  .perf-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:rgba(0,255,136,0.03);}
+  .perf-card-label{font-size:0.58rem;color:var(--g-dim);letter-spacing:0.08em;margin-bottom:6px;text-transform:uppercase;}
+  .perf-card-value{font-family:var(--display);font-size:1rem;color:var(--g);letter-spacing:0.03em;word-break:break-word;}
+  .perf-section{margin-bottom:24px;}
+  .perf-section-title{font-size:0.64rem;letter-spacing:0.1em;color:var(--g-dim);text-transform:uppercase;margin-bottom:10px;}
+
+  .pd-row{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid rgba(0,255,136,0.05);font-size:0.7rem;}
+  .pd-label{width:130px;flex-shrink:0;color:var(--g-dim);}
+  .pd-value{color:rgba(220,255,238,0.9);word-break:break-word;}
+
+  .mem-quota{margin-bottom:22px;}
+  .mem-quota-label{display:flex;justify-content:space-between;font-size:0.66rem;color:var(--g-dim);margin-bottom:6px;}
+  .mem-bar{height:8px;border-radius:4px;background:rgba(0,255,136,0.06);overflow:hidden;border:1px solid var(--border);}
+  .mem-bar.small{height:5px;margin-top:5px;}
+  .mem-bar-fill{height:100%;background:linear-gradient(90deg,var(--g-dim),var(--g));box-shadow:0 0 8px rgba(0,255,136,0.3);}
+  .mem-stores{display:flex;flex-direction:column;gap:8px;}
+  .mem-store-row{display:flex;align-items:center;gap:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;}
+  .mem-store-icon{font-size:1rem;width:20px;text-align:center;flex-shrink:0;}
+  .mem-store-info{flex:1;min-width:0;}
+  .mem-store-name{font-size:0.7rem;color:rgba(220,255,238,0.88);margin-bottom:2px;}
+  .mem-store-err{color:var(--red);font-size:0.6rem;}
+  .mem-store-count{font-size:0.62rem;color:var(--g-dim);width:60px;text-align:right;flex-shrink:0;}
+  .mem-store-size{font-size:0.66rem;color:var(--g);width:70px;text-align:right;flex-shrink:0;}
+
+  .sparkline-svg{width:100%;height:80px;display:block;}
+  .spark-label{fill:var(--g-dim);font-size:9px;font-family:var(--mono);}
+
+  /* ── Eventos ── */
+  .events-wrap{display:flex;flex-direction:column;gap:3px;margin-bottom:20px;}
+  .event-row{
+    display:grid;grid-template-columns:18px 72px 108px 1fr;gap:10px;align-items:center;
+    padding:6px 8px;border-left:2px solid var(--cat-color,var(--dim));
+    background:rgba(255,255,255,0.015);border-radius:4px;font-size:0.68rem;
+  }
+  .event-icon{text-align:center;}
+  .event-time{color:var(--g-dim);font-size:0.6rem;}
+  .event-name{color:var(--cat-color,var(--g));font-size:0.6rem;letter-spacing:0.02em;}
+  .event-summary{color:rgba(220,255,238,0.85);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .empty-row-events{padding:30px 10px;text-align:center;color:var(--g-dim);font-size:0.7rem;}
+
+  .crash-section{border-top:1px solid var(--border);padding-top:14px;}
+  .crash-head{display:flex;align-items:center;gap:10px;font-size:0.7rem;color:var(--g);letter-spacing:0.06em;margin-bottom:10px;}
+  .crash-list{display:flex;flex-direction:column;gap:4px;}
+  .crash-item{
+    display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;
+    border:1px solid var(--border);transition:background 0.12s;
+  }
+  .crash-item:hover{background:rgba(255,68,102,0.06);border-color:rgba(255,68,102,0.3);}
+  .crash-icon{flex-shrink:0;}
+  .crash-info{flex:1;min-width:0;}
+  .crash-msg{font-size:0.68rem;color:rgba(220,255,238,0.85);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .crash-view{font-size:0.6rem;color:var(--g-dim);flex-shrink:0;}
+  .crash-detail-row{font-size:0.7rem;margin-bottom:8px;color:rgba(220,255,238,0.85);}
+  .crash-detail-row b{color:var(--g-dim);font-weight:400;margin-right:6px;}
+  .crash-stack{
+    margin-top:10px;padding:10px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;
+    font-size:0.62rem;color:#ff8fa3;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow-y:auto;
+  }
+
+  /* ── Modal (reutilizable: nuevo proceso / detalles / crash) ── */
   #modal-overlay{
     position:fixed;inset:0;z-index:50;background:rgba(0,5,3,0.75);backdrop-filter:blur(6px);
     display:flex;align-items:center;justify-content:center;
@@ -182,6 +285,17 @@ cierra este archivo, y finge q nunca lo vistes :3.
   .btn-start:hover{background:rgba(0,255,136,0.2);box-shadow:0 0 10px rgba(0,255,136,0.2);}
   .group-empty{padding:8px 10px 16px;font-size:0.62rem;color:var(--dim);line-height:1.6;}
 
+  .np-form{padding:6px 10px 4px;}
+.np-label{display:block;font-size:0.6rem;letter-spacing:0.12em;color:var(--g-dim);margin-bottom:8px;text-transform:uppercase;}
+.np-input{
+  width:100%;background:rgba(0,255,136,0.05);border:1px solid var(--border);border-radius:7px;
+  padding:9px 12px;color:var(--g);font-family:var(--mono);font-size:0.75rem;outline:none;
+}
+.np-input:focus{border-color:var(--border-hot);box-shadow:0 0 8px rgba(0,255,136,0.15);}
+.np-hint{font-size:0.6rem;color:var(--g-dim);line-height:1.5;margin:8px 0 14px;}
+.np-submit{width:100%;padding:9px;text-align:center;}
+.np-error{margin-top:10px;font-size:0.62rem;color:var(--red);min-height:1em;}
+
   ::-webkit-scrollbar{width:5px;}
   ::-webkit-scrollbar-thumb{background:rgba(0,180,90,0.25);border-radius:3px;}
 
@@ -200,44 +314,101 @@ cierra este archivo, y finge q nunca lo vistes :3.
       <div class="h-sub">Procesos activos del sistema</div>
     </div>
     <div class="tabs">
-      <div class="tab active">Procesos</div>
-      <div class="tab disabled" title="Próximamente">Rendimiento</div>
-      <div class="tab disabled" title="Próximamente">Memoria</div>
-      <div class="tab disabled" title="Próximamente">Red</div>
+      <div class="tab active" data-tab="procesos">Procesos</div>
+      <div class="tab" data-tab="rendimiento">Rendimiento</div>
+      <div class="tab" data-tab="memoria">Memoria</div>
+      <div class="tab" data-tab="eventos">Eventos<span class="tab-badge" id="badge-eventos"></span></div>
     </div>
   </header>
 
-  <div class="toolbar">
-    <input id="search" type="text" placeholder="⌕  Filtrar por nombre o ruta…" autocomplete="off" spellcheck="false" />
-    <span class="count-pill" id="count-pill">0 procesos</span>
-    <span class="spacer"></span>
-    <button id="btn-new">+ Nuevo proceso</button>
+  <!-- ── PANEL: PROCESOS ── -->
+  <div id="panel-procesos" class="panel active">
+    <div class="toolbar">
+      <input id="search" type="text" placeholder="⌕  Filtrar por nombre o ruta…" autocomplete="off" spellcheck="false" />
+      <span class="count-pill" id="count-pill">0 procesos</span>
+      <span class="spacer"></span>
+      <button id="btn-new">+ Nuevo proceso</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:64px">PID</th>
+            <th style="width:120px">Tipo</th>
+            <th style="width:96px">Estado</th>
+            <th>Nombre</th>
+            <th style="width:90px">Iniciado</th>
+            <th style="width:172px"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr class="empty-row"><td colspan="6">Cargando procesos…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer id="footer"></footer>
   </div>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th style="width:64px">PID</th>
-          <th style="width:120px">Tipo</th>
-          <th>Nombre</th>
-          <th style="width:90px">Iniciado</th>
-          <th style="width:90px"></th>
-        </tr>
-      </thead>
-      <tbody id="tbody">
-        <tr class="empty-row"><td colspan="5">Cargando procesos…</td></tr>
-      </tbody>
-    </table>
+  <!-- ── PANEL: RENDIMIENTO ── -->
+  <div id="panel-rendimiento" class="panel">
+    <div class="panel-scroll" id="perf-body">
+      <div class="group-empty">Cargando estadísticas del sistema…</div>
+    </div>
   </div>
 
-  <footer id="footer"></footer>
+  <!-- ── PANEL: MEMORIA ── -->
+  <div id="panel-memoria" class="panel">
+    <div class="toolbar">
+      <span class="h-sub" style="margin:0">Uso de almacenamiento de HUEBOS (IndexedDB)</span>
+      <span class="spacer"></span>
+      <button id="btn-refresh-mem" class="btn-secondary">↻ Actualizar</button>
+    </div>
+    <div class="panel-scroll" id="mem-body">
+      <div class="group-empty">Abre esta pestaña para calcular el uso de almacenamiento.</div>
+    </div>
+  </div>
+
+  <!-- ── PANEL: EVENTOS ── -->
+  <div id="panel-eventos" class="panel">
+    <div class="toolbar">
+      <div class="chip-group" id="event-filters">
+        <span class="chip active" data-cat="all">Todos</span>
+        <span class="chip" data-cat="boot">Sistema</span>
+        <span class="chip" data-cat="fs">Archivos</span>
+        <span class="chip" data-cat="prefs">Prefs/Env</span>
+        <span class="chip" data-cat="users">Usuarios</span>
+        <span class="chip" data-cat="apps">Apps</span>
+        <span class="chip" data-cat="procs">Procesos</span>
+        <span class="chip" data-cat="crash">Fallos</span>
+        <span class="chip" data-cat="notif">Notificaciones</span>
+      </div>
+      <span class="spacer"></span>
+      <button id="btn-pause-events" class="btn-secondary">⏸ Pausar</button>
+      <button id="btn-clear-events" class="btn-secondary">🗑 Limpiar</button>
+    </div>
+    <div class="panel-scroll">
+      <div class="events-wrap" id="events-wrap">
+        <div class="empty-row-events">Esperando eventos del sistema…</div>
+      </div>
+      <div class="crash-section">
+        <div class="crash-head">
+          <span>💥 Reportes de fallos</span>
+          <span class="count-pill" id="crash-count">0</span>
+          <span class="spacer"></span>
+          <button id="btn-clear-crashes" class="btn-secondary">Limpiar reportes</button>
+        </div>
+        <div id="crash-list" class="crash-list"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="modal-overlay">
   <div id="modal">
     <div class="modal-head">
-      <span class="modal-title">🚀 INICIAR NUEVO PROCESO</span>
+      <span class="modal-title" id="modal-title">🚀 INICIAR NUEVO PROCESO</span>
       <span class="modal-close" id="modal-close">✕</span>
     </div>
     <div class="modal-body" id="modal-body"></div>
@@ -259,18 +430,42 @@ cierra este archivo, y finge q nunca lo vistes :3.
     Componentes: { path: MODULES_ROOT + '/Componentes', label: 'Componente', cls: 't-componente', icon: '🧩' },
   };
 
+  /* ── Referencias DOM: Procesos ── */
   const tbody       = document.getElementById('tbody');
   const footerEl     = document.getElementById('footer');
   const countPill    = document.getElementById('count-pill');
   const searchInput  = document.getElementById('search');
   const btnNew       = document.getElementById('btn-new');
+
+  /* ── Referencias DOM: Modal genérico ── */
   const modalOverlay = document.getElementById('modal-overlay');
+  const modalTitleEl = document.getElementById('modal-title');
   const modalBody    = document.getElementById('modal-body');
-  const modalClose   = document.getElementById('modal-close');
+  const modalClose    = document.getElementById('modal-close');
+
+  /* ── Referencias DOM: Rendimiento / Memoria / Eventos ── */
+  const perfBody      = document.getElementById('perf-body');
+  const memBody        = document.getElementById('mem-body');
+  const btnRefreshMem  = document.getElementById('btn-refresh-mem');
+  const eventFiltersEl = document.getElementById('event-filters');
+  const eventsWrap     = document.getElementById('events-wrap');
+  const btnPauseEvents = document.getElementById('btn-pause-events');
+  const btnClearEvents = document.getElementById('btn-clear-events');
+  const crashCountEl   = document.getElementById('crash-count');
+  const crashListEl    = document.getElementById('crash-list');
+  const btnClearCrashes = document.getElementById('btn-clear-crashes');
+  const badgeEventos   = document.getElementById('badge-eventos');
 
   let _rows = [];
   let _filter = '';
   let _pendingKillPid = null;
+  let _activePanel = 'procesos';
+  let _procHistory = [];
+  let _eventLog = [];
+  let _eventCapture = true;
+  let _eventFilter = 'all';
+  let _evtSeq = 0;
+  let _pendingClearCrashes = false;
 
   function escapeHtml(str){
     return String(str ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -280,6 +475,59 @@ cierra este archivo, y finge q nunca lo vistes :3.
     if (WOS && WOS.toast) { WOS.toast(msg, type || 'ok'); return; }
     console.log('[task-manager]', msg);
   }
+
+  function fmtTime(ts){
+    if (!ts) return '—';
+    return new Date(ts).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function formatBytes(n){
+    if (n === null || n === undefined || isNaN(n)) return '—';
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+    return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+  }
+
+  function formatDuration(totalSeconds){
+    totalSeconds = Math.floor(totalSeconds || 0);
+    const d = Math.floor(totalSeconds / 86400);
+    const h = Math.floor((totalSeconds % 86400) / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    const pad = n => String(n).padStart(2, '0');
+    return d > 0 ? `${d}d ${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(h)}:${pad(m)}:${pad(s)}`;
+  }
+
+  /* ── Modal genérico ── */
+  function openGenericModal(title, bodyHtml){
+    modalTitleEl.textContent = title;
+    modalBody.innerHTML = bodyHtml;
+    modalOverlay.classList.add('show');
+  }
+  function closeModal(){ modalOverlay.classList.remove('show'); }
+  modalClose.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  /* ══════════════════════════════════════════════════════════
+     PESTAÑAS
+     ══════════════════════════════════════════════════════════ */
+  function switchPanel(name){
+    _activePanel = name;
+    document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+    if (name === 'rendimiento') renderRendimiento();
+    if (name === 'memoria') refreshMemoria();
+    if (name === 'eventos') { renderEventos(); refreshCrashes(); }
+  }
+  document.querySelectorAll('.tab[data-tab]').forEach(t => {
+    t.addEventListener('click', () => switchPanel(t.dataset.tab));
+  });
+
+  /* ══════════════════════════════════════════════════════════
+     PESTAÑA: PROCESOS
+     ══════════════════════════════════════════════════════════ */
 
   /* ── Asegura que exista /Modulos y sus tres subcarpetas ── */
   async function ensureModulesTree(){
@@ -311,80 +559,151 @@ cierra este archivo, y finge q nunca lo vistes :3.
         pid: p.pid, appId: p.appId, title: p.title || p.appId,
         icon: type.icon, type, spawnedAt: p.spawnedAt,
         isSelf: p.appId === SELF_APP_ID,
+        protected: !!p.protected,
+        status: p.state || 'running',
+        cwd: p.cwd,
+        parentPid: p.parentPid,
       });
     }
     rows.sort((a, b) => a.pid - b.pid);
     return rows;
   }
 
-  async function loadAvailable(){
-    const activeIds = new Set(K.procs.list().map(p => p.appId));
-
-    const allApps = await K.apps.list().catch(() => []);
-    const apps = allApps
-      .filter(a => !activeIds.has(a.id))
-      .map(a => ({ kind: 'app', id: a.id, name: a.name || a.id, icon: a.icon || '▪' }));
-
-    const modules = {};
-    for (const key of Object.keys(MOD_TYPES)) {
-      const t = MOD_TYPES[key];
-      let entries = [];
-      try { entries = await K.fs.readdir(t.path); } catch { entries = []; }
-      modules[key] = entries
-        .filter(e => e.type === 'file' && e.name.endsWith('.js') && !activeIds.has(e.id))
-        .map(e => ({ kind: 'module', id: e.id, name: e.name.replace(/\.js$/, ''), icon: t.icon, dirKey: key }));
-    }
-
-    return { apps, modules };
-  }
-
-  function fmtTime(ts){
-    if (!ts) return '—';
-    return new Date(ts).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  /* ── Ordena los procesos como árbol (padre → hijos) para reflejar jerarquía real ── */
+  function buildTreeOrder(rows){
+    const byPid = new Map(rows.map(r => [r.pid, r]));
+    const byParent = new Map();
+    rows.forEach(r => {
+      const key = (r.parentPid != null && byPid.has(r.parentPid)) ? r.parentPid : null;
+      if (!byParent.has(key)) byParent.set(key, []);
+      byParent.get(key).push(r);
+    });
+    byParent.forEach(list => list.sort((a, b) => a.pid - b.pid));
+    const out = [];
+    (function walk(parentKey, depth){
+      const children = byParent.get(parentKey) || [];
+      for (const c of children) {
+        out.push(Object.assign({}, c, { depth }));
+        walk(c.pid, depth + 1);
+      }
+    })(null, 0);
+    return out;
   }
 
   function render(){
     const q = _filter.trim().toLowerCase();
-    const visible = q
-      ? _rows.filter(r => r.title.toLowerCase().includes(q) || r.appId.toLowerCase().includes(q))
-      : _rows;
+    let visible;
+    if (q) {
+      visible = _rows
+        .filter(r => r.title.toLowerCase().includes(q) || r.appId.toLowerCase().includes(q))
+        .map(r => Object.assign({}, r, { depth: 0 }));
+    } else {
+      visible = buildTreeOrder(_rows);
+    }
 
     if (!visible.length) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="5">${q ? 'Sin coincidencias.' : 'No hay procesos activos.'}</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${q ? 'Sin coincidencias.' : 'No hay procesos activos.'}</td></tr>`;
     } else {
-      tbody.innerHTML = visible.map(r => `
+      tbody.innerHTML = visible.map(r => {
+        const suspended = r.status === 'suspended';
+        return `
         <tr data-pid="${r.pid}">
           <td class="pid">#${String(r.pid).padStart(4,'0')}</td>
           <td><span class="type-chip ${r.type.cls}"><span class="dot"></span>${r.type.label}</span></td>
           <td>
-            <div class="proc-name"><span class="proc-icon">${r.icon}</span>${escapeHtml(r.title)}${r.isSelf ? '<span class="proc-self">(este proceso)</span>' : ''}</div>
-            ${r.type.path ? `<div class="proc-path">${escapeHtml(r.type.path)}</div>` : ''}
+            <span class="status-pill ${suspended ? 'status-suspended' : 'status-running'}">
+              <span class="status-dot"></span>${suspended ? 'Suspendido' : 'Activo'}
+            </span>
+          </td>
+          <td>
+            <div class="proc-name" style="margin-left:${r.depth * 18}px">
+              ${r.depth > 0 ? '<span class="tree-branch">↳</span>' : ''}<span class="proc-icon">${r.icon}</span>${escapeHtml(r.title)}${r.isSelf ? '<span class="proc-self">(este proceso)</span>' : ''}${r.protected ? '<span class="proc-self" style="color:var(--amber)">🔒 protegido</span>' : ''}
+            </div>
+            ${r.type.path ? `<div class="proc-path" style="margin-left:${r.depth * 18}px">${escapeHtml(r.type.path)}</div>` : ''}
           </td>
           <td>${fmtTime(r.spawnedAt)}</td>
           <td class="actions">
-            <button class="btn-kill" data-pid="${r.pid}" ${r.isSelf ? 'disabled title="No puedes finalizar el Administrador de tareas desde sí mismo"' : ''}>Finalizar</button>
+            <button class="btn-toggle" data-pid="${r.pid}" ${(r.isSelf||r.protected) ? 'disabled' : ''}>${suspended ? '▶ Reanudar' : '⏸ Suspender'}</button>
+            <button class="btn-kill" data-pid="${r.pid}" ${r.isSelf ? 'disabled title="No puedes finalizar el Administrador de tareas desde sí mismo"' : (r.protected ? 'disabled title="Servicio protegido del sistema"' : '')}>Finalizar</button>
           </td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
     }
 
     countPill.textContent = `${_rows.length} proceso${_rows.length === 1 ? '' : 's'}`;
 
     const counts = { Aplicación: 0, Servicio: 0, API: 0, Componente: 0, 'Proceso del sistema': 0 };
-    _rows.forEach(r => { counts[r.type.label] = (counts[r.type.label] || 0) + 1; });
+    let suspendedCount = 0;
+    _rows.forEach(r => {
+      counts[r.type.label] = (counts[r.type.label] || 0) + 1;
+      if (r.status === 'suspended') suspendedCount++;
+    });
     footerEl.innerHTML = `
       <span><b>${counts['Aplicación']}</b> aplicaciones</span>
       <span><b>${counts['Servicio']}</b> servicios</span>
       <span><b>${counts['API']}</b> APIs</span>
       <span><b>${counts['Componente']}</b> componentes</span>
       <span><b>${counts['Proceso del sistema']}</b> del sistema</span>
+      <span><b>${suspendedCount}</b> suspendidos</span>
     `;
   }
 
   async function refresh(){
     _rows = await loadActive();
     render();
+    _procHistory.push({ t: Date.now(), count: _rows.length });
+    if (_procHistory.length > 40) _procHistory.shift();
+    if (_activePanel === 'rendimiento') renderRendimiento();
   }
+
+  /* ── Abrir detalles de un proceso ── */
+  async function openProcDetails(pid){
+    const proc = K.procs.get(pid);
+    if (!proc) { toast('El proceso ya no existe', 'error'); return; }
+    const type = await classify(proc);
+    const children = K.procs.getChildren(pid) || [];
+    const ancestry = (K.procs.ancestry(pid) || []).slice().reverse();
+    const breadcrumb = ancestry.map(a => escapeHtml(a.title || a.appId)).join(' › ');
+
+    openGenericModal(`🔎 PROCESO #${String(pid).padStart(4,'0')}`, `
+      <div class="proc-detail">
+        <div class="pd-row"><span class="pd-label">Nombre</span><span class="pd-value">${escapeHtml(proc.title || proc.appId)}</span></div>
+        <div class="pd-row"><span class="pd-label">Tipo</span><span class="pd-value"><span class="type-chip ${type.cls}"><span class="dot"></span>${type.label}</span></span></div>
+        <div class="pd-row"><span class="pd-label">App ID</span><span class="pd-value">${escapeHtml(proc.appId)}</span></div>
+        <div class="pd-row"><span class="pd-label">PID / PID padre</span><span class="pd-value">#${proc.pid} ${proc.parentPid != null ? '← #' + proc.parentPid : '(raíz)'}</span></div>
+        <div class="pd-row"><span class="pd-label">Estado</span><span class="pd-value">${proc.state === 'suspended' ? '⏸ Suspendido' : '▶ Ejecutando'}</span></div>
+        <div class="pd-row"><span class="pd-label">Protegido</span><span class="pd-value">${proc.protected ? '🔒 Sí — servicio del sistema' : 'No'}</span></div>
+        <div class="pd-row"><span class="pd-label">Directorio</span><span class="pd-value">${escapeHtml(proc.cwd || '/home')}</span></div>        <div class="pd-row"><span class="pd-label">Iniciado</span><span class="pd-value">${proc.spawnedAt ? new Date(proc.spawnedAt).toLocaleString('es') : '—'}</span></div>
+        <div class="pd-row"><span class="pd-label">Ascendencia</span><span class="pd-value">${breadcrumb || '—'}</span></div>
+        <div class="pd-row"><span class="pd-label">Hijos (${children.length})</span><span class="pd-value">${children.length ? children.map(c => escapeHtml(c.title || c.appId) + ' #' + c.pid).join(', ') : '—'}</span></div>
+      </div>
+    `);
+  }
+
+  /* ── Clic en una fila (fuera de los botones) → detalles ── */
+  tbody.addEventListener('click', e => {
+    if (e.target.closest('button')) return;
+    const tr = e.target.closest('tr[data-pid]');
+    if (!tr) return;
+    openProcDetails(Number(tr.dataset.pid));
+  });
+
+  /* ── Suspender / reanudar ── */
+  tbody.addEventListener('click', e => {
+    const btn = e.target.closest('.btn-toggle');
+    if (!btn || btn.disabled) return;
+    const pid = Number(btn.dataset.pid);
+    const proc = K.procs.get(pid);
+    if (!proc) return;
+    if (proc.state === 'suspended') {
+      K.procs.resume(pid);
+      toast(`Proceso #${pid} reanudado`, 'ok');
+    } else {
+      K.procs.suspend(pid);
+      toast(`Proceso #${pid} suspendido`, 'ok');
+    }
+  });
 
   /* ── Finalizar proceso (con confirmación inline de un clic) ── */
   tbody.addEventListener('click', async e => {
@@ -407,79 +726,493 @@ cierra este archivo, y finge q nunca lo vistes :3.
     }
 
     _pendingKillPid = null;
-    if (WOS && WOS.kill) WOS.kill(pid);
-    else K.procs.kill(pid);
+    if (WOS && WOS.closeWindow) WOS.closeWindow(pid);
+    K.procs.kill(pid);
     toast(`Proceso #${pid} finalizado`, 'ok');
   });
 
   /* ── Modal: nuevo proceso ── */
-  async function openModal(){
-    const { apps, modules } = await loadAvailable();
-    let html = '';
+async function openModal(){
+  openGenericModal('🚀 INICIAR NUEVO PROCESO', `
+    <div class="np-form">
+      <label class="np-label">ID DE APP O RUTA DE MÓDULO</label>
+      <input id="new-proc-input" type="text" placeholder="ej: notes   ó   /Modulos/Servicios/watcher.js" autocomplete="off" spellcheck="false" class="np-input" />
+      <div class="np-hint">Escribe el ID de una app registrada, o la ruta completa de un archivo .js dentro de ${escapeHtml(MOD_TYPES.Servicios.path)}, ${escapeHtml(MOD_TYPES.API.path)} o ${escapeHtml(MOD_TYPES.Componentes.path)}.</div>
+      <button id="new-proc-start" class="btn-start np-submit">Iniciar</button>
+      <div id="new-proc-error" class="np-error"></div>
+    </div>
+  `);
 
-    html += `<div class="group-label">Aplicaciones</div>`;
-    html += apps.length
-      ? apps.map(a => `
-          <div class="avail-item">
-            <span class="avail-icon">${a.icon}</span>
-            <span class="avail-name">${escapeHtml(a.name)}</span>
-            <button class="btn-start" data-kind="app" data-id="${escapeHtml(a.id)}">Iniciar</button>
-          </div>`).join('')
-      : `<div class="group-empty">Todas las aplicaciones registradas ya están en ejecución.</div>`;
+  const input = document.getElementById('new-proc-input');
+  const errEl = document.getElementById('new-proc-error');
+  const startBtn = document.getElementById('new-proc-start');
+  input.focus();
 
-    for (const key of Object.keys(MOD_TYPES)) {
-      const t = MOD_TYPES[key];
-      const list = modules[key] || [];
-      html += `<div class="group-label">${t.icon} ${t.label}s — ${t.path}</div>`;
-      html += list.length
-        ? list.map(m => `
-            <div class="avail-item">
-              <span class="avail-icon">${m.icon}</span>
-              <div style="flex:1">
-                <div class="avail-name">${escapeHtml(m.name)}</div>
-                <div class="avail-path">${escapeHtml(m.id)}</div>
-              </div>
-              <button class="btn-start" data-kind="module" data-id="${escapeHtml(m.id)}" data-name="${escapeHtml(m.name)}" data-icon="${m.icon}" data-dir="${key}">Iniciar</button>
-            </div>`).join('')
-        : `<div class="group-empty">Aún no hay archivos .js en ${t.path}. Cuando agregues uno, aparecerá aquí para iniciarlo.</div>`;
+  async function attemptStart(){
+    const raw = input.value.trim();
+    errEl.textContent = '';
+    if (!raw) { errEl.textContent = 'Escribe un ID de app o una ruta.'; return; }
+
+    startBtn.disabled = true; startBtn.textContent = '…';
+    try {
+if (raw.startsWith(MODULES_ROOT + '/')) {
+        const dirKey = Object.keys(MOD_TYPES).find(k => raw.startsWith(MOD_TYPES[k].path + '/'));
+        if (!dirKey) throw new Error(`La ruta debe estar dentro de: ${Object.values(MOD_TYPES).map(t => t.path).join(', ')}`);
+
+        const parentDir = raw.substring(0, raw.lastIndexOf('/'));
+        const fileName = raw.split('/').pop();
+
+        let manifest = [];
+        try {
+          const idxRes = await fetch(`.${parentDir}/index.json`, { cache: 'no-store' });
+          if (idxRes.ok) manifest = (await idxRes.json()).services || [];
+        } catch { manifest = []; }
+
+        let realExists = manifest.includes(fileName);
+        if (!realExists) {
+          try {
+            const fileRes = await fetch(`.${parentDir}/${fileName}`, { cache: 'no-store' });
+            realExists = fileRes.ok;
+          } catch { realExists = false; }
+        }
+        if (!realExists) {
+          const hint = manifest.length ? ` Disponibles: ${manifest.join(', ')}` : '';
+          throw new Error(`No se encontró "${fileName}" en el proyecto real (${parentDir}).${hint}`);
+        }
+
+        const active = K.procs.list().some(p => p.appId === raw);
+        if (active) throw new Error(`"${fileName}" ya está en ejecución.`);
+
+        K.procs.spawn(raw, {
+          title: fileName.replace(/\.js$/, ''),
+          icon: MOD_TYPES[dirKey].icon,
+          cwd: MOD_TYPES[dirKey].path,
+        });
+        toast(`"${fileName}" cargado como proceso`, 'ok');
+      } else {
+        const app = await K.apps.get(raw).catch(() => null);
+        if (!app) throw new Error(`No existe ninguna app registrada con el ID "${raw}".`);
+        const active = K.procs.list().some(p => p.appId === raw);
+        if (active) throw new Error(`"${raw}" ya está en ejecución.`);
+
+        if (WOS && WOS.launch) WOS.launch(raw);
+        else K.emit('shell:launch', { appId: raw });
+        toast(`Iniciando "${raw}"…`, 'ok');
+      }
+      setTimeout(closeModal, 250);
+    } catch (err) {
+      errEl.textContent = err.message || 'No se pudo iniciar el proceso.';
+      startBtn.disabled = false; startBtn.textContent = 'Iniciar';
     }
-
-    modalBody.innerHTML = html;
-    modalOverlay.classList.add('show');
   }
 
-  function closeModal(){ modalOverlay.classList.remove('show'); }
-
+  startBtn.addEventListener('click', attemptStart);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') attemptStart(); });
+}
   btnNew.addEventListener('click', openModal);
-  modalClose.addEventListener('click', closeModal);
-  modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-  modalBody.addEventListener('click', async e => {
-    const btn = e.target.closest('.btn-start');
-    if (!btn) return;
-    btn.disabled = true; btn.textContent = '…';
-
-    if (btn.dataset.kind === 'app') {
-      const appId = btn.dataset.id;
-      if (WOS && WOS.launch) WOS.launch(appId);
-      else K.emit('shell:launch', { appId });
-      toast(`Iniciando "${appId}"…`, 'ok');
-    } else {
-      K.procs.spawn(btn.dataset.id, {
-        title: btn.dataset.name,
-        icon: btn.dataset.icon,
-        cwd: MOD_TYPES[btn.dataset.dir].path,
-      });
-      toast(`"${btn.dataset.name}" cargado como proceso`, 'ok');
-    }
-
-    setTimeout(closeModal, 250);
-  });
 
   searchInput.addEventListener('input', () => { _filter = searchInput.value; render(); });
 
-  /* ── Ciclo de vida ── */
+  /* ══════════════════════════════════════════════════════════
+     PESTAÑA: RENDIMIENTO
+     ══════════════════════════════════════════════════════════ */
+  function renderSparkline(history){
+    if (!history.length) return '<div class="group-empty">Recopilando datos…</div>';
+    const w = 600, h = 80, pad = 6;
+    const max = Math.max(1, ...history.map(p => p.count));
+    const step = history.length > 1 ? (w - pad * 2) / (history.length - 1) : 0;
+    const points = history.map((p, i) => {
+      const x = pad + i * step;
+      const y = h - pad - (p.count / max) * (h - pad * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const last = history[history.length - 1];
+    return `
+      <svg viewBox="0 0 ${w} ${h}" class="sparkline-svg" preserveAspectRatio="none">
+        <polyline points="${points}" fill="none" stroke="var(--g)" stroke-width="2" />
+        <text x="${w - 4}" y="14" text-anchor="end" class="spark-label">${last.count} procesos</text>
+      </svg>
+    `;
+  }
+
+  function renderRendimiento(){
+    const session = K.session || {};
+    const typeCounts = { Aplicación: 0, Servicio: 0, API: 0, Componente: 0, 'Proceso del sistema': 0 };
+    _rows.forEach(r => { typeCounts[r.type.label] = (typeCounts[r.type.label] || 0) + 1; });
+    const maxType = Math.max(1, ...Object.values(typeCounts));
+
+    perfBody.innerHTML = `
+      <div class="perf-grid">
+        <div class="perf-card">
+          <div class="perf-card-label">Tiempo activo</div>
+          <div class="perf-card-value" id="perf-uptime">${formatDuration(K.uptimeSeconds)}</div>
+        </div>
+        <div class="perf-card">
+          <div class="perf-card-label">Versión del Kernel</div>
+          <div class="perf-card-value">${escapeHtml(K.version || '—')}</div>
+        </div>
+        <div class="perf-card">
+          <div class="perf-card-label">Modo seguro</div>
+          <div class="perf-card-value">${K.safeMode ? '⚠ Activado' : 'Desactivado'}</div>
+        </div>
+        <div class="perf-card">
+          <div class="perf-card-label">Procesos activos</div>
+          <div class="perf-card-value">${_rows.length}</div>
+        </div>
+      </div>
+
+      <div class="perf-section">
+        <div class="perf-section-title">Sesión actual</div>
+        <div class="pd-row"><span class="pd-label">ID de sesión</span><span class="pd-value">${escapeHtml(session.id || '—')}</span></div>
+        <div class="pd-row"><span class="pd-label">Iniciada</span><span class="pd-value">${session.startedAt ? new Date(session.startedAt).toLocaleString('es') : '—'}</span></div>
+        <div class="pd-row"><span class="pd-label">Boots totales</span><span class="pd-value">${session.count ?? '—'}</span></div>
+        <div class="pd-row"><span class="pd-label">Boot recuperado</span><span class="pd-value">${session.recoveredBoot ? 'Sí' : 'No'}</span></div>
+        <div class="pd-row"><span class="pd-label">Primera vez</span><span class="pd-value">${session.firstRun ? 'Sí' : 'No'}</span></div>
+      </div>
+
+      <div class="perf-section">
+        <div class="perf-section-title">Procesos por tipo</div>
+        <div class="mem-stores">
+          ${Object.entries(typeCounts).map(([label, n]) => `
+            <div class="mem-store-row">
+              <div class="mem-store-info">
+                <div class="mem-store-name">${label}</div>
+                <div class="mem-bar small"><div class="mem-bar-fill" style="width:${(n / maxType * 100).toFixed(1)}%"></div></div>
+              </div>
+              <div class="mem-store-count">${n}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="perf-section">
+        <div class="perf-section-title">Historial de procesos activos</div>
+        <div id="perf-sparkline">${renderSparkline(_procHistory)}</div>
+      </div>
+    `;
+  }
+
+  setInterval(() => {
+    if (_activePanel === 'rendimiento') {
+      const el = document.getElementById('perf-uptime');
+      if (el) el.textContent = formatDuration(K.uptimeSeconds);
+    }
+  }, 1000);
+
+  /* ══════════════════════════════════════════════════════════
+     PESTAÑA: MEMORIA
+     ══════════════════════════════════════════════════════════ */
+  function approxSize(record){
+    try {
+      for (const k in record) {
+        if (record[k] instanceof Blob) return record[k].size;
+      }
+    } catch {}
+    try { return new Blob([JSON.stringify(record)]).size; } catch { return 0; }
+  }
+
+  async function refreshMemoria(){
+    memBody.innerHTML = '<div class="group-empty">Calculando uso de almacenamiento…</div>';
+
+    let quotaHtml = '';
+    if (navigator.storage && navigator.storage.estimate) {
+      try {
+        const est = await navigator.storage.estimate();
+        const pct = est.quota ? Math.min(100, (est.usage / est.quota) * 100) : 0;
+        quotaHtml = `
+          <div class="mem-quota">
+            <div class="mem-quota-label"><span>Uso total del navegador</span><span>${formatBytes(est.usage)} / ${formatBytes(est.quota)}</span></div>
+            <div class="mem-bar"><div class="mem-bar-fill" style="width:${pct.toFixed(1)}%"></div></div>
+          </div>`;
+      } catch {
+        quotaHtml = `<div class="group-empty">No se pudo obtener la cuota de almacenamiento del navegador.</div>`;
+      }
+    } else {
+      quotaHtml = `<div class="group-empty">Este navegador no expone la API de cuota de almacenamiento.</div>`;
+    }
+
+    const storeDefs = [
+      { key: 'FS', label: 'Archivos (fs)', icon: '📁' },
+      { key: 'PREFS', label: 'Preferencias', icon: '🎛' },
+      { key: 'APPS_META', label: 'Apps registradas', icon: '📦' },
+      { key: 'CRASHES', label: 'Reportes de fallos', icon: '💥' },
+      { key: 'BINARY_BLOBS', label: 'Blobs binarios', icon: '🧬' },
+      { key: 'NOTIFICATIONS', label: 'Notificaciones', icon: '🔔' },
+      { key: 'SOCIAL', label: 'Social (reservado)', icon: '👥' },
+    ];
+
+    const results = [];
+    for (const def of storeDefs) {
+      const storeName = (K.STORES && K.STORES[def.key]) || def.key.toLowerCase();
+      try {
+        const records = await K.db.list(storeName);
+        let bytes = 0;
+        for (const r of records) bytes += approxSize(r);
+        results.push(Object.assign({}, def, { count: records.length, bytes, error: false }));
+      } catch {
+        results.push(Object.assign({}, def, { count: 0, bytes: 0, error: true }));
+      }
+    }
+
+    const maxBytes = Math.max(1, ...results.map(r => r.bytes));
+    memBody.innerHTML = quotaHtml + `
+      <div class="perf-section-title">Registros por almacén</div>
+      <div class="mem-stores">
+        ${results.map(r => `
+          <div class="mem-store-row">
+            <span class="mem-store-icon">${r.icon}</span>
+            <div class="mem-store-info">
+              <div class="mem-store-name">${r.label}${r.error ? ' <span class="mem-store-err">(no disponible)</span>' : ''}</div>
+              <div class="mem-bar small"><div class="mem-bar-fill" style="width:${(r.bytes / maxBytes * 100).toFixed(1)}%"></div></div>
+            </div>
+            <div class="mem-store-count">${r.count} reg.</div>
+            <div class="mem-store-size">${formatBytes(r.bytes)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  btnRefreshMem.addEventListener('click', refreshMemoria);
+
+  /* ══════════════════════════════════════════════════════════
+     PESTAÑA: EVENTOS
+     ══════════════════════════════════════════════════════════ */
+  const CAT_META = {
+    boot:  { icon: '🥾', color: 'var(--g)' },
+    fs:    { icon: '📁', color: 'var(--cyan)' },
+    prefs: { icon: '🎛', color: 'var(--violet)' },
+    users: { icon: '👤', color: 'var(--amber)' },
+    apps:  { icon: '📦', color: 'var(--g)' },
+    procs: { icon: '🧠', color: 'var(--cyan)' },
+    crash: { icon: '💥', color: 'var(--red)' },
+    notif: { icon: '🔔', color: '#ff2d78' },
+    otro:  { icon: '•',  color: 'var(--dim)' },
+  };
+
+  function categorize(eventName){
+    if (eventName.startsWith('boot:') || eventName === 'ready') return 'boot';
+    if (eventName.startsWith('fs:')) return 'fs';
+    if (eventName.startsWith('prefs:') || eventName.startsWith('env:')) return 'prefs';
+    if (eventName.startsWith('users:')) return 'users';
+    if (eventName.startsWith('apps:') || eventName === 'app:fallback' || eventName === 'shell:launch') return 'apps';
+    if (eventName.startsWith('procs:')) return 'procs';
+    if (eventName.startsWith('crash:')) return 'crash';
+    if (eventName.startsWith('notifications:')) return 'notif';
+    if (eventName.startsWith('modules:')) return 'apps';
+    if (eventName.startsWith('permissions:')) return 'boot';
+    if (eventName === 'procs:killDenied') return 'procs';
+    if (eventName === 'index:updated') return 'fs';
+    if (eventName.startsWith('clipboard:')) return 'otro';
+    return 'otro';
+  }
+
+  function summarizeEvent(name, p){
+    p = p || {};
+    switch (name) {
+      case 'boot:step': return `${p.label || p.step || ''}`;
+      case 'ready': return `Kernel listo — v${p.version || ''}`;
+      case 'boot:recovery': return `Boot anterior incompleto en "${p.failedStep || ''}"`;
+      case 'boot:error': return `Error de boot: ${(p.error && p.error.message) || p.error || ''}`;
+      case 'boot:critical': return `Fallo crítico: ${p.reason || ''}`;
+      case 'boot:singleInstance': return `${p.message || 'Otra instancia detectada'}`;
+      case 'fs:write': return `Escrito ${p.path || ''}${p.size != null ? ' (' + formatBytes(p.size) + ')' : ''}`;
+      case 'fs:mkdir': return `Directorio creado ${p.path || ''}`;
+      case 'fs:remove': return `Eliminado ${p.path || ''}`;
+      case 'fs:move': return `${p.src || ''} → ${p.dst || ''}`;
+      case 'prefs:change': return `${p.key} = ${JSON.stringify(p.value)}`;
+      case 'prefs:delete': return `Eliminada preferencia ${p.key}`;
+      case 'env:change': return `${p.key} = ${p.value}`;
+      case 'env:delete': return `Eliminada variable ${p.key}`;
+      case 'users:created': return `Usuario creado: ${p.id}`;
+      case 'users:deleted': return `Usuario eliminado: ${p.id}`;
+      case 'users:login': return `Sesión iniciada: ${p.name || p.id}`;
+      case 'users:logout': return `Sesión cerrada${p && p.name ? ': ' + p.name : ''}`;
+      case 'users:profileChanged': return `Perfil actualizado: ${p.id}`;
+      case 'users:passwordChanged': return `Contraseña cambiada: ${p.id}`;
+      case 'apps:registered': return `App registrada: ${p.id}`;
+      case 'apps:unregistered': return `App eliminada: ${p.id}`;
+      case 'app:fallback': return `Sin handler para ${p.filePath || ''}`;
+      case 'shell:launch': return `Lanzando ${p.appId || ''}`;
+      case 'procs:spawn': return `#${p.pid} iniciado (${p.appId || ''})`;
+      case 'procs:kill': return `#${p.pid} finalizado (${p.appId || ''})`;
+      case 'procs:suspend': return `#${p.pid} suspendido`;
+      case 'procs:resume': return `#${p.pid} reanudado`;
+      case 'procs:cwd': return `#${p.pid} cwd → ${p.cwd || ''}`;
+      case 'procs:update': return `#${p.pid} actualizado`;
+      case 'crash:logged': return `${p.source || 'crash'}: ${p.message || ''}`;
+      case 'notifications:push': return `${p.title || ''}`;
+      case 'notifications:readAll': return 'Todas marcadas como leídas';
+      case 'notifications:clear': return 'Notificaciones limpiadas';
+      case 'notifications:pruned': return `${p.count || 0} notificación(es) antiguas eliminadas`;
+      case 'modules:started': return `${p.kind ? p.kind[0].toUpperCase()+p.kind.slice(1) : 'Módulo'} iniciado: ${p.id || ''} (#${p.pid})`;
+      case 'modules:stopped': return `${p.kind ? p.kind[0].toUpperCase()+p.kind.slice(1) : 'Módulo'} detenido: ${p.id || ''}`;
+      case 'procs:killDenied': return `Intento de finalizar proceso protegido #${p.pid}`;
+      case 'clipboard:change': return `Portapapeles: ${p.op || 'vacío'} (${(p.paths||[]).length})`;
+      case 'clipboard:paste': return `Pegado en ${p.destDir || ''} (${p.count || 0})`;
+      case 'permissions:granted': return `Permiso otorgado a ${p.appId || ''}: ${p.perm || ''}`;
+      case 'index:updated': return `Índice de archivos actualizado (${p.count || 0})`;
+      default: return name;
+    }
+  }
+
+  function pushEvent(name, payload){
+    if (!_eventCapture) return;
+    if (name === 'procs:update' && payload && payload.patch) {
+      const keys = Object.keys(payload.patch);
+      if (keys.length && keys.every(k => k === 'window')) return; // silencia ruido de arrastre de ventanas
+    }
+    const entry = {
+      id: ++_evtSeq, ts: Date.now(), name,
+      cat: categorize(name), summary: summarizeEvent(name, payload),
+    };
+    _eventLog.unshift(entry);
+    if (_eventLog.length > 250) _eventLog.length = 250;
+    if (_activePanel === 'eventos') renderEventos();
+  }
+
+  function renderEventos(){
+    const list = _eventFilter === 'all' ? _eventLog : _eventLog.filter(e => e.cat === _eventFilter);
+    if (!list.length) {
+      eventsWrap.innerHTML = `<div class="empty-row-events">${_eventCapture ? 'Sin eventos todavía en esta categoría.' : 'Captura de eventos en pausa.'}</div>`;
+      return;
+    }
+    eventsWrap.innerHTML = list.slice(0, 150).map(e => {
+      const meta = CAT_META[e.cat] || CAT_META.otro;
+      return `
+      <div class="event-row" style="--cat-color:${meta.color}">
+        <span class="event-icon">${meta.icon}</span>
+        <span class="event-time">${fmtTime(e.ts)}</span>
+        <span class="event-name">${escapeHtml(e.name)}</span>
+        <span class="event-summary">${escapeHtml(e.summary)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  eventFiltersEl.addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    _eventFilter = chip.dataset.cat;
+    eventFiltersEl.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c === chip));
+    renderEventos();
+  });
+
+  btnPauseEvents.addEventListener('click', e => {
+    _eventCapture = !_eventCapture;
+    e.currentTarget.textContent = _eventCapture ? '⏸ Pausar' : '▶ Reanudar';
+    e.currentTarget.classList.toggle('active', !_eventCapture);
+    if (!_eventCapture) toast('Captura de eventos pausada', 'ok');
+  });
+
+  btnClearEvents.addEventListener('click', () => {
+    _eventLog = [];
+    renderEventos();
+  });
+
+  /* ── Reportes de fallos ── */
+  async function refreshCrashes(){
+    let entries = [];
+    try { entries = await K.crash.list(); } catch { entries = []; }
+
+    const details = await Promise.all(entries.map(async e => {
+      const rid = (e.name || e.id || '').replace(/\.json$/, '');
+      try {
+        const r = await K.crash.read(rid);
+        return { rid, source: r.source, message: r.message, ts: r.ts };
+      } catch {
+        return { rid, source: null, message: null, ts: e.mtime || e.ctime || 0 };
+      }
+    }));
+    details.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+    crashCountEl.textContent = details.length;
+    if (badgeEventos) {
+      if (details.length > 0) { badgeEventos.textContent = details.length; badgeEventos.classList.add('show'); }
+      else badgeEventos.classList.remove('show');
+    }
+
+    if (!details.length) {
+      crashListEl.innerHTML = `<div class="group-empty">No hay reportes de fallos registrados. 🎉</div>`;
+      return;
+    }
+    crashListEl.innerHTML = details.map(d => `
+      <div class="crash-item" data-id="${escapeHtml(d.rid)}">
+        <span class="crash-icon">💥</span>
+        <div class="crash-info">
+          <div class="crash-msg">${escapeHtml(d.message || d.source || d.rid)}</div>
+          <div class="proc-path">${d.ts ? new Date(d.ts).toLocaleString('es') : ''}</div>
+        </div>
+        <span class="crash-view">Ver →</span>
+      </div>
+    `).join('');
+  }
+
+  crashListEl.addEventListener('click', async e => {
+    const item = e.target.closest('.crash-item');
+    if (!item) return;
+    const rid = item.dataset.id;
+    try {
+      const report = await K.crash.read(rid);
+      openGenericModal('💥 REPORTE DE FALLO', `
+        <div class="crash-detail">
+          <div class="crash-detail-row"><b>Origen:</b> ${escapeHtml(report.source || '—')}</div>
+          <div class="crash-detail-row"><b>Fecha:</b> ${report.ts ? new Date(report.ts).toLocaleString('es') : '—'}</div>
+          <div class="crash-detail-row"><b>Mensaje:</b> ${escapeHtml(report.message || '—')}</div>
+          <div class="crash-detail-row"><b>URL:</b> ${escapeHtml(report.url || '—')}</div>
+          <div class="crash-detail-row"><b>Kernel:</b> ${escapeHtml(report.kernelVersion || '—')}</div>
+          <pre class="crash-stack">${escapeHtml(report.stack || 'Sin stack trace disponible.')}</pre>
+        </div>
+      `);
+    } catch {
+      toast('No se pudo leer el reporte', 'error');
+    }
+  });
+
+  btnClearCrashes.addEventListener('click', async e => {
+    const btn = e.currentTarget;
+    if (!_pendingClearCrashes) {
+      _pendingClearCrashes = true;
+      btn.textContent = '¿Confirmar?';
+      btn.classList.add('confirm');
+      setTimeout(() => {
+        if (_pendingClearCrashes) {
+          _pendingClearCrashes = false;
+          btn.textContent = 'Limpiar reportes';
+          btn.classList.remove('confirm');
+        }
+      }, 2800);
+      return;
+    }
+    _pendingClearCrashes = false;
+    btn.textContent = 'Limpiar reportes';
+    btn.classList.remove('confirm');
+    try {
+      await K.crash.clear();
+      toast('Reportes de fallos eliminados', 'ok');
+      refreshCrashes();
+    } catch {
+      toast('No se pudo limpiar los reportes', 'error');
+    }
+  });
+
+  /* ══════════════════════════════════════════════════════════
+     CICLO DE VIDA
+     ══════════════════════════════════════════════════════════ */
+  const EVENTS_TO_LOG = [
+    'boot:step', 'boot:recovery', 'boot:error', 'boot:critical', 'boot:singleInstance', 'ready',
+    'fs:write', 'fs:mkdir', 'fs:remove', 'fs:move',
+    'prefs:change', 'prefs:delete', 'env:change', 'env:delete',
+    'users:created', 'users:deleted', 'users:login', 'users:logout', 'users:profileChanged', 'users:passwordChanged',
+    'apps:registered', 'apps:unregistered', 'app:fallback', 'shell:launch',
+    'procs:spawn', 'procs:kill', 'procs:suspend', 'procs:resume', 'procs:cwd', 'procs:update', 'procs:killDenied',
+    'crash:logged',
+    'notifications:push', 'notifications:read', 'notifications:readAll', 'notifications:remove', 'notifications:clear', 'notifications:pruned',
+    'modules:started', 'modules:stopped',
+    'clipboard:change', 'clipboard:paste',
+    'permissions:requested', 'permissions:granted', 'permissions:revoked',
+    'index:updated',
+  ];
+
   let _fsRefreshTimer = null;
   function scheduleFsRefresh(path){
     if (path && !String(path).startsWith(MODULES_ROOT)) return;
@@ -496,15 +1229,22 @@ cierra este archivo, y finge q nunca lo vistes :3.
 
     await ensureModulesTree();
     await refresh();
+    refreshCrashes();
 
     K.on('procs:spawn', refresh);
     K.on('procs:kill', refresh);
+    K.on('procs:killDenied', () => toast('Ese proceso es un servicio protegido del sistema', 'error'));
     K.on('procs:update', refresh);
+    K.on('procs:suspend', refresh);
+    K.on('procs:resume', refresh);
     K.on('apps:registered', refresh);
     K.on('apps:unregistered', refresh);
     K.on('fs:write',  p => scheduleFsRefresh(p && p.path));
     K.on('fs:remove', p => scheduleFsRefresh(p && p.path));
     K.on('fs:mkdir',  p => scheduleFsRefresh(p && p.path));
+    K.on('crash:logged', () => refreshCrashes());
+
+    EVENTS_TO_LOG.forEach(ev => K.on(ev, payload => pushEvent(ev, payload)));
 
     /* Refresco de respaldo por si algún evento se pierde */
     setInterval(refresh, 5000);

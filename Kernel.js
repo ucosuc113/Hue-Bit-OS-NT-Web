@@ -5,16 +5,16 @@
      CONSTANTES
   ═══════════════════════════════════════════════════ */
   const DB_NAME    = 'huebos_db';
-  const DB_VERSION = 3;           // v0.3.0: añade binary_blobs
-  const KERNEL_VERSION = '0.4.0'; // v0.4.0: UEFI + Env + Users + Safe Mode
-
+  const DB_VERSION = 4;
+  const KERNEL_VERSION = '0.5.1'; // v0.5.0: Permisos + Notificaciones + Portapapeles + Servicios reales
   const STORES = {
     FS           : 'fs',
     PREFS        : 'prefs',
     SOCIAL       : 'social',
     APPS_META    : 'apps_meta',
-    CRASHES      : 'crashes',        // Alpha 1.0
-    BINARY_BLOBS : 'binary_blobs',   // v0.3.0
+    CRASHES      : 'crashes',
+    BINARY_BLOBS : 'binary_blobs',
+    NOTIFICATIONS : 'notifications'
   };
 
   const HOME_DIR = '/home';
@@ -52,7 +52,14 @@
       }
     },
 
-  };  // ← ESTE ERA EL CIERRE QUE FALTABA
+    4: (db /*, tx */) => {
+      if (!db.objectStoreNames.contains(STORES.NOTIFICATIONS)) {
+        db.createObjectStore(STORES.NOTIFICATIONS, { keyPath: 'id' });
+        console.info('[Kernel:db] migración v4: store "notifications" creado');
+      }
+    },
+
+  };
 
   /* ═══════════════════════════════════════════════════
      EVENT BUS
@@ -1029,6 +1036,230 @@ async move(src, dst) {
   };
 
   /* ═══════════════════════════════════════════════════
+     SISTEMA DE PERMISOS  (v0.5.0 — Permissions)
+     Capa de políticas consultada por Procs (kill de
+     servicios protegidos) y por apps de terceros (grants
+     por appId). FS sigue enforced vía meta.protected —
+     ver nota de arquitectura.
+  ═══════════════════════════════════════════════════ */
+  const Permissions = (() => {
+    const PREF_ROLE_GRANTS = 'permissions.roleGrants';
+    const PREF_APP_GRANTS  = 'permissions.apps';
+
+    const PERMS = {
+      FS_READ           : 'fs.read',
+      FS_WRITE          : 'fs.write',
+      FS_DELETE         : 'fs.delete',
+      FS_SYSTEM_WRITE   : 'fs.system.write',
+      PROC_KILL         : 'proc.kill',
+      APP_INSTALL       : 'app.install',
+      NOTIFICATIONS_SEND: 'notifications.send',
+      SYSTEM_CONFIG     : 'system.config',
+    };
+
+    const ROLE_DEFAULTS = {
+      admin: Object.values(PERMS),
+      user : [PERMS.FS_READ, PERMS.FS_WRITE, PERMS.FS_DELETE, PERMS.PROC_KILL, PERMS.NOTIFICATIONS_SEND],
+    };
+
+    let _roleCache = null;
+    async function _roles() {
+      if (_roleCache) return _roleCache;
+      _roleCache = (await Prefs.get(PREF_ROLE_GRANTS, null)) || ROLE_DEFAULTS;
+      return _roleCache;
+    }
+
+    async function roleHas(role, perm) {
+      const grants = await _roles();
+      return (grants[role] || []).includes(perm);
+    }
+
+    async function currentUserHas(perm) {
+      const user = await Users.current();
+      const role = user?.role || 'user';
+      return roleHas(role, perm);
+    }
+
+    async function _appGrants() {
+      return (await Prefs.get(PREF_APP_GRANTS, null)) || {};
+    }
+
+    async function appHas(appId, perm) {
+      const all = await _appGrants();
+      return !!(all[appId]?.granted || []).includes(perm);
+    }
+
+    async function requestAppPermission(appId, perm) {
+      const all = await _appGrants();
+      if (!all[appId]) all[appId] = { granted: [], requested: [] };
+      if (!all[appId].requested.includes(perm)) all[appId].requested.push(perm);
+      await Prefs.set(PREF_APP_GRANTS, all);
+      EventBus.emit('permissions:requested', { appId, perm });
+      return all[appId];
+    }
+
+    async function grantAppPermission(appId, perm) {
+      const all = await _appGrants();
+      if (!all[appId]) all[appId] = { granted: [], requested: [] };
+      if (!all[appId].granted.includes(perm)) all[appId].granted.push(perm);
+      all[appId].requested = all[appId].requested.filter(p => p !== perm);
+      await Prefs.set(PREF_APP_GRANTS, all);
+      EventBus.emit('permissions:granted', { appId, perm });
+      return all[appId];
+    }
+
+    async function revokeAppPermission(appId, perm) {
+      const all = await _appGrants();
+      if (!all[appId]) return null;
+      all[appId].granted = all[appId].granted.filter(p => p !== perm);
+      await Prefs.set(PREF_APP_GRANTS, all);
+      EventBus.emit('permissions:revoked', { appId, perm });
+      return all[appId];
+    }
+
+    async function can(perm, { appId = null } = {}) {
+      return appId ? appHas(appId, perm) : currentUserHas(perm);
+    }
+
+    async function canKillProcess(pid) {
+      const proc = Procs.get(pid);
+      if (!proc) return false;
+      if (proc.protected) return false;
+      return currentUserHas(PERMS.PROC_KILL);
+    }
+
+    return {
+      PERMS, can, roleHas, currentUserHas, appHas,
+      requestAppPermission, grantAppPermission, revokeAppPermission,
+      canKillProcess,
+    };
+  })();
+
+  /* ═══════════════════════════════════════════════════
+     CENTRO DE NOTIFICACIONES — backend  (v0.5.0)
+     Cola + persistencia real en IndexedDB. El panel
+     visual vive en shell.html y solo lee/muestra esto.
+  ═══════════════════════════════════════════════════ */
+  const Notifications = (() => {
+    function _uid() { return 'notif_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
+
+    async function push({ title, body = '', icon = '🔔', category = 'general', appId = null, actions = null } = {}) {
+      if (!title) throw new Error('Notifications.push: falta "title"');
+      const record = { id: _uid(), title, body, icon, category, appId, actions: actions || null, read: false, ts: Date.now() };
+      await DB.put(STORES.NOTIFICATIONS, record);
+      EventBus.emit('notifications:push', record);
+      return record;
+    }
+
+    async function list({ unreadOnly = false, limit = null } = {}) {
+      const all = await DB.list(STORES.NOTIFICATIONS);
+      let items = all.sort((a, b) => b.ts - a.ts);
+      if (unreadOnly) items = items.filter(n => !n.read);
+      if (limit) items = items.slice(0, limit);
+      return items;
+    }
+
+    async function unreadCount() {
+      const all = await DB.list(STORES.NOTIFICATIONS);
+      return all.filter(n => !n.read).length;
+    }
+
+    async function markRead(id) {
+      const record = await DB.get(STORES.NOTIFICATIONS, id);
+      if (!record) return null;
+      record.read = true;
+      await DB.put(STORES.NOTIFICATIONS, record);
+      EventBus.emit('notifications:read', { id });
+      return record;
+    }
+
+    async function markAllRead() {
+      const all = await DB.list(STORES.NOTIFICATIONS);
+      for (const n of all) { if (!n.read) { n.read = true; await DB.put(STORES.NOTIFICATIONS, n); } }
+      EventBus.emit('notifications:readAll', {});
+    }
+
+    async function remove(id) {
+      await DB.delete(STORES.NOTIFICATIONS, id);
+      EventBus.emit('notifications:remove', { id });
+    }
+
+    async function clear() {
+      await DB.clear(STORES.NOTIFICATIONS);
+      EventBus.emit('notifications:clear', {});
+    }
+
+    async function prune({ olderThanDays = 14, onlyRead = true } = {}) {
+      const cutoff = Date.now() - olderThanDays * 86400000;
+      const all = await DB.list(STORES.NOTIFICATIONS);
+      let count = 0;
+      for (const n of all) {
+        if (n.ts < cutoff && (!onlyRead || n.read)) { await DB.delete(STORES.NOTIFICATIONS, n.id); count++; }
+      }
+      if (count) EventBus.emit('notifications:pruned', { count });
+      return count;
+    }
+
+    return { push, list, unreadCount, markRead, markAllRead, remove, clear, prune };
+  })();
+
+  /* ═══════════════════════════════════════════════════
+     PORTAPAPELES DEL SISTEMA  (v0.5.0 — Clipboard)
+     Antes vivía duplicado como `_clipboard` dentro de
+     Desktop en shell.html; se centraliza aquí.
+  ═══════════════════════════════════════════════════ */
+  const Clipboard = (() => {
+    let _state = { op: null, paths: [] };
+
+    function copy(paths) {
+      _state = { op: 'copy', paths: Array.isArray(paths) ? [...paths] : [paths] };
+      EventBus.emit('clipboard:change', { ..._state });
+      return { ..._state };
+    }
+    function cut(paths) {
+      _state = { op: 'cut', paths: Array.isArray(paths) ? [...paths] : [paths] };
+      EventBus.emit('clipboard:change', { ..._state });
+      return { ..._state };
+    }
+    function get() { return { ..._state }; }
+    function clear() {
+      _state = { op: null, paths: [] };
+      EventBus.emit('clipboard:change', { ..._state });
+    }
+    async function paste(destDir) {
+      if (!_state.paths.length) return { count: 0 };
+      let count = 0;
+      for (const src of _state.paths) {
+        const dst = FS.normalize(`${destDir}/${FS.basename(src)}`);
+        try {
+          if (_state.op === 'copy') {
+            if (await FS.exists(dst)) continue;
+            const node = await FS.stat(src);
+            if (!node || node.type === 'dir') continue; // copia recursiva de carpetas: fuera de alcance por ahora
+            if (node.encoding === 'binary') {
+              const blob = await FS.readBlob(src);
+              await FS.writeBinary(dst, blob, node.mime || 'application/octet-stream');
+            } else {
+              await FS.write(dst, await FS.read(src));
+            }
+          } else if (_state.op === 'cut') {
+            if (await FS.exists(dst)) continue;
+            await FS.move(src, dst);
+          }
+          count++;
+        } catch (err) {
+          console.warn(`[Kernel:clipboard] no se pudo pegar '${src}':`, err.message);
+        }
+      }
+      if (_state.op === 'cut') clear();
+      EventBus.emit('clipboard:paste', { destDir, count });
+      return { count };
+    }
+
+    return { copy, cut, get, clear, paste };
+  })();
+
+  /* ═══════════════════════════════════════════════════
      REGISTRO DE APLICACIONES
   ═══════════════════════════════════════════════════ */
   const Apps = {
@@ -1084,6 +1315,7 @@ async move(src, dst) {
         parentPid: opts.parentPid ?? null,
         children : new Set(),
         cwd      : opts.cwd       || '/home',
+        protected: !!opts.protected, // v0.5.0: servicios críticos no finalizables
         spawnedAt: Date.now(),
       };
     }
@@ -1109,15 +1341,21 @@ async move(src, dst) {
         return proc;
       },
 
-      kill(pid) {
+      kill(pid, opts = {}) {
         const proc = _table[pid];
         if (!proc) {
           console.warn(`[Kernel:procs] kill: pid=${pid} no encontrado`);
           return false;
         }
 
+        if (proc.protected && !opts.force) {
+          console.warn(`[Kernel:procs] kill: pid=${pid} (${proc.appId}) es un servicio protegido, no se puede finalizar`);
+          EventBus.emit('procs:killDenied', { pid, appId: proc.appId });
+          return false;
+        }
+
         for (const childPid of [...proc.children]) {
-          this.kill(childPid);
+          this.kill(childPid, opts);
         }
 
         if (proc.parentPid !== null) {
@@ -1207,6 +1445,139 @@ async move(src, dst) {
     };
   })();
 
+  /* ═══════════════════════════════════════════════════
+     SERVICE LOADER  (v0.5.0)
+     Lee y ejecuta de verdad los .js de /Modulos/Servicios
+     como procesos protegidos y reales (no decorativos).
+  ═══════════════════════════════════════════════════ */
+const ModuleLoader = (() => {
+    const _running = new Map(); // path -> { kind, def, pid, path }
+    const _manifestKeyByKind = kind => (MODULE_KINDS.find(k => k.kind === kind) || {}).manifestKey;
+
+    async function _jsFiles(dirPath) {
+      let entries = [];
+      try { entries = await FS.readdir(dirPath); } catch { return []; }
+      return entries.filter(e => e.type === 'file' && (e.name || '').endsWith('.js'));
+    }
+
+    async function syncKindFromReal(kindDef) {
+      let manifest;
+      try {
+        const res = await fetch(`.${kindDef.dir}/index.json`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`No se encontró ${kindDef.dir}/index.json`);
+        manifest = await res.json();
+      } catch (err) {
+        console.info(`[Kernel:modules] sin manifiesto real para ${kindDef.dir} (${err.message}) — se omite sincronización`);
+        return;
+      }
+      const files = manifest[kindDef.manifestKey] || manifest.files || [];
+      for (const file of files) {
+        const realUrl = `.${kindDef.dir}/${file}`;
+        const fsPath  = `${kindDef.dir}/${file}`;
+        try {
+          const res = await fetch(realUrl, { cache: 'no-store' });
+          if (!res.ok) throw new Error(`No se pudo leer ${realUrl}`);
+          const code = await res.text();
+          await FS.write(fsPath, code, { meta: { protected: true, systemApp: true, source: 'real-module-file', kind: kindDef.kind } });
+          console.info(`[Kernel:modules] ✓ [${kindDef.kind}] sincronizado: ${fsPath}`);
+        } catch (err) {
+          console.warn(`[Kernel:modules] no se pudo sincronizar ${fsPath}:`, err.message);
+        }
+      }
+    }
+
+    async function loadOne(kindDef, fileNode) {
+      const path = fileNode.id;
+      if (_running.has(path)) return _running.get(path);
+
+      let code;
+      try { code = await FS.read(path); }
+      catch (err) { console.error(`[Kernel:modules] no se pudo leer ${path}:`, err); return null; }
+
+      let def;
+      try {
+        const factory = new Function('Kernel', `"use strict";\n${code}\n;return (typeof ${kindDef.entryFn} === 'function') ? ${kindDef.entryFn}(Kernel) : null;`);
+        def = factory(global.Kernel);
+      } catch (err) {
+        console.error(`[Kernel:modules] error al cargar ${path}:`, err);
+        CrashReporter.report(`ModuleLoader: fallo al cargar ${path}`, err, { path, kind: kindDef.kind });
+        return null;
+      }
+
+      if (!def || !def.id) {
+        console.warn(`[Kernel:modules] ${path} no exporta un módulo válido (${kindDef.entryFn} debe devolver {id,...})`);
+        return null;
+      }
+
+      const proc = Procs.spawn(path, {
+        title: def.name || def.id,
+        icon: def.icon || kindDef.icon,
+        protected: true,
+        cwd: FS.dirname(path),
+      });
+
+      try { if (typeof def.start === 'function') await def.start(global.Kernel, { pid: proc.pid, path }); }
+      catch (err) {
+        console.error(`[Kernel:modules] error al iniciar ${def.id}:`, err);
+        CrashReporter.report(`Módulo ${def.id}: fallo al iniciar`, err, { path, kind: kindDef.kind });
+      }
+
+      const record = { kind: kindDef.kind, def, pid: proc.pid, path };
+      _running.set(path, record);
+      EventBus.emit('modules:started', { kind: kindDef.kind, id: def.id, pid: proc.pid, path });
+      console.info(`[Kernel:modules] ✓ [${kindDef.kind}] ${def.id} iniciado (pid ${proc.pid})`);
+      return record;
+    }
+
+    async function startKind(kindDef) {
+      const files = await _jsFiles(kindDef.dir);
+      const results = [];
+      for (const file of files) {
+        const rec = await loadOne(kindDef, file);
+        if (rec) results.push(rec);
+      }
+      return results;
+    }
+
+    async function bootAll() {
+      const results = [];
+      for (const kindDef of MODULE_KINDS) {
+        await syncKindFromReal(kindDef);
+        const started = await startKind(kindDef);
+        results.push(...started);
+      }
+      return results;
+    }
+
+    function list(kindFilter) {
+      const all = [..._running.values()];
+      const filtered = kindFilter ? all.filter(r => r.kind === kindFilter) : all;
+      return filtered.map(r => ({ kind: r.kind, id: r.def.id, name: r.def.name, pid: r.pid, path: r.path }));
+    }
+
+    async function stop(path) {
+      const rec = _running.get(path);
+      if (!rec) return false;
+      try { if (typeof rec.def.stop === 'function') await rec.def.stop(global.Kernel, { pid: rec.pid, path }); }
+      catch (err) { console.error(`[Kernel:modules] error al detener ${rec.def.id}:`, err); }
+      Procs.kill(rec.pid, { force: true });
+      _running.delete(path);
+      EventBus.emit('modules:stopped', { kind: rec.kind, id: rec.def.id, path });
+      return true;
+    }
+
+    async function restart(path) {
+      const rec = _running.get(path);
+      if (!rec) return false;
+      const kindDef = MODULE_KINDS.find(k => k.kind === rec.kind);
+      await stop(path);
+      const fileStat = await FS.stat(path);
+      if (!fileStat) return false;
+      return loadOne(kindDef, fileStat);
+    }
+
+    return { bootAll, syncKindFromReal, startKind, loadOne, list, stop, restart };
+  })();
   /* ═══════════════════════════════════════════════════
      WATCHDOG                                  [Alpha 1.0]
   ═══════════════════════════════════════════════════ */
@@ -1300,7 +1671,7 @@ async move(src, dst) {
         stack        : String(stack   || ''),
         url          : location.href,
         userAgent    : navigator.userAgent,
-        kernelVersion: '0.3.0',
+        kernelVersion: KERNEL_VERSION,
         ...extra,
       };
 
@@ -1368,8 +1739,9 @@ async move(src, dst) {
   /* ═══════════════════════════════════════════════════
      SESSION TRACKER                           [Alpha 1.0]
   ═══════════════════════════════════════════════════ */
-  let _bootStartedAt = Date.now();
+let _bootStartedAt = Date.now();
   let _safeModeThisBoot = false;
+  let _bootComplete = false;
 
   let _session = {
     id           : null,
@@ -1510,8 +1882,17 @@ async function _ensureFsHierarchy() {
     await ensureDir('/sys/crashes');
     await ensureDir(TEMP_DIR);
 
-    await ensureFile('/system/index.sys', '<!-- sistema index -->', true, { protected: true, systemApp: true });
+await ensureFile('/system/index.sys', '<!-- sistema index -->', true, { protected: true, systemApp: true });
     await ensureFile('/system/shell.sys', '<!-- sistema shell -->', true, { protected: true, systemApp: true });
+    await ensureFile('/system/kernel.sys', '<!-- sistema kernel -->', true, { protected: true, systemApp: true });
+    await ensureFile('/system/uefi.sys', '<!-- sistema uefi -->', true, { protected: true, systemApp: true });
+    await ensureFile('/system/repairboot.sys', '<!-- sistema repairboot -->', true, { protected: true, systemApp: true });
+    await ensureFile('/system/diag-kernel.sys', '<!-- sistema diag-kernel -->', true, { protected: true, systemApp: true });
+    await ensureFile('/system/diag-apps.sys', '<!-- sistema diag-apps -->', true, { protected: true, systemApp: true });
+
+    /*esta hardcodeado pq... para que voy a meter un sistema que analize esos archivos?? XDDDD, mejor 'imitarlos', total, el usuario no se
+    dara cuenta >:3*/
+
 
     try {
       await FS.write('/home/docs/readme.txt', [
@@ -1577,7 +1958,7 @@ async function _ensureFsHierarchy() {
       const existingApps = await Apps.list();
       for (const app of existingApps) await Apps.unregister(app.id);
 
-      const res = await fetch('./apps/index.json');
+      const res = await fetch('./apps/index.json', { cache: 'no-store' });
       if (!res.ok) throw new Error('No se encontró apps/index.json');
 
       const { apps: appFiles } = await res.json();
@@ -1585,7 +1966,7 @@ async function _ensureFsHierarchy() {
 
       for (const file of appFiles) {
         try {
-          const htmlRes = await fetch(`./apps/${file}`);
+          const htmlRes = await fetch(`./apps/${file}`, { cache: 'no-store' });
           if (!htmlRes.ok) {
             console.warn(`[Kernel:apps] No se pudo cargar: ${file}`);
             continue;
@@ -1724,6 +2105,34 @@ async function _ensureFsHierarchy() {
     }
   }
 
+  /* ═══════════════════════════════════════════════════
+     MÓDULOS DEL SISTEMA  (v0.5.0)
+     /Modulos/{Servicios,API,Componentes} — el mismo árbol
+     que ya clasifica el Administrador de Tareas.
+  ═══════════════════════════════════════════════════ */
+const MODULE_DIRS = {
+    Servicios  : '/Modulos/Servicios',
+    API        : '/Modulos/API',
+    Componentes: '/Modulos/Componentes',
+  };
+
+  // Tabla que dirige al Boot Loader: un registro más aquí (p. ej. Drivers)
+  // es todo lo que hace falta para que un nuevo tipo de módulo se
+  // sincronice, cargue y tenga ciclo de vida — sin tocar boot() ni el loader.
+  const MODULE_KINDS = [
+    { kind: 'servicio',   dir: MODULE_DIRS.Servicios,   entryFn: 'registerService',   icon: '⚙',  manifestKey: 'services'   },
+    { kind: 'api',        dir: MODULE_DIRS.API,         entryFn: 'registerAPI',       icon: '🔌', manifestKey: 'apis'       },
+    { kind: 'componente', dir: MODULE_DIRS.Componentes, entryFn: 'registerComponent', icon: '🧩', manifestKey: 'components' },
+    // { kind: 'driver', dir: MODULE_DIRS.Drivers, entryFn: 'registerDriver', icon: '🔧', manifestKey: 'drivers' }, // futuro
+  ];
+
+  async function _bootstrapModulesTree() {
+    await FS.mkdir('/Modulos').catch(() => {});
+    for (const dir of Object.values(MODULE_DIRS)) {
+      await FS.mkdir(dir).catch(() => {});
+    }
+  }
+
 /* ═══════════════════════════════════════════════════
      CRITICAL FAILURE → REPAIR REDIRECT
      Cualquier fallo del que boot() no pueda recuperarse
@@ -1826,6 +2235,12 @@ if (safeMode) {
         await _bootstrapExtensions();
         await _bootstrapDesktopShortcuts();
         Watchdog.completeStep();
+
+EventBus.emit('boot:step', { step: 'modules', label: 'Cargando módulos del sistema…', detail: 'servicios+api+componentes' });
+        Watchdog.markStep('modules');
+        await _bootstrapModulesTree();
+        await ModuleLoader.bootAll();
+        Watchdog.completeStep();
       } else {
         EventBus.emit('boot:step', { step: 'apps', label: 'Safe Mode: apps omitidas…', detail: 'skipped (safe-mode)' });
         /* En safe mode solo hidratamos el registro existente, sin re-crear atajos */
@@ -1836,7 +2251,8 @@ if (safeMode) {
     _session.firstRun = _isFirstRun;
     await Prefs.set('boot.firstRun', false);
 
-    Watchdog.clearAll();
+Watchdog.clearAll();
+    _bootComplete = true;
 
       console.groupEnd();
       console.info('[Kernel] ✓ Sistema listo');
@@ -1903,23 +2319,66 @@ if (safeMode) {
   /* ═══════════════════════════════════════════════════
      API PÚBLICA  — global.Kernel
   ═══════════════════════════════════════════════════ */
+
+ const Icons = {
+    detect(icon) {
+      const raw = String(icon ?? '').trim();
+      if (!raw) return 'text';
+      if (/^<svg[\s>]/i.test(raw)) return 'svg';
+      const looksLikePath = /^(https?:\/\/|\.{1,2}\/|\/)/i.test(raw)
+        || /\.(svg|png|jpe?g|gif|webp)(\?.*)?$/i.test(raw);
+      if (looksLikePath && !/\s/.test(raw)) return 'url';
+      return 'text';
+    },
+
+    render(icon, opts = {}) {
+      const fallback = opts.fallback ?? '▪';
+      const size = opts.size ?? null;
+      const raw = String(icon ?? '').trim();
+      if (!raw) return this.render(fallback);
+      const type = this.detect(raw);
+      const sizeAttr = size ? ` style="width:${size}px;height:${size}px;"` : '';
+      if (type === 'svg') {
+        return size ? raw.replace(/^<svg/i, `<svg${sizeAttr}`) : raw;
+      }
+      if (type === 'url') {
+        const safeSrc = raw.replace(/"/g, '&quot;');
+        return `<img class="icon-img" src="${safeSrc}"${sizeAttr} alt="" draggable="false" />`;
+      }
+      return raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    },
+  };
+
+const BUILD_ID = `${KERNEL_VERSION}+db${DB_VERSION}+fs${FS_HIERARCHY_VERSION}`;
+
   const Kernel = {
-    version : KERNEL_VERSION,
+  version : KERNEL_VERSION,
+  build   : {
+    version: KERNEL_VERSION,
+    dbVersion: DB_VERSION,
+    fsHierarchyVersion: FS_HIERARCHY_VERSION,
+    buildId: BUILD_ID,
+  },
 
     on   : EventBus.on.bind(EventBus),
     once : EventBus.once.bind(EventBus),
     emit : EventBus.emit.bind(EventBus),
 
-    db         : DB,
-    fs         : FS,
-    prefs      : Prefs,
-    env        : Env,
-    users      : Users,
-    apps       : Apps,
-    procs      : Procs,
-    crash      : CrashReporter,
-    extensions : ExtensionManager,
-    bindings   : AppBinding,
+    db          : DB,
+    fs          : FS,
+    prefs       : Prefs,
+    env         : Env,
+    users       : Users,
+    apps        : Apps,
+    procs       : Procs,
+    crash       : CrashReporter,
+extensions  : ExtensionManager,
+    bindings    : AppBinding,
+    icons       : Icons,
+    permissions : Permissions,
+    notifications: Notifications,
+    clipboard   : Clipboard,
+    modules     : ModuleLoader,
 
     STORES,
 
@@ -1927,8 +2386,12 @@ if (safeMode) {
     repair: CriticalFailure,
     openFile: AppBinding.openFile.bind(AppBinding),
 
-    get isReady() {
+get isReady() {
       return _db !== null;
+    },
+
+    get bootComplete() {
+      return _bootComplete;
     },
 
 get safeMode() {

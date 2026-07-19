@@ -9,7 +9,7 @@
     "id":          "text-editor",
     "name":        "Editor de Texto",
     "version":     "0.1.0",
-    "icon":        "📝",
+    "icon":        "./apps/public/EditorTexto.svg",
     "category":    "utility",
     "singleton":   false,
     "description": "Editor de texto plano con numeración de líneas",
@@ -265,7 +265,7 @@
       transition: background 0.1s;
     }
     .dialog-file-item:hover { background: rgba(0,255,136,0.1); color: var(--green); }
-    .dialog-file-item .fi-icon { font-size: 0.9rem; }
+    .dialog-file-item .fi-icon { display: inline-flex; align-items: center; flex-shrink: 0; }
 
     /* ── Empty state ── */
     #empty-state {
@@ -313,9 +313,9 @@
 <div id="app">
   <!-- Toolbar -->
   <div id="toolbar">
-    <button class="tb-btn accent" id="btn-new">✦ NUEVO</button>
-    <button class="tb-btn" id="btn-open">📂 ABRIR</button>
-    <button class="tb-btn" id="btn-save">💾 GUARDAR</button>
+    <button class="tb-btn accent" id="btn-new"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l1.8 5.7L19.5 10.5l-5.7 1.8L12 18l-1.8-5.7L4.5 10.5l5.7-1.8L12 3z"/></svg> NUEVO</button>
+    <button class="tb-btn" id="btn-open"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5V6a1 1 0 0 1 1-1h4l2 2h9a1 1 0 0 1 1 1v1"/><path d="M3.3 7.5h17a1 1 0 0 1 .97 1.24l-1.5 6.5A1 1 0 0 1 18.8 16H4.7a1 1 0 0 1-.97-.76l-1.5-6.5a1 1 0 0 1 .1-.24z"/></svg> ABRIR</button>
+    <button class="tb-btn" id="btn-save"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4a1 1 0 0 1 1-1h10.6a1 1 0 0 1 .7.3l2.4 2.4a1 1 0 0 1 .3.7V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4z"/><path d="M7.5 3v5h7V3"/><path d="M7 21v-6.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1V21"/></svg> GUARDAR</button>
     <div class="tb-sep"></div>
     <button class="tb-btn" id="btn-save-as">GUARDAR COMO…</button>
     <div class="tb-sep"></div>
@@ -328,7 +328,7 @@
     <div id="line-numbers"></div>
     <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
     <div id="empty-state">
-      <div class="es-icon">📝</div>
+      <div class="es-icon"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h7.5L18 7v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z"/><path d="M13.5 2.5V7a1 1 0 0 0 1 1H18"/><line x1="8" y1="12.5" x2="15" y2="12.5"/><line x1="8" y1="15.5" x2="15" y2="15.5"/><line x1="8" y1="18.5" x2="12.5" y2="18.5"/></svg></div>
       <div class="es-title">EDITOR DE TEXTO</div>
       <div class="es-hint">ABRIR ARCHIVO · CTRL+O &nbsp;|&nbsp; NUEVO · CTRL+N</div>
     </div>
@@ -352,7 +352,7 @@
 <!-- Open file dialog -->
 <div id="open-dialog">
   <div class="dialog-box">
-    <h3>📂 ABRIR ARCHIVO</h3>
+    <h3><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M3 7.5V6a1 1 0 0 1 1-1h4l2 2h9a1 1 0 0 1 1 1v1"/><path d="M3.3 7.5h17a1 1 0 0 1 .97 1.24l-1.5 6.5A1 1 0 0 1 18.8 16H4.7a1 1 0 0 1-.97-.76l-1.5-6.5a1 1 0 0 1 .1-.24z"/></svg> ABRIR ARCHIVO</h3>
     <input type="text" class="dialog-input" id="open-path-input" placeholder="/home/docs/readme.txt" />
     <div class="dialog-file-list" id="dialog-file-list"></div>
     <div class="dialog-actions">
@@ -365,7 +365,7 @@
 <!-- Save As dialog -->
 <div id="saveas-dialog" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;">
   <div class="dialog-box">
-    <h3>💾 GUARDAR COMO</h3>
+    <h3><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M4 4a1 1 0 0 1 1-1h10.6a1 1 0 0 1 .7.3l2.4 2.4a1 1 0 0 1 .3.7V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4z"/><path d="M7.5 3v5h7V3"/><path d="M7 21v-6.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1V21"/></svg> GUARDAR COMO</h3>
     <input type="text" class="dialog-input" id="saveas-path-input" placeholder="/home/docs/mi-archivo.txt" />
     <div class="dialog-actions">
       <button class="tb-btn" id="saveas-cancel">CANCELAR</button>
@@ -394,6 +394,11 @@
 
   /* ── Helpers ── */
   const $ = id => document.getElementById(id);
+
+  const Icon = {
+    folder: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6a1 1 0 0 1 1-1h4.4l1.6 1.8H20a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6z"/></svg>',
+    file:   '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h7.5L18 7v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z"/><path d="M13.5 2.5V7a1 1 0 0 0 1 1H18"/></svg>',
+  };
 
   const Toast = {
     show(msg, type = 'info', dur = 2400) {
@@ -641,7 +646,7 @@ async function saveFile(path) {
       sorted.forEach(e => {
         const item = document.createElement('div');
         item.className = 'dialog-file-item';
-        item.innerHTML = `<span class="fi-icon">${e.type === 'dir' ? '📁' : '📄'}</span><span>${e.name}</span>`;
+        item.innerHTML = `<span class="fi-icon">${e.type === 'dir' ? Icon.folder : Icon.file}</span><span>${e.name}</span>`;
         item.addEventListener('click', () => {
           if (e.type === 'dir') {
             openInput.value = e.id + '/';
@@ -664,7 +669,7 @@ async function saveFile(path) {
         const all = await K.fs.readdir('/');
 fileListEl.innerHTML = all.map(e =>
           `<div class="dialog-file-item">
-            <span class="fi-icon">${e.type === 'dir' ? '📁' : '📄'}</span>
+            <span class="fi-icon">${e.type === 'dir' ? Icon.folder : Icon.file}</span>
             <span>${escapeHtml(e.name)}</span>
           </div>`
         ).join('');

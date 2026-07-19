@@ -3,6 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script>
+(function () {
+  try {
+    const GUARD_KEY = 'huebos_redirect_guard';
+    const now = Date.now();
+    let guard = null;
+    try { guard = JSON.parse(sessionStorage.getItem(GUARD_KEY) || 'null'); } catch (e) {}
+
+    const hasTicket = !!sessionStorage.getItem('huebos_shell_ticket');
+
+    if (!hasTicket) {
+      const count = (guard && now - guard.ts < 5000) ? guard.count + 1 : 1;
+      sessionStorage.setItem(GUARD_KEY, JSON.stringify({ count, ts: now }));
+
+      if (count > 3) {
+        document.documentElement.innerHTML =
+          '<body style="font-family:monospace;background:#100;color:#f88;padding:2rem">' +
+          '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5H2.5L12 3.5z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r="0.9" fill="currentColor" stroke="none"/></svg> Bucle de redirección detectado entre shell.html e index.html.<br>' +
+          'El ticket de arranque nunca se generó. Abre la consola (F12) y revisa si <code>Kernel.build</code> existe.<br>' +
+          '<a href="index.html" style="color:#8cf">Volver manualmente a index.html</a></body>';
+        return;
+      }
+      window.location.replace('index.html');
+    } else {
+      sessionStorage.removeItem(GUARD_KEY);
+    }
+  } catch (e) { /* sessionStorage no disponible: no bloqueamos el arranque */ }
+})();
+</script>
   <title>HUEBOS · Shell</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
@@ -214,6 +243,12 @@
       width: min(550px, calc(100vw - 40px));
       align-items: start; justify-items: center;
     }
+    /* Modo de organización manual: posiciones absolutas libres */
+    #desktop-icons.manual-layout {
+      display: block;
+      width: 0; height: 0;
+      top: 0; left: 0;
+    }
 
     .desktop-icon {
       display: flex; flex-direction: column;
@@ -226,6 +261,12 @@
       min-width: 80px; position: relative;
       /* ANIMATION 1 — float idle */
       animation: iconFloat 3.6s ease-in-out infinite;
+      user-select: none; -webkit-user-select: none;
+    }
+    /* En layout manual, cada icono se posiciona con left/top inline */
+    #desktop-icons.manual-layout .desktop-icon {
+      position: absolute;
+      animation: none; /* sin float en modo manual para no interferir con el drag */
     }
     .desktop-icon .icon-wrap {
       width: 48px; height: 48px;
@@ -301,6 +342,76 @@
       border-color: rgba(0,255,136,0.32);
       box-shadow: 0 0 0 1px rgba(0,212,255,0.2), var(--glow-sm);
     }
+    /* ── Selección múltiple ── */
+    .desktop-icon.selected {
+      animation: none;
+      background: rgba(0,212,255,0.14);
+      backdrop-filter: blur(16px);
+      border-color: rgba(0,212,255,0.42);
+      box-shadow:
+        0 0 0 1px rgba(0,212,255,0.35),
+        0 8px 28px rgba(0,0,0,0.5),
+        var(--glow-sm);
+    }
+    .desktop-icon.selected::after {
+      background: linear-gradient(135deg,
+        rgba(0,212,255,0.78),
+        rgba(0,255,136,0.42),
+        rgba(0,212,255,0.34)
+      );
+      opacity: 1;
+    }
+    .desktop-icon.selected .icon-wrap {
+      border-color: rgba(0,212,255,0.42);
+      box-shadow: inset 0 0 22px rgba(0,212,255,0.10), var(--glow-sm);
+    }
+    /* El icono activo (foco único) mantiene el verde; los seleccionados adicionales van en cian */
+    .desktop-icon.active.selected {
+      background: rgba(0,255,136,0.16);
+      border-color: rgba(0,255,136,0.42);
+      box-shadow: 0 0 0 1px rgba(0,255,136,0.35), var(--glow-sm);
+    }
+    .desktop-icon.active.selected::after {
+      background: linear-gradient(135deg,
+        rgba(0,255,136,0.78),
+        rgba(0,212,255,0.42),
+        rgba(0,255,136,0.34)
+      );
+    }
+
+    /* ── Arrastrando ── */
+    .desktop-icon.dragging {
+      animation: none;
+      opacity: 0.55;
+      cursor: grabbing;
+      z-index: 9999;
+      transform: scale(1.12);
+      box-shadow:
+        0 22px 60px rgba(0,0,0,0.7),
+        0 0 0 1px rgba(0,255,136,0.5),
+        var(--glow-md);
+      transition: none;
+    }
+    .desktop-icon.drag-ghost {
+      position: fixed !important;
+      pointer-events: none;
+      z-index: 99999;
+      opacity: 0.85;
+      transform: scale(1.1);
+      box-shadow: 0 18px 50px rgba(0,0,0,0.65), var(--glow-md);
+      transition: none;
+    }
+    /* Indicador de zona de soltar al reordenar */
+    .desktop-icon.drop-target {
+      border-color: rgba(0,255,136,0.6);
+      box-shadow: 0 0 0 2px rgba(0,255,136,0.4), var(--glow-sm);
+    }
+    /* Escritorio en estado de arrastre de iconos */
+    #desktop.icon-dragging { cursor: grabbing; }
+    #desktop.icon-dragging .desktop-icon:not(.dragging):not(.drag-ghost) {
+      pointer-events: none;
+    }
+
     .desktop-icon .icon {
       font-size: 2.15rem; line-height: 1;
       filter: drop-shadow(0 4px 10px rgba(0,0,0,0.65));
@@ -321,6 +432,7 @@
       background: rgba(0,0,0,0.48);
       padding: 2px 8px; border-radius: 5px;
       backdrop-filter: blur(5px);
+      max-width: 120px; overflow: hidden; text-overflow: ellipsis;
     }
     .desktop-icon .shortcut-badge {
       position: absolute; top: -2px; right: -2px;
@@ -329,6 +441,62 @@
       background: rgba(0,212,255,0.95); color: #041018;
       box-shadow: 0 0 10px rgba(0,212,255,0.4);
       border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    /* ── Tamaño de icono (vista) ── */
+    #desktop-icons[data-icon-size="sm"] .desktop-icon .icon-wrap { width: 34px; height: 34px; }
+    #desktop-icons[data-icon-size="sm"] .desktop-icon .icon { font-size: 1.5rem; }
+    #desktop-icons[data-icon-size="sm"] .desktop-icon .label { font-size: 0.54rem; max-width: 92px; }
+    #desktop-icons[data-icon-size="lg"] .desktop-icon .icon-wrap { width: 64px; height: 64px; }
+    #desktop-icons[data-icon-size="lg"] .desktop-icon .icon { font-size: 2.8rem; }
+    #desktop-icons[data-icon-size="lg"] .desktop-icon .label { font-size: 0.68rem; max-width: 140px; }
+
+    /* Iconos SVG/imagen: escalan con el font-size del contenedor (em) */
+    .icon svg, .icon .icon-img,
+    .sa-icon svg, .sa-icon .icon-img,
+    .tb-icon svg, .tb-icon .icon-img,
+    .win-icon svg, .win-icon .icon-img,
+    .ctx-icon svg, .ctx-icon .icon-img {
+      width: 1em; height: 1em; object-fit: contain;
+      display: inline-block; vertical-align: middle;
+    }
+
+    /* ── Renombrado in-line ── */
+    .desktop-icon .label-input {
+      font-size: 0.60rem; color: var(--g);
+      font-family: var(--mono);
+      text-align: center; letter-spacing: 0.05em;
+      background: rgba(0,8,14,0.92);
+      border: 1px solid rgba(0,255,136,0.5);
+      border-radius: 5px;
+      padding: 2px 6px;
+      outline: none; caret-color: var(--g);
+      max-width: 130px; min-width: 60px;
+      box-shadow: 0 0 0 2px rgba(0,255,136,0.18), var(--glow-sm);
+    }
+
+    /* ── Rectángulo de selección (marquee) ── */
+    #desktop-marquee {
+      position: absolute;
+      border: 1px solid rgba(0,255,136,0.55);
+      background: rgba(0,255,136,0.08);
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 50;
+      box-shadow: 0 0 12px rgba(0,255,136,0.2), inset 0 0 20px rgba(0,255,136,0.05);
+    }
+    #desktop.marquee-active { cursor: crosshair; }
+    #desktop.marquee-active .desktop-icon { pointer-events: none; }
+
+    /* ── Menú contextual: estados de items ── */
+    .ctx-item.disabled {
+      opacity: 0.38; cursor: default; pointer-events: none;
+    }
+    .ctx-item.danger { color: rgba(255,68,102,0.85); }
+    .ctx-item.danger:hover { background: rgba(255,68,102,0.12); }
+    .ctx-item .ctx-shortcut {
+      margin-left: auto; font-size: 0.55rem;
+      color: rgba(220,255,238,0.35); letter-spacing: 0.06em;
     }
 
     /* ── WM layer ── */
@@ -1411,6 +1579,49 @@
       background:rgba(255,68,102,0.7); border-color:rgba(255,68,102,0.9); color:#fff;
     }
     .lock-confirm-btn.danger:hover { background:rgba(255,68,102,0.85); }
+
+    .notif-btn{
+      position:relative; width:38px; height:38px; margin:0 4px;
+      display:flex; align-items:center; justify-content:center;
+      border-radius:8px; cursor:pointer; color:var(--g-dim);
+      border:1px solid transparent; transition:all 0.18s;
+    }
+    .notif-btn:hover, .notif-btn.active{
+      background:rgba(0,255,136,0.10); border-color:rgba(0,255,136,0.24); color:var(--g);
+    }
+    .notif-btn svg{width:1.05rem;height:1.05rem;}
+    .notif-badge{
+      position:absolute; top:3px; right:3px; min-width:15px; height:15px; padding:0 3px;
+      border-radius:8px; background:var(--red); color:#fff; font-size:0.55rem; line-height:15px;
+      text-align:center; box-shadow:0 0 6px rgba(255,68,102,0.5); display:none;
+    }
+    .notif-badge.show{display:block;}
+    #notif-panel{
+      position:fixed; bottom:calc(var(--taskbar-h) + 12px); right:8px;
+      width:340px; max-height:480px;
+      background:var(--glass-menu); border:1px solid rgba(0,255,136,0.18);
+      border-radius:16px; box-shadow:0 -6px 70px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.06);
+      backdrop-filter:blur(40px) saturate(1.6);
+      z-index:2000; display:flex; flex-direction:column; overflow:hidden;
+      transform-origin:bottom right;
+      transition:opacity 0.2s, transform 0.2s cubic-bezier(0.34,1.2,0.64,1);
+    }
+    #notif-panel.hidden{opacity:0;pointer-events:none;transform:scale(0.94) translateY(10px);}
+    .notif-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid rgba(0,255,136,0.08);}
+    .notif-title{font-family:var(--display);font-size:0.72rem;letter-spacing:0.12em;color:var(--g);}
+    .notif-actions{margin-left:auto;display:flex;gap:6px;}
+    .notif-action{font-size:0.58rem;letter-spacing:0.05em;padding:4px 8px;border-radius:6px;cursor:pointer;color:var(--g-dim);border:1px solid var(--border);transition:all 0.15s;}
+    .notif-action:hover{color:var(--g);border-color:rgba(0,255,136,0.36);}
+    .notif-list{flex:1;overflow-y:auto;padding:6px;}
+    .notif-item{display:flex;gap:10px;padding:9px 10px;border-radius:10px;margin-bottom:4px;border:1px solid transparent;cursor:pointer;transition:background 0.15s;}
+    .notif-item:hover{background:rgba(0,255,136,0.06);}
+    .notif-item.unread{background:rgba(0,255,136,0.045);border-color:rgba(0,255,136,0.14);}
+    .notif-icon{font-size:1rem;flex-shrink:0;margin-top:1px;}
+    .notif-body{flex:1;min-width:0;}
+    .notif-item-title{font-size:0.68rem;color:rgba(220,255,238,0.94);margin-bottom:2px;}
+    .notif-item-msg{font-size:0.64rem;color:var(--g-dim);line-height:1.5;}
+    .notif-item-time{font-size:0.56rem;color:rgba(0,212,255,0.4);margin-top:4px;letter-spacing:0.05em;}
+    .notif-empty{padding:34px 14px;text-align:center;color:var(--g-dim);font-size:0.68rem;letter-spacing:0.06em;}
   </style>
 </head>
 <body class="locked">
@@ -1426,25 +1637,25 @@
       <div class="lock-date" id="lock-date">--/--/----</div>
     </div>
     <div class="lock-panel">
-      <div class="lock-avatar" id="lock-avatar">👤</div>
+      <div class="lock-avatar" id="lock-avatar"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1.2-4 4-6 7-6s5.8 2 7 6"/></svg></div>
       <div class="lock-username" id="lock-username">Usuario</div>
       <div class="lock-input-wrap">
         <input type="password" id="lock-password" class="lock-input" placeholder="Contraseña" autocomplete="off" />
         <button id="lock-unlock-btn" class="lock-submit" type="button">→</button>
       </div>
       <div class="lock-hint" id="lock-hint">Presiona cualquier tecla para desbloquear</div>
-      <div class="lock-safe-badge" id="lock-safe-badge" style="display:none">⚠ SAFE MODE</div>
+      <div class="lock-safe-badge" id="lock-safe-badge" style="display:none"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5H2.5L12 3.5z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r="0.9" fill="currentColor" stroke="none"/></svg> SAFE MODE</div>
     </div>
     <div class="lock-bottom">
       <div class="lock-bottom-btn" id="lock-reboot-btn" title="Reiniciar">
-        <span class="lock-bottom-icon">⏻</span>
+        <span class="lock-bottom-icon"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M18 6.3A8 8 0 1 1 6 6.3"/></svg></span>
         <span>Reiniciar</span>
       </div>
     </div>
     <!-- Diálogo de confirmación personalizado (no nativo) -->
     <div class="lock-confirm-overlay" id="lock-confirm-overlay" style="display:none">
       <div class="lock-confirm-box">
-        <div class="lock-confirm-icon">⏻</div>
+        <div class="lock-confirm-icon"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M18 6.3A8 8 0 1 1 6 6.3"/></svg></div>
         <div class="lock-confirm-title">Reiniciar HUEBOS</div>
         <div class="lock-confirm-msg">¿Seguro que quieres reiniciar el sistema? Se cerrarán todas las aplicaciones y procesos.</div>
         <div class="lock-confirm-btns">
@@ -1488,9 +1699,20 @@
     <div id="start-apps"></div>
     <div class="start-footer">
       <span class="start-footer-label">HUEBOS SHELL · WM ACTIVO</span>
-      <button id="start-lock" title="Bloquear pantalla">🔒</button>
-      <button id="start-shutdown" title="Reiniciar sistema">⏻</button>
+      <button id="start-lock" title="Bloquear pantalla"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V7a4 4 0 018 0v4"/><path d="M12 15v3"/></svg></button>
+      <button id="start-shutdown" title="Reiniciar sistema"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M18 6.3A8 8 0 1 1 6 6.3"/></svg></button>
     </div>
+  </div>
+
+  <div id="notif-panel" class="hidden">
+    <div class="notif-head">
+      <span class="notif-title">NOTIFICACIONES</span>
+      <div class="notif-actions">
+        <span class="notif-action" id="notif-mark-all">Marcar leídas</span>
+        <span class="notif-action" id="notif-clear-all">Limpiar</span>
+      </div>
+    </div>
+    <div class="notif-list" id="notif-list"></div>
   </div>
 
   <div id="taskbar">
@@ -1503,6 +1725,10 @@
     </div>
     <div id="taskbar-apps"></div>
     <div id="taskbar-sys">
+      <div class="notif-btn" id="notif-btn" title="Centro de notificaciones">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v3M12 17.5v3"/><path d="M18 10a6 6 0 00-12 0c0 4.5-2 6-2 6h16s-2-1.5-2-6z"/></svg>
+        <span class="notif-badge" id="notif-badge"></span>
+      </div>
       <div class="sys-dots">
         <div class="sys-dot"></div>
         <div class="sys-dot"></div>
@@ -1678,7 +1904,7 @@
     /* ══ TOAST ══ */
     const Toast=(()=>{
       const container=document.getElementById('toast-container');
-      const ICONS={ok:'✓',warn:'⚠',error:'✕',info:'ℹ'};
+      const ICONS={ok:'✓',warn:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5H2.5L12 3.5z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r="0.9" fill="currentColor" stroke="none"/></svg>',error:'✕',info:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.7" r="0.9" fill="currentColor" stroke="none"/></svg>'};
       function show(msg,type='ok',title=null,duration=3500){
         const t=document.createElement('div');
         const cls=type==='warn'?'toast-warn':type==='error'?'toast-error':type==='info'?'toast-info':'';
@@ -1701,9 +1927,12 @@
         items.forEach(item=>{
           if(item==='sep'){const s=document.createElement('div');s.className='ctx-separator';el.appendChild(s);}
           else if(item.label&&!item.action){const l=document.createElement('div');l.className='ctx-label';l.textContent=item.label;el.appendChild(l);}
-          else{const d=document.createElement('div');d.className='ctx-item';
-            d.innerHTML=`<span class="ctx-icon">${item.icon||''}</span>${item.text}`;
-            if(item.action)d.addEventListener('click',()=>{hide();item.action();}); el.appendChild(d);}
+else{const d=document.createElement('div');d.className='ctx-item';
+            if(item.disabled)d.classList.add('disabled');
+            if(item.danger)d.classList.add('danger');
+            const ctxIconMarkup=item.icon?Kernel.icons.render(item.icon):'';
+            d.innerHTML=`<span class="ctx-icon">${ctxIconMarkup}</span>${item.text||''}${item.shortcut?`<span class="ctx-shortcut">${item.shortcut}</span>`:''}`;
+            if(item.action&&!item.disabled)d.addEventListener('click',()=>{hide();item.action();}); el.appendChild(d);}
         });
         el.classList.remove('hidden'); _open=true;
         const vw=window.innerWidth,vh=window.innerHeight;
@@ -1713,7 +1942,8 @@
       }
       function hide(){el.classList.add('hidden');_open=false;}
       document.addEventListener('click',e=>{if(_open&&!el.contains(e.target))hide();});
-      document.addEventListener('contextmenu',()=>{if(_open)hide();});
+      document.addEventListener('contextmenu',e=>{if(_open&&!e.defaultPrevented)hide();});
+      document.addEventListener('keydown',e=>{if(_open&&e.key==='Escape')hide();});
       return {show,hide};
     })();
 
@@ -1864,7 +2094,7 @@ function close(pid){
             <div class="wm-btn min" title="Minimizar"></div>
             <div class="wm-btn max" title="Maximizar"></div>
           </div>
-          <span class="win-icon">${proc.icon||opts.icon||'▪'}</span>
+          <span class="win-icon">${Kernel.icons.render(proc.icon||opts.icon)}</span>
           <span class="win-title">${proc.title||opts.title||proc.appId}</span>
           <span class="win-meta">PID ${pid}</span>`;
 
@@ -1875,7 +2105,7 @@ function close(pid){
           content.appendChild(iframe);
         } else {
           const ph=document.createElement('div'); ph.className='wm-placeholder';
-          ph.innerHTML=`<h2>${proc.icon||'▪'} ${proc.title||proc.appId}</h2>
+          ph.innerHTML=`<h2><span class="win-icon" style="display:inline-block">${Kernel.icons.render(proc.icon)}</span> ${proc.title||proc.appId}</h2>
             <p>PID: ${pid} · App: <strong>${proc.appId}</strong></p>
             <p style="margin-top:10px;opacity:0.45;font-size:0.68rem">Ventana lista para contenido.<br>
             Conecta via <code>opts.url</code> o <code>opts.content</code>.</p>`;
@@ -1902,7 +2132,7 @@ const pidRef={pid};
         const tbApps=document.getElementById('taskbar-apps');
         const btn=document.createElement('div');
         btn.className='tb-app focused tb-enter'; btn.dataset.pid=pid;
-        btn.innerHTML=`<span class="tb-icon">${proc.icon||'▪'}</span><span class="tb-label">${proc.title||proc.appId}</span><span class="tb-signal"></span>`;
+        btn.innerHTML=`<span class="tb-icon">${Kernel.icons.render(proc.icon)}</span><span class="tb-label">${proc.title||proc.appId}</span><span class="tb-signal"></span>`;
         setTimeout(()=>btn.classList.remove('tb-enter'),460);
         btn.addEventListener('click',()=>{
           const w=_windows[pid]; if(!w)return;
@@ -1933,7 +2163,7 @@ const pidRef={pid};
 
       function prompt(msg, { placeholder = '', title = 'Entrada', defaultValue = '' } = {}) {
         return new Promise(resolve => {
-          const proc = Kernel.procs.spawn('_dialog', { title, icon: '✏' });
+          const proc = Kernel.procs.spawn('_dialog', { title, icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg>' });
           const pid  = proc.pid;
           const div  = document.createElement('div');
           div.style.cssText = _wrap;
@@ -1946,7 +2176,7 @@ const pidRef={pid};
               <button id="dlg-x-${pid}" style="${_bad}">CANCELAR</button>
               <button id="dlg-o-${pid}" style="${_ok}">ACEPTAR</button>
             </div>`;
-          WM.createWindow(proc, { title, icon: '✏', width: 390, height: 214, content: div });
+          WM.createWindow(proc, { title, icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg>', width: 390, height: 214, content: div });
           const done = v => { WM.close(pid); resolve(v); };
           const inp  = () => document.getElementById(`dlg-i-${pid}`);
           document.getElementById(`dlg-o-${pid}`).addEventListener('click', () => done(inp()?.value.trim() || null));
@@ -1959,7 +2189,7 @@ const pidRef={pid};
         });
       }
 
-      function confirm(msg, { title = 'Confirmar', icon = '❓' } = {}) {
+      function confirm(msg, { title = 'Confirmar', icon = '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.5a2.8 2.8 0 015.4.9c0 2-2.6 1.9-2.6 4.1"/><circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none"/></svg>' } = {}) {
         return new Promise(resolve => {
           const proc = Kernel.procs.spawn('_dialog', { title, icon });
           const pid  = proc.pid;
@@ -2001,7 +2231,7 @@ const pidRef={pid};
         filtered.forEach(app=>{
           const item=document.createElement('div'); item.className='start-app-item';
           item.dataset.appId=app.id;
-          item.innerHTML=`<span class="sa-icon">${app.icon||'▪'}</span><span class="sa-name">${app.name}</span>`;
+          item.innerHTML=`<span class="sa-icon">${Kernel.icons.render(app.icon)}</span><span class="sa-name">${app.name}</span>`;
           item.addEventListener('click',()=>{hide();launchApp(app);}); grid.appendChild(item);
         });
         if(!filtered.length)grid.innerHTML=`<div style="grid-column:1/-1;padding:22px;text-align:center;color:var(--g-dim);font-size:0.68rem;letter-spacing:0.1em">SIN RESULTADOS</div>`;
@@ -2019,13 +2249,272 @@ const pidRef={pid};
     })();
 
     /* ══ DESKTOP ══ */
+    const NotificationCenter=(()=>{
+      const btn=document.getElementById('notif-btn');
+      const badge=document.getElementById('notif-badge');
+      const panel=document.getElementById('notif-panel');
+      const listEl=document.getElementById('notif-list');
+      const markAllBtn=document.getElementById('notif-mark-all');
+      const clearAllBtn=document.getElementById('notif-clear-all');
+      let _open=false,_kernel=null;
+
+      function fmtTime(ts){
+        const d=new Date(ts);
+        return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} · ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+      }
+      async function refresh(){
+        if(!_kernel)return;
+        const items=await _kernel.notifications.list({limit:60});
+        const unread=await _kernel.notifications.unreadCount();
+        badge.textContent=unread>9?'9+':String(unread);
+        badge.classList.toggle('show',unread>0);
+        if(!items.length){ listEl.innerHTML='<div class="notif-empty">Sin notificaciones</div>'; return; }
+        listEl.innerHTML=items.map(n=>`
+          <div class="notif-item ${n.read?'':'unread'}" data-id="${n.id}">
+            <span class="notif-icon">${Kernel.icons.render(n.icon||'🔔')}</span>
+            <div class="notif-body">
+              <div class="notif-item-title">${escapeHtml(n.title)}</div>
+              ${n.body?`<div class="notif-item-msg">${escapeHtml(n.body)}</div>`:''}
+              <div class="notif-item-time">${fmtTime(n.ts)}</div>
+            </div>
+          </div>`).join('');
+      }
+      function toggle(){
+        _open=!_open;
+        panel.classList.toggle('hidden',!_open);
+        btn.classList.toggle('active',_open);
+        if(_open)refresh();
+      }
+      function hide(){_open=false;panel.classList.add('hidden');btn.classList.remove('active');}
+      listEl.addEventListener('click',e=>{
+        const item=e.target.closest('.notif-item'); if(!item||!_kernel)return;
+        _kernel.notifications.markRead(item.dataset.id).then(refresh);
+      });
+      markAllBtn.addEventListener('click',()=>{if(_kernel)_kernel.notifications.markAllRead().then(refresh);});
+      clearAllBtn.addEventListener('click',()=>{if(_kernel)_kernel.notifications.clear().then(refresh);});
+      btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+      document.addEventListener('click',e=>{if(_open&&!panel.contains(e.target)&&!btn.contains(e.target))hide();});
+
+      function init(kernel){
+        _kernel=kernel;
+        refresh();
+        ['notifications:push','notifications:read','notifications:readAll','notifications:remove','notifications:clear','notifications:pruned']
+          .forEach(ev=>kernel.on(ev,refresh));
+      }
+      return {init,refresh,hide};
+    })();
+
+    /* ══ DESKTOP ══ */
     const Desktop=(()=>{
       const desktop=document.getElementById('desktop');
       const iconsEl=document.getElementById('desktop-icons');
 
+      /* ── Estado interno ── */
+let _selected=new Set();       // paths seleccionados
+      let _activePath=null;          // path con foco (verde)
+      let _layoutMode='auto';       // 'auto' | 'manual' | 'grid'
+      let _iconPositions={};         // { path: {x,y} } — solo modo manual
+      let _sortBy='type';            // 'type' | 'name' | 'date'
+      let _iconSize='md';            // 'sm' | 'md' | 'lg'
+      let _marqueeEl=null;
+      let _marqueeStart=null;
+      let _dragState=null;           // estado de arrastre de iconos
+      const ICON_W=108, ICON_H=104;  // tamaño aproximado de un icono (padding incluido)
+      const GRID_COLS=8;             // columnas para modo grid
+      const SNAP=1;                  // snapping en px (1 = sin snap)
+
+      /* ── Utilidades ── */
+      function getKernel(){return window.Kernel;}
+      function isProtected(path){return path==='/system'||path.startsWith('/system/');}
+      function getClipboardPaths(){return getKernel()?.clipboard.get().paths||[];}
+
+      function setSelection(paths,activePath=null){
+        _selected=new Set(paths);
+        _activePath=activePath||(paths.length===1?paths[0]:null);
+        applySelectionVisuals();
+      }
+      function addToSelection(path){
+        _selected.add(path);
+        if(_selected.size===1)_activePath=path;
+        applySelectionVisuals();
+      }
+      function removeFromSelection(path){
+        _selected.delete(path);
+        if(_activePath===path)_activePath=_selected.size?_selected.values().next().value:null;
+        applySelectionVisuals();
+      }
+      function clearSelection(){
+        _selected.clear(); _activePath=null; applySelectionVisuals();
+      }
+      function toggleSelection(path){
+        if(_selected.has(path))removeFromSelection(path);
+        else addToSelection(path);
+      }
+      function applySelectionVisuals(){
+        document.querySelectorAll('.desktop-icon').forEach(d=>{
+          const p=d.dataset.path;
+          d.classList.toggle('selected',_selected.has(p));
+          d.classList.toggle('active',p===_activePath);
+        });
+      }
+      function getSelectedPaths(){
+        return _selected.size?Array.from(_selected):(_activePath?[_activePath]:[]);
+      }
+
+      /* ── Persistencia de posiciones (modo manual) ── */
+      async function saveIconPositions(){
+        const K=getKernel(); if(!K?.prefs)return;
+        try{ await K.prefs.set('desktop.iconPositions',_iconPositions); }catch(e){}
+      }
+      async function loadIconPositions(){
+        const K=getKernel(); if(!K?.prefs)return;
+        try{ _iconPositions=(await K.prefs.get('desktop.iconPositions'))||{}; }catch(e){ _iconPositions={}; }
+      }
+      async function saveLayoutMode(){
+        const K=getKernel(); if(!K?.prefs)return;
+        try{ await K.prefs.set('desktop.layoutMode',_layoutMode); }catch(e){}
+      }
+      async function loadLayoutMode(){
+        const K=getKernel(); if(!K?.prefs)return;
+        try{ _layoutMode=(await K.prefs.get('desktop.layoutMode'))||'auto'; }catch(e){ _layoutMode='auto'; }
+      }
+
+      /* ── Modo de organización ── */
+function applyLayoutMode(mode){
+        _layoutMode=mode;
+        iconsEl.classList.toggle('manual-layout',mode==='manual');
+        iconsEl.classList.toggle('grid-layout',mode==='grid');
+        if(mode==='manual'){
+          // Si un icono no tiene posición guardada (nuevo), se le asigna
+          // el primer hueco libre en vez de colapsar en (0,0).
+          const used=Object.values(_iconPositions);
+          const occupies=(x,y)=>used.some(p=>Math.abs(p.x-x)<ICON_W*0.6&&Math.abs(p.y-y)<ICON_H*0.6);
+          let changed=false;
+          document.querySelectorAll('.desktop-icon').forEach(d=>{
+            const p=d.dataset.path;
+            let pos=_iconPositions[p];
+            if(!pos){
+              let col=0,row=0,x,y;
+              do{
+                x=18+col*(ICON_W+10); y=18+row*(ICON_H+8);
+                col++; if(col>=GRID_COLS){col=0;row++;}
+              }while(occupies(x,y));
+              pos={x,y}; _iconPositions[p]=pos; used.push(pos); changed=true;
+            }
+            d.style.left=pos.x+'px'; d.style.top=pos.y+'px';
+          });
+          if(changed)saveIconPositions();
+        } else {
+          document.querySelectorAll('.desktop-icon').forEach(d=>{
+            d.style.left=''; d.style.top='';
+          });
+        }
+        saveLayoutMode();
+      }
+      function autoArrange(){
+        // Reorganiza todos los iconos en una cuadrícula ajustada
+        const icons=Array.from(document.querySelectorAll('.desktop-icon'));
+        const cols=GRID_COLS;
+        const startX=18, startY=18;
+        const gapX=10, gapY=8;
+        icons.forEach((d,i)=>{
+          const col=i%cols, row=Math.floor(i/cols);
+          const x=startX+col*(ICON_W+gapX);
+          const y=startY+row*(ICON_H+gapY);
+          _iconPositions[d.dataset.path]={x,y};
+          d.style.left=x+'px'; d.style.top=y+'px';
+        });
+        saveIconPositions();
+      }
+
+      /* ── Renombrado in-line ── */
+      function startRename(iconEl, item){
+        const labelEl=iconEl.querySelector('.label');
+        if(!labelEl)return;
+        const oldName=item.name||item.id.split('/').pop();
+        const input=document.createElement('input');
+        input.className='label-input';
+        input.value=oldName;
+        input.spellcheck=false;
+        input.autocomplete='off';
+        labelEl.replaceWith(input);
+        input.focus(); input.select();
+
+        let committed=false;
+        async function commit(){
+          if(committed)return; committed=true;
+          const newName=input.value.trim();
+          if(!newName||newName===oldName){ input.replaceWith(labelEl); return; }
+          const K=getKernel();
+          const parent=item.id.substring(0,item.id.lastIndexOf('/'))||'/';
+          const newPath=`${parent}/${newName.replace(/[/\\]/g,'')}`;
+          if(newPath===item.id){ input.replaceWith(labelEl); return; }
+          try{
+            if(await K.fs.exists(newPath)){ Toast.show(`Ya existe "${newName}"`,'warn'); input.replaceWith(labelEl); return; }
+            await K.fs.move(item.id,newPath);
+            Toast.show('Renombrado','ok');
+          }catch(err){ Toast.show(err.message||'No se pudo renombrar','error'); input.replaceWith(labelEl); }
+        }
+        function cancel(){ if(committed)return; committed=true; input.replaceWith(labelEl); }
+        input.addEventListener('keydown',e=>{
+          e.stopPropagation();
+          if(e.key==='Enter')commit();
+          else if(e.key==='Escape')cancel();
+        });
+        input.addEventListener('blur',commit);
+        input.addEventListener('click',e=>e.stopPropagation());
+        input.addEventListener('dblclick',e=>e.stopPropagation());
+        input.addEventListener('contextmenu',e=>e.stopPropagation());
+      }
+
+      /* ── Portapapeles del escritorio ── */
+      function copyToClipboard(paths){
+        const K=getKernel(); if(!K)return;
+        K.clipboard.copy(paths);
+        Toast.show(`${paths.length} elemento(s) copiado(s)`,'info');
+      }
+      function cutToClipboard(paths){
+        const K=getKernel(); if(!K)return;
+        K.clipboard.cut(paths);
+        Toast.show(`${paths.length} elemento(s) cortado(s)`,'info');
+      }
+      async function pasteFromClipboard(){
+        const K=getKernel(); if(!K)return;
+        if(!getClipboardPaths().length){ Toast.show('Portapapeles vacío','info'); return; }
+        const {count}=await K.clipboard.paste('/home/desktop');
+        if(count)Toast.show(`${count} elemento(s) pegado(s)`,'ok');
+        else Toast.show('No se pegó ningún elemento (¿ya existía?)','warn');
+        await refreshDesktop();
+      }
+
+      /* ── Eliminar (con confirmación si >1) ── */
+      async function deleteItems(paths){
+        if(!paths.length)return;
+        const K=getKernel(); if(!K)return;
+        const protectedPaths=paths.filter(isProtected);
+        const deletable=paths.filter(p=>!isProtected(p));
+        if(protectedPaths.length)Toast.show(`${protectedPaths.length} elemento(s) protegido(s) del sistema`,'warn');
+        if(!deletable.length)return;
+        if(deletable.length>1){
+          const ok=await Dialog.confirm(`¿Eliminar ${deletable.length} elementos? Esta acción no se puede deshacer.`);
+          if(!ok)return;
+        }
+        let count=0;
+        for(const p of deletable){
+          try{ await K.fs.remove(p); count++; }
+          catch(err){ Toast.show(`Error: ${err.message||err}`,'error'); }
+        }
+        if(count)Toast.show(`${count} elemento(s) eliminado(s)`,'ok');
+        clearSelection();
+        await refreshDesktop();
+      }
+
+      /* ── Renderizado desde FS ── */
       function renderFromFs(items){
         iconsEl.innerHTML='';
         const entries=[...items].sort((a,b)=>{
+          if(_sortBy==='date')return (b.mtime||0)-(a.mtime||0);
+          if(_sortBy==='name')return (a.name||'').localeCompare(b.name||'');
           if(a.type!==b.type)return a.type==='dir'?-1:1;
           return (a.name||'').localeCompare(b.name||'');
         });
@@ -2035,16 +2524,37 @@ const pidRef={pid};
     const isExe=!isShortcut && item.type==='file' && (item.name||'').endsWith('.exe') && !!item.meta?.appId;
     const ic=document.createElement('div'); ic.className='desktop-icon';
     ic.dataset.path=item.id;
-const icon = item.meta?.icon || item.icon || (isShortcut ? '🔗' : isExe ? '⚙' : (item.type==='dir' ? '📁' : '📄'));
+const icon = item.meta?.icon || item.icon || (isShortcut ? '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 16.5l-1.8 1.8a3.5 3.5 0 01-5-5L4 10.5"/><path d="M16 7.5l1.8-1.8a3.5 3.5 0 015 5L20 13.5"/></svg>' : isExe ? '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.2-1.6l2-1.4-2-3.4-2.3.8a7 7 0 00-2.7-1.6L13.4 2h-2.8l-.4 2.8a7 7 0 00-2.7 1.6l-2.3-.8-2 3.4 2 1.4A7 7 0 005 12c0 .5 0 1 .1 1.6l-2 1.4 2 3.4 2.3-.8a7 7 0 002.7 1.6l.4 2.8h2.8l.4-2.8a7 7 0 002.7-1.6l2.3.8 2-3.4-2-1.4c.1-.6.1-1.1.1-1.6z"/></svg>' : (item.type==='dir' ? '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a1 1 0 011-1h5l2 2h9a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V7z"/></svg>' : '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2.5h7l4 4V21a.5.5 0 01-.5.5h-11A.5.5 0 016 21V3a.5.5 0 011-.5z"/><path d="M14 2.5V7h4.5"/></svg>'));
     const label = (isExe && item.meta?.displayName) ? item.meta.displayName : (item.name || item.id.split('/').pop());
     const safeLabel = escapeHtml(label);
-    ic.innerHTML=`<span class="icon-wrap"><span class="icon">${icon}</span>${isShortcut?'<span class="shortcut-badge">⚡</span>':''}</span><span class="label">${safeLabel}</span>`;
-    ic.addEventListener('dblclick',async()=>{
+    const iconMarkup = Kernel.icons.render(icon);
+    ic.innerHTML=`<span class="icon-wrap"><span class="icon">${iconMarkup}</span>${isShortcut?'<span class="shortcut-badge"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg></span>':''}</span><span class="label">${safeLabel}</span>`;
+
+    /* ── Click: selección ── */
+    ic.addEventListener('click',e=>{
+      e.stopPropagation();
+      if(e.ctrlKey||e.metaKey){ toggleSelection(item.id); }
+      else if(e.shiftKey&&_activePath){
+        // Selección por rango: desde el activo hasta este
+        const allPaths=Array.from(document.querySelectorAll('.desktop-icon')).map(d=>d.dataset.path);
+        const i1=allPaths.indexOf(_activePath);
+        const i2=allPaths.indexOf(item.id);
+        if(i1>=0&&i2>=0){
+          const [lo,hi]=[Math.min(i1,i2),Math.max(i1,i2)];
+          setSelection(allPaths.slice(lo,hi+1),_activePath);
+        } else { setSelection([item.id]); }
+      }
+      else { setSelection([item.id]); }
+    });
+
+    /* ── Doble click: abrir ── */
+    ic.addEventListener('dblclick',async(e)=>{
+      e.stopPropagation();
       if(isShortcut||isExe){
         const appId=item.meta?.appId;
         if(appId){
-          const app=await window.Kernel?.apps?.get(appId);
-          if(app)launchApp(app);
+          const app=await getKernel()?.apps?.get(appId);
+          if(app)launchApp(app,{filePath:item.meta?.filePath||undefined,startPath:item.meta?.startPath||undefined});
           else Toast.show(`${isShortcut?'Acceso':'Ejecutable'} "${label}" no disponible`,'warn');
         }
         return;
@@ -2053,56 +2563,349 @@ const icon = item.meta?.icon || item.icon || (isShortcut ? '🔗' : isExe ? '⚙
         Toast.show(`Abrir carpeta ${label}`,'info');
         return;
       }
-      if(window.Kernel?.openFile){
-        const result=await window.Kernel.openFile(item.id);
+      if(getKernel()?.openFile){
+        const result=await getKernel().openFile(item.id);
         if(!result?.ok) Toast.show('No hay app asociada para este archivo','info');
       }
     });
-          ic.addEventListener('click',()=>{
-            document.querySelectorAll('.desktop-icon').forEach(d=>d.classList.remove('active'));
-            ic.classList.add('active');
-          });
-          ic.addEventListener('contextmenu',e=>{
-            e.preventDefault();
-            const actions=[{icon:icon,text:`Abrir ${safeLabel}`,action:async()=>{
-              if(isShortcut){
-                const appId=item.meta?.appId;
-                if(appId)window.Kernel?.apps?.get(appId).then(app=>app&&launchApp(app));
-                return;
-              }
-              if(window.Kernel?.openFile){
-                const result=await window.Kernel.openFile(item.id);
-                if(!result?.ok) Toast.show('No hay app asociada para este archivo','info');
-              }
-            }}];
-            const protectedNode = item.id === '/system' || item.id.startsWith('/system/');
-            if (!protectedNode) {
-              actions.push({icon:'🗑',text:'Eliminar',action:async()=>{try{await Kernel.fs.remove(item.id);await refreshDesktop();}catch(err){Toast.show(err.message||'No se pudo eliminar','error');}}});
-            } else {
-              actions.push({icon:'🛡',text:'Protegido del sistema',action:()=>Toast.show('Este elemento está protegido','info')});
-            }
-            CtxMenu.show(e.clientX,e.clientY,actions);
-          });
+
+    /* ── Menú contextual del icono ── */
+    ic.addEventListener('contextmenu',e=>{
+      e.preventDefault(); e.stopPropagation();
+      // Si el icono no estaba seleccionado, seleccionar solo este
+      if(!_selected.has(item.id))setSelection([item.id]);
+      showIconContextMenu(e.clientX,e.clientY,item);
+    });
+
+    /* ── Arrastre de iconos (modo manual) ── */
+    ic.addEventListener('mousedown',e=>{
+      if(e.button!==0)return;
+      // No iniciar drag si el click fue en el input de renombrado
+      if(e.target.classList.contains('label-input'))return;
+      e.preventDefault();
+      startIconDrag(e,ic,item);
+    });
+
           iconsEl.appendChild(ic);
         });
+
+        // Re-aplicar modo de layout tras render
+        applyLayoutMode(_layoutMode);
+        // Re-aplicar selección visual
+        applySelectionVisuals();
       }
 
-      async function refreshDesktop(){
-        if(!window.Kernel?.isReady)return;
-        try{
-          const items=await window.Kernel.fs.readdir('/home/desktop');
-          renderFromFs(items);
-        }catch(err){
-          console.warn('[shell:desktop] no se pudo actualizar',err);
-          renderFromFs([]);
+      /* ── Arrastre de iconos ── */
+      function startIconDrag(e,iconEl,item){
+        const startX=e.clientX, startY=e.clientY;
+        const rect=iconEl.getBoundingClientRect();
+        const offsetX=startX-rect.left;
+        const offsetY=startY-rect.top;
+        const desktopRect=desktop.getBoundingClientRect();
+        let moved=false;
+        let ghost=null;
+        const paths=getSelectedPaths().length?getSelectedPaths():[item.id];
+
+        function onMove(ev){
+          const dx=ev.clientX-startX, dy=ev.clientY-startY;
+          if(!moved && Math.hypot(dx,dy)<4)return; // umbral
+          if(!moved){
+            moved=true;
+            // Al arrastrar, si no estábamos en modo manual, capturamos la
+            // posición actual en pantalla de TODOS los iconos y pasamos a
+            // manual, para que nada salte de lugar al soltar.
+            if(_layoutMode!=='manual'){
+              const dRect=desktop.getBoundingClientRect();
+              document.querySelectorAll('.desktop-icon').forEach(d=>{
+                const r=d.getBoundingClientRect();
+                _iconPositions[d.dataset.path]={x:r.left-dRect.left,y:r.top-dRect.top};
+              });
+              applyLayoutMode('manual');
+            }
+            desktop.classList.add('icon-dragging');
+            iconEl.classList.add('dragging');
+            // Crear ghost
+            ghost=iconEl.cloneNode(true);
+            ghost.classList.add('drag-ghost');
+            ghost.classList.remove('dragging');
+            ghost.style.width=rect.width+'px';
+            document.body.appendChild(ghost);
+          }
+          if(ghost){
+            ghost.style.left=(ev.clientX-offsetX)+'px';
+            ghost.style.top=(ev.clientY-offsetY)+'px';
+          }
+        }
+        function onUp(ev){
+          document.removeEventListener('mousemove',onMove);
+          document.removeEventListener('mouseup',onUp);
+          desktop.classList.remove('icon-dragging');
+          iconEl.classList.remove('dragging');
+          if(ghost){ghost.remove();ghost=null;}
+          if(!moved)return;
+
+          // Calcular nueva posición relativa al desktop
+          const desktopRect2=desktop.getBoundingClientRect();
+          let nx=ev.clientX-desktopRect2.left-offsetX;
+          let ny=ev.clientY-desktopRect2.top-offsetY;
+          // Clamp dentro del escritorio
+          nx=Math.max(0,Math.min(nx,desktopRect2.width-ICON_W));
+          ny=Math.max(0,Math.min(ny,desktopRect2.height-ICON_H));
+          // Snap
+          nx=Math.round(nx/SNAP)*SNAP;
+          ny=Math.round(ny/SNAP)*SNAP;
+
+          if(paths.length===1){
+            _iconPositions[paths[0]]={x:nx,y:ny};
+            iconEl.style.left=nx+'px';
+            iconEl.style.top=ny+'px';
+          } else {
+            // Mover todos los seleccionados manteniendo offset relativo
+            const baseRect=iconEl.getBoundingClientRect();
+            const baseDx=baseRect.left-desktopRect2.left;
+            const baseDy=baseRect.top-desktopRect2.top;
+            paths.forEach(p=>{
+              const d=document.querySelector(`.desktop-icon[data-path="${CSS.escape(p)}"]`);
+              if(!d)return;
+              const dRect=d.getBoundingClientRect();
+              const oldX=dRect.left-desktopRect2.left;
+              const oldY=dRect.top-desktopRect2.top;
+              const relX=oldX-baseDx, relY=oldY-baseDy;
+              const fx=nx+relX, fy=ny+relY;
+              _iconPositions[p]={x:Math.max(0,fx),y:Math.max(0,fy)};
+              d.style.left=Math.max(0,fx)+'px';
+              d.style.top=Math.max(0,fy)+'px';
+            });
+          }
+          saveIconPositions();
+        }
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+      }
+
+      /* ── Menú contextual del icono ── */
+      function showIconContextMenu(x,y,item){
+        const protectedNode=isProtected(item.id);
+        const selPaths=getSelectedPaths();
+        const multi=selPaths.length>1;
+
+        const actions=[
+          {label: multi?`${selPaths.length} elementos`:'ELEMENTO'},
+        ];
+
+const isShortcutCtx=item.type==='shortcut'||item.meta?.isDesktopShortcut;
+        const isExeCtx=!isShortcutCtx&&item.type==='file'&&(item.name||'').endsWith('.exe')&&!!item.meta?.appId;
+        const isRunnable=isShortcutCtx||isExeCtx;
+
+        if(!multi){
+          actions.push({icon:iconForItem(item),text:isRunnable?'Ejecutar':'Abrir',action:async()=>{
+            await openItem(item);
+          }});
+          if(!isRunnable&&item.type!=='dir'){
+            actions.push({icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>',text:'Abrir con…',action:()=>showOpenWithMenu(item)});
+          }
+        } else {
+          actions.push({icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a1 1 0 011-1h5l2 2h9a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V7z"/></svg>',text:`Abrir ${selPaths.length} elementos`,disabled:true});
+        }
+
+        actions.push('sep');
+
+        actions.push({icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="1.5"/><path d="M9 4V3a1 1 0 011-1h4a1 1 0 011 1v1"/><path d="M9 11h6M9 15h6"/></svg>',text:'Copiar',shortcut:'Ctrl+C',disabled:protectedNode,action:()=>copyToClipboard(selPaths.filter(p=>!isProtected(p)))});
+        actions.push({icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><path d="M7.8 7.5L20 19M7.8 16.5L20 5"/></svg>',text:'Cortar',shortcut:'Ctrl+X',disabled:protectedNode,action:()=>cutToClipboard(selPaths.filter(p=>!isProtected(p)))});
+        actions.push({icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 3.5h6v2H9z"/><path d="M9 12l3 3 3-3M12 9v6"/></svg>',text:'Pegar',shortcut:'Ctrl+V',disabled:!getClipboardPaths().length,action:()=>pasteFromClipboard()});
+
+        actions.push('sep');
+
+        if(!multi&&!protectedNode){
+          actions.push({icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg>',text:'Renombrar',shortcut:'F2',action:()=>{
+            const d=document.querySelector(`.desktop-icon[data-path="${CSS.escape(item.id)}"]`);
+            if(d)startRename(d,item);
+          }});
+        }
+
+        if(!protectedNode){
+          actions.push({icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3M6 7l1 13a1 1 0 001 1h8a1 1 0 001-1l1-13"/><path d="M10 11v6M14 11v6"/></svg>',text:multi?`Eliminar ${selPaths.length}`:'Eliminar',shortcut:'Del',danger:true,action:()=>deleteItems(selPaths)});
+        } else {
+          actions.push({icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4.5"/></svg>',text:'Protegido del sistema',disabled:true});
+        }
+
+        actions.push('sep');
+
+        actions.push({icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 16.5l-1.8 1.8a3.5 3.5 0 01-5-5L4 10.5"/><path d="M16 7.5l1.8-1.8a3.5 3.5 0 015 5L20 13.5"/></svg>',text:multi?`Crear ${selPaths.length} accesos directos`:'Crear acceso directo',action:()=>createShortcutsFor(selPaths.filter(p=>!isProtected(p)))});
+
+        actions.push('sep');
+
+        actions.push({icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.7" r="0.9" fill="currentColor" stroke="none"/></svg>',text:'Propiedades',action:async()=>{
+          const K=getKernel(); if(!K)return;
+          try{
+            const stat=await K.fs.stat(item.id);
+            const size=stat.size||0;
+            const type=stat.type==='dir'?'Carpeta':stat.encoding==='binary'?'Archivo binario':'Archivo de texto';
+            Toast.show(`${type} · ${size} bytes`,'info','PROPIEDADES');
+          }catch(e){ Toast.show('No se pudo obtener info','error'); }
+        }});
+
+        CtxMenu.show(x,y,actions);
+      }
+
+      function iconForItem(item){
+        const isShortcut=item.type==='shortcut'||item.meta?.isDesktopShortcut;
+        const isExe=!isShortcut&&item.type==='file'&&(item.name||'').endsWith('.exe')&&!!item.meta?.appId;
+        return isShortcut?'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 16.5l-1.8 1.8a3.5 3.5 0 01-5-5L4 10.5"/><path d="M16 7.5l1.8-1.8a3.5 3.5 0 015 5L20 13.5"/></svg>':isExe?'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.2-1.6l2-1.4-2-3.4-2.3.8a7 7 0 00-2.7-1.6L13.4 2h-2.8l-.4 2.8a7 7 0 00-2.7 1.6l-2.3-.8-2 3.4 2 1.4A7 7 0 005 12c0 .5 0 1 .1 1.6l-2 1.4 2 3.4 2.3-.8a7 7 0 002.7 1.6l.4 2.8h2.8l.4-2.8a7 7 0 002.7-1.6l2.3.8 2-3.4-2-1.4c.1-.6.1-1.1.1-1.6z"/></svg>':item.type==='dir'?'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a1 1 0 011-1h5l2 2h9a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V7z"/></svg>':'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2.5h7l4 4V21a.5.5 0 01-.5.5h-11A.5.5 0 016 21V3a.5.5 0 011-.5z"/><path d="M14 2.5V7h4.5"/></svg>';
+      }
+
+      /* ── Abrir con… ── */
+      async function showOpenWithMenu(item){
+        const K=getKernel(); if(!K)return;
+        const apps=await K.apps.list();
+        if(!apps.length){ Toast.show('No hay apps registradas','info'); return; }
+        const options=apps.map(app=>({
+          icon:app.icon||'▪', text:app.name||app.id,
+          action:()=>{ window.__wos.launch(app.id,{filePath:item.id,startPath:K.fs.dirname(item.id)}); },
+        }));
+        const rect=document.querySelector(`.desktop-icon[data-path="${CSS.escape(item.id)}"]`)?.getBoundingClientRect();
+        const x=rect?rect.right+8:120, y=rect?rect.top:120;
+        CtxMenu.show(x,y,[{label:'ABRIR CON…'}, ...options]);
+      }
+
+      /* ── Crear acceso directo (funciona también como "pegar acceso directo") ── */
+      async function createShortcutsFor(paths){
+        const K=getKernel(); if(!K||!paths.length)return;
+        let count=0;
+        for(const p of paths){
+          try{
+            const item=await K.fs.stat(p);
+            if(!item)continue;
+            const isShortcut=item.type==='shortcut'||item.meta?.isDesktopShortcut;
+            const isExe=!isShortcut&&item.type==='file'&&(item.name||'').endsWith('.exe')&&!!item.meta?.appId;
+            let appId,entry=null,filePath=null,startPath=null;
+            const icon=item.meta?.icon||item.icon||iconForItem(item);
+            const name=item.name||p.split('/').pop();
+            if(isShortcut||isExe){
+              appId=item.meta?.appId; entry=item.meta?.entry||null;
+            } else if(item.type==='dir'){
+              appId='files'; startPath=p;
+            } else {
+              const ext=K.extensions.getExtension(p);
+              const resolved=K.extensions.resolve(ext);
+              if(!resolved){ Toast.show(`Sin app asociada a "${name}"`,'warn'); continue; }
+              appId=resolved.handler; filePath=p;
+            }
+            if(!appId){ Toast.show(`No se pudo crear acceso a "${name}"`,'warn'); continue; }
+            let target=`/home/desktop/${name} - acceso directo`;
+            let n=1;
+            while(await K.fs.exists(target)){ target=`/home/desktop/${name} - acceso directo (${++n})`; }
+            await K.fs.createShortcut(target,{
+              appId, name, icon, entry,
+              metadata:{isDesktopShortcut:true,protected:false,systemApp:false,filePath,startPath},
+            });
+            count++;
+          }catch(err){ Toast.show(err.message||'No se pudo crear el acceso directo','error'); }
+        }
+        if(count)Toast.show(`${count} acceso(s) directo(s) creado(s)`,'ok');
+        await refreshDesktop();
+      }
+
+      /* ── Orden y tamaño de vista ── */
+      function sortIcon(v){ return _sortBy===v?'✓':'▫'; }
+      function iconSizeIcon(v){ return _iconSize===v?'✓':'▫'; }
+      async function applySortBy(by){
+        _sortBy=by; await saveSortBy();
+        if(_layoutMode==='manual'){ _iconPositions={}; await saveIconPositions(); }
+        await refreshDesktop();
+      }
+      async function applyIconSize(size){
+        _iconSize=size; iconsEl.dataset.iconSize=size; await saveIconSize();
+      }
+      async function saveSortBy(){ const K=getKernel(); if(!K?.prefs)return; try{await K.prefs.set('desktop.sortBy',_sortBy);}catch(e){} }
+      async function loadSortBy(){ const K=getKernel(); if(!K?.prefs)return; try{ _sortBy=(await K.prefs.get('desktop.sortBy'))||'type'; }catch(e){ _sortBy='type'; } }
+      async function saveIconSize(){ const K=getKernel(); if(!K?.prefs)return; try{await K.prefs.set('desktop.iconSize',_iconSize);}catch(e){} }
+      async function loadIconSize(){ const K=getKernel(); if(!K?.prefs)return; try{ _iconSize=(await K.prefs.get('desktop.iconSize'))||'md'; }catch(e){ _iconSize='md'; } }
+
+      async function openItem(item){
+        const isShortcut=item.type==='shortcut'||item.meta?.isDesktopShortcut;
+        const isExe=!isShortcut&&item.type==='file'&&(item.name||'').endsWith('.exe')&&!!item.meta?.appId;
+        if(isShortcut||isExe){
+          const appId=item.meta?.appId;
+          if(appId){
+            const app=await getKernel()?.apps?.get(appId);
+            if(app)launchApp(app,{filePath:item.meta?.filePath||undefined,startPath:item.meta?.startPath||undefined});
+            else Toast.show('No disponible','warn');
+          }
+          return;
+        }
+        if(item.type==='dir'){ Toast.show(`Abrir carpeta ${item.name||item.id}`,'info'); return; }
+        if(getKernel()?.openFile){
+          const result=await getKernel().openFile(item.id);
+          if(!result?.ok)Toast.show('No hay app asociada','info');
         }
       }
-      desktop.addEventListener('contextmenu',e=>{
-        if(e.target!==desktop&&!e.target.closest('#desktop-icons')&&!e.target.classList.contains('drop-zone-hint'))return;
-        e.preventDefault();
-        CtxMenu.show(e.clientX,e.clientY,[
+
+      /* ── Rectángulo de selección (marquee) ── */
+      function startMarquee(e){
+        // Solo en el fondo del escritorio, no en iconos
+        if(e.target!==desktop&&!e.target.classList.contains('drop-zone-hint'))return;
+        if(e.button!==0)return;
+        _marqueeStart={x:e.clientX,y:e.clientY};
+        const rect=desktop.getBoundingClientRect();
+        _marqueeEl=document.createElement('div');
+        _marqueeEl.id='desktop-marquee';
+        _marqueeEl.style.left=e.clientX-rect.left+'px';
+        _marqueeEl.style.top=e.clientY-rect.top+'px';
+        _marqueeEl.style.width='0px';
+        _marqueeEl.style.height='0px';
+        desktop.appendChild(_marqueeEl);
+        desktop.classList.add('marquee-active');
+
+        // Si no hay Ctrl, limpiar selección al empezar
+        if(!e.ctrlKey&&!e.shiftKey)clearSelection();
+
+        function onMove(ev){
+          if(!_marqueeStart)return;
+          const rect2=desktop.getBoundingClientRect();
+          const x1=_marqueeStart.x-rect2.left;
+          const y1=_marqueeStart.y-rect2.top;
+          const x2=ev.clientX-rect2.left;
+          const y2=ev.clientY-rect2.top;
+          const left=Math.min(x1,x2), top=Math.min(y1,y2);
+          const w=Math.abs(x2-x1), h=Math.abs(y2-y1);
+          _marqueeEl.style.left=left+'px';
+          _marqueeEl.style.top=top+'px';
+          _marqueeEl.style.width=w+'px';
+          _marqueeEl.style.height=h+'px';
+
+          // Intersectar con iconos
+          document.querySelectorAll('.desktop-icon').forEach(d=>{
+            const dr=d.getBoundingClientRect();
+            const dx=dr.left-rect2.left, dy=dr.top-rect2.top;
+            const dw=dr.width, dh=dr.height;
+            const intersects=left<dx+dw&&left+w>dx&&top<dy+dh&&top+h>dy;
+            if(intersects){ _selected.add(d.dataset.path); }
+            else if(!e.ctrlKey){ _selected.delete(d.dataset.path); }
+          });
+          applySelectionVisuals();
+        }
+        function onUp(){
+          document.removeEventListener('mousemove',onMove);
+          document.removeEventListener('mouseup',onUp);
+          desktop.classList.remove('marquee-active');
+          if(_marqueeEl){_marqueeEl.remove();_marqueeEl=null;}
+          // Si solo hay un icono seleccionado, establecerlo como activo
+          if(_selected.size===1)_activePath=_selected.values().next().value;
+          applySelectionVisuals();
+          _marqueeStart=null;
+        }
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+      }
+
+      /* ── Menú contextual del escritorio ── */
+      function showDesktopContextMenu(x,y){
+        const selPaths=getSelectedPaths();
+        const hasClipboard=getClipboardPaths().length>0;
+        CtxMenu.show(x,y,[
           {label:'ESCRITORIO'},
-{icon:'📁',text:'Nueva carpeta',action:async()=>{
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a1 1 0 011-1h5l2 2h9a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V7z"/></svg>',text:'Nueva carpeta',action:async()=>{
             const name=await Dialog.prompt('Nombre de la carpeta:',{placeholder:'mi_carpeta',title:'Nueva carpeta'});
             if(!name)return;
             const target=`/home/${name.replace(/[/\\]/g,'')}`;
@@ -2112,7 +2915,7 @@ const icon = item.meta?.icon || item.icon || (isShortcut ? '🔗' : isExe ? '⚙
             }
             catch(err){Toast.show(err.message||'No se pudo crear la carpeta','error');}
           }},
-{icon:'📄',text:'Nuevo archivo',action:async()=>{
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2.5h7l4 4V21a.5.5 0 01-.5.5h-11A.5.5 0 016 21V3a.5.5 0 011-.5z"/><path d="M14 2.5V7h4.5"/></svg>',text:'Nuevo archivo',action:async()=>{
             const name=await Dialog.prompt('Nombre del archivo:',{placeholder:'documento.txt',title:'Nuevo archivo'});
             if(!name)return;
             const target=`/home/docs/${name.replace(/[/\\]/g,'')}`;
@@ -2126,18 +2929,102 @@ const icon = item.meta?.icon || item.icon || (isShortcut ? '🔗' : isExe ? '⚙
               Toast.show(msg,'error');
             }
           }},
-          {icon:'⌨',text:'Abrir Terminal',action:()=>window.__wos.launch('terminal',{})},
-          {icon:'�',text:'Bloquear pantalla',action:()=>{if(window.__wos_lock)window.__wos_lock();}},
-          {icon:'�🔄',text:'Actualizar escritorio',action:()=>refreshDesktop().catch(()=>{})},
           'sep',
-          {icon:'⚙️',text:'Preferencias del sistema',action:()=>openPrefsWindow()},
-          {icon:'📋',text:'Información del sistema',action:()=>openSysInfoWindow()},
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 3.5h6v2H9z"/><path d="M9 12l3 3 3-3M12 9v6"/></svg>',text:'Pegar',shortcut:'Ctrl+V',disabled:!hasClipboard,action:()=>pasteFromClipboard()},
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 16.5l-1.8 1.8a3.5 3.5 0 01-5-5L4 10.5"/><path d="M16 7.5l1.8-1.8a3.5 3.5 0 015 5L20 13.5"/></svg>',text:'Pegar acceso directo',disabled:!hasClipboard,action:()=>createShortcutsFor(getClipboardPaths())},
+          'sep',
+{icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg>',text:'Organizar iconos',action:()=>{
+            if(_layoutMode==='manual')autoArrange();
+            else Toast.show('Cambia a modo manual para organizar','info');
+          }},
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg>',text:'Modo: '+layoutLabel(_layoutMode),action:()=>cycleLayoutMode()},
+          {label:'ORDENAR POR'},
+          {icon:sortIcon('name'),text:'Nombre',action:()=>applySortBy('name')},
+          {icon:sortIcon('type'),text:'Tipo',action:()=>applySortBy('type')},
+          {icon:sortIcon('date'),text:'Fecha de modificación',action:()=>applySortBy('date')},
+          {label:'VISTA'},
+          {icon:iconSizeIcon('sm'),text:'Iconos pequeños',action:()=>applyIconSize('sm')},
+          {icon:iconSizeIcon('md'),text:'Iconos normales',action:()=>applyIconSize('md')},
+          {icon:iconSizeIcon('lg'),text:'Iconos grandes',action:()=>applyIconSize('lg')},
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 5v6h-6"/></svg>',text:'Actualizar escritorio',action:()=>refreshDesktop().catch(()=>{})},
+          'sep',
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M7 9l3 3-3 3M12 15h5"/></svg>',text:'Abrir Terminal',action:()=>window.__wos.launch('terminal',{})},
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V7a4 4 0 018 0v4"/><path d="M12 15v3"/></svg>',text:'Bloquear pantalla',action:()=>{if(window.__wos_lock)window.__wos_lock();}},
+          'sep',
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.2-1.6l2-1.4-2-3.4-2.3.8a7 7 0 00-2.7-1.6L13.4 2h-2.8l-.4 2.8a7 7 0 00-2.7 1.6l-2.3-.8-2 3.4 2 1.4A7 7 0 005 12c0 .5 0 1 .1 1.6l-2 1.4 2 3.4 2.3-.8a7 7 0 002.7 1.6l.4 2.8h2.8l.4-2.8a7 7 0 002.7-1.6l2.3.8 2-3.4-2-1.4c.1-.6.1-1.1.1-1.6z"/></svg>',text:'Preferencias del sistema',action:()=>openPrefsWindow()},
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.7" r="0.9" fill="currentColor" stroke="none"/></svg>',text:'Información del sistema',action:()=>openSysInfoWindow()},
         ]);
+      }
+      function layoutLabel(m){return m==='manual'?'Manual':m==='grid'?'Cuadrícula':'Automático';}
+      function cycleLayoutMode(){
+        const modes=['auto','grid','manual'];
+        const idx=modes.indexOf(_layoutMode);
+        const next=modes[(idx+1)%modes.length];
+        applyLayoutMode(next);
+        if(next==='manual')autoArrange();
+        Toast.show(`Layout: ${layoutLabel(next)}`,'info');
+      }
+
+      /* ── Atajos de teclado del escritorio ── */
+      function handleDesktopKeydown(e){
+        // Solo si el foco está en el escritorio (no en inputs ni en ventanas)
+        const tag=e.target.tagName;
+        if(tag==='INPUT'||tag==='TEXTAREA')return;
+        // Si hay ventanas con iframes enfocadas, no interferir
+        if(document.activeElement&&document.activeElement.tagName==='IFRAME')return;
+
+        const selPaths=getSelectedPaths();
+        const ctrl=e.ctrlKey||e.metaKey;
+
+        if(ctrl&&e.key==='c'&&selPaths.length){e.preventDefault();copyToClipboard(selPaths.filter(p=>!isProtected(p)));}
+        else if(ctrl&&e.key==='x'&&selPaths.length){e.preventDefault();cutToClipboard(selPaths.filter(p=>!isProtected(p)));}
+        else if(ctrl&&e.key==='v'&&getClipboardPaths().length){e.preventDefault();pasteFromClipboard();}
+        else if(e.key==='Delete'&&selPaths.length){e.preventDefault();deleteItems(selPaths);}
+        else if(e.key==='F2'&&selPaths.length===1){
+          e.preventDefault();
+          const d=document.querySelector(`.desktop-icon[data-path="${CSS.escape(selPaths[0])}"]`);
+          if(d){ const item={id:selPaths[0],name:d.querySelector('.label')?.textContent}; startRename(d,item); }
+        }
+        else if(e.key==='a'&&ctrl){e.preventDefault();setSelection(Array.from(document.querySelectorAll('.desktop-icon')).map(d=>d.dataset.path));}
+        else if(e.key==='Escape'){clearSelection(); CtxMenu.hide();}
+        else if(e.key==='Enter'&&selPaths.length===1){
+          e.preventDefault();
+          const K=getKernel(); if(!K)return;
+          K.fs.stat(selPaths[0]).then(item=>openItem(item)).catch(()=>{});
+        }
+      }
+
+      /* ── Refresh desde FS ── */
+      async function refreshDesktop(){
+        if(!getKernel()?.isReady)return;
+        try{
+          const items=await getKernel().fs.readdir('/home/desktop');
+          renderFromFs(items);
+        }catch(err){
+          console.warn('[shell:desktop] no se pudo actualizar',err);
+          renderFromFs([]);
+        }
+      }
+
+      /* ── Eventos del escritorio ── */
+      // Click en fondo: limpiar selección
+      desktop.addEventListener('mousedown',e=>{
+        if(e.target===desktop||e.target.classList.contains('drop-zone-hint')){
+          if(e.button===0){
+            clearSelection();
+            startMarquee(e);
+          }
+        }
       });
-      desktop.addEventListener('click',e=>{
-        if(e.target===desktop||e.target.classList.contains('drop-zone-hint'))
-          document.querySelectorAll('.desktop-icon').forEach(d=>d.classList.remove('active'));
+      desktop.addEventListener('contextmenu',e=>{
+        if(e.target.closest('.desktop-icon'))return;
+        e.preventDefault();
+        showDesktopContextMenu(e.clientX,e.clientY);
       });
+      // Atajos de teclado
+      document.addEventListener('keydown',handleDesktopKeydown);
+
+      // Drag & drop de archivos externos
       desktop.addEventListener('dragover',e=>{e.preventDefault();desktop.classList.add('drop-active');});
       desktop.addEventListener('dragleave',()=>desktop.classList.remove('drop-active'));
 const DROP_TEXT_EXTENSIONS = ['.txt','.md','.js','.ts','.html','.css','.json','.csv','.log','.sh','.py','.xml','.yaml','.yml','.ini','.cfg','.conf','.env'];
@@ -2160,7 +3047,19 @@ const DROP_TEXT_EXTENSIONS = ['.txt','.md','.js','.ts','.html','.css','.json','.
           await refreshDesktop();
         }
       });
-      return {refreshDesktop, renderFromFs};
+
+      /* ── Init ── */
+      async function init(){
+        await loadLayoutMode();
+        await loadIconPositions();
+        await loadSortBy();
+        await loadIconSize();
+        iconsEl.dataset.iconSize=_iconSize;
+        await refreshDesktop();
+      }
+
+      return {refreshDesktop, renderFromFs, init, clearSelection, getSelectedPaths,
+              applyLayoutMode, autoArrange, cycleLayoutMode};
     })();
 
     /* ══ CLOCK ══ */
@@ -2210,10 +3109,10 @@ const DROP_TEXT_EXTENSIONS = ['.txt','.md','.js','.ts','.html','.css','.json','.
       });
     }
     function openSysInfoWindow(){
-      const proc=Kernel.procs.spawn('sysinfo',{title:'Info del Sistema',icon:'📋'});
+      const proc=Kernel.procs.spawn('sysinfo',{title:'Info del Sistema',icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.7" r="0.9" fill="currentColor" stroke="none"/></svg>'});
       const div=document.createElement('div'); div.className='wm-placeholder';
       const session=Kernel.session;
-      div.innerHTML=`<h2>📋 Sistema</h2>
+      div.innerHTML=`<h2><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.7" r="0.9" fill="currentColor" stroke="none"/></svg> Sistema</h2>
         <div style="font-size:0.72rem;line-height:2.2;color:var(--g-dim)">
           <div><span style="color:var(--g)">KERNEL</span>    HUEBOS v0.4.0</div>
           <div><span style="color:var(--g)">SHELL</span>     Cyberhacker · Aero Glass</div>
@@ -2270,9 +3169,24 @@ async function resolveShellApps(kernel){
       Desktop.refreshDesktop().catch(()=>{});
     }
 
-    function shellInit(kernel){
-      if(_shellReady)return; _shellReady=true;
-      window.__toast=Toast.show.bind(Toast);
+function shellInit(kernel){
+  if(_shellReady)return; _shellReady=true;
+
+  try {
+    const raw = sessionStorage.getItem('huebos_shell_ticket');
+    const ticket = raw ? JSON.parse(raw) : null;
+    if (!ticket || ticket.buildId !== kernel.build.buildId) {
+      console.warn('[shell] ticket ausente o de un build distinto — regresando a index.html');
+      sessionStorage.removeItem('huebos_shell_ticket');
+      window.location.href = 'index.html';
+      return;
+    }
+  } catch (e) {
+    window.location.href = 'index.html';
+    return;
+  }
+
+  window.__toast=Toast.show.bind(Toast);
 
       /* ══ LOCK SCREEN ══ */
       const lockScreen=document.getElementById('lock-screen');
@@ -2306,10 +3220,10 @@ async function resolveShellApps(kernel){
         const user=await kernel.users.current();
         if(user){
           lockUsername.textContent=user.name||user.id;
-          lockAvatar.textContent=user.role==='admin'?'🛡':'👤';
+          lockAvatar.innerHTML=user.role==='admin'?'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4.5"/></svg>':'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1.2-4 4-6 7-6s5.8 2 7 6"/></svg>';
         }else{
           lockUsername.textContent='Invitado';
-          lockAvatar.textContent='👤';
+          lockAvatar.innerHTML='<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1.2-4 4-6 7-6s5.8 2 7 6"/></svg>';
         }
         if(kernel.safeMode){lockSafeBadge.style.display='block';}
         else{lockSafeBadge.style.display='none';}
@@ -2443,33 +3357,61 @@ async function resolveShellApps(kernel){
 
       /* Mostrar lock al arrancar si la preferencia está activa (default ON) */
       /* La lock screen ya está visible desde el HTML (sin hidden) y body.locked oculta el escritorio */
-      (async()=>{
-        const uefi=await kernel.prefs.get('uefi.config')||{};
-        const lockOnBoot=uefi.lockScreen!==false; /* default ON */
-        if(lockOnBoot){
-          await showLockScreen(false); /* sin animación: ya está visible desde el HTML */
-        } else {
-          lockScreen.classList.add('hidden'); /* ocultar si la preferencia está desactivada */
+
+(async()=>{
+        try {
+          const uefi=await kernel.prefs.get('uefi.config')||{};
+          const lockOnBoot=uefi.lockScreen!==false;
+          if(lockOnBoot){
+            await showLockScreen(false);
+          } else {
+            lockScreen.classList.add('hidden');
+            document.body.classList.remove('locked');
+            initDesktop(kernel);
+          }
+        } catch (err) {
+          console.error('[shell] Error al decidir lock screen / iniciar escritorio:', err);
+          lockScreen.classList.add('hidden');
           document.body.classList.remove('locked');
-          initDesktop(kernel); /* sin lock screen: inicializar escritorio directamente */
-        }
-        /* Fade-out del overlay negro tras decidir el estado del lock screen */
-        const overlay=document.getElementById('boot-fade-overlay');
-        if(overlay){
-          overlay.classList.add('fade-out');
-          overlay.addEventListener('transitionend',()=>overlay.remove(),{once:true});
-          /* Fallback: remover tras 1s por si transitionend no dispara */
-          setTimeout(()=>{if(overlay.parentNode)overlay.remove();},1000);
+          try { initDesktop(kernel); } catch (err2) {
+            console.error('[shell] initDesktop también falló:', err2);
+          }
+        } finally {
+          const overlay=document.getElementById('boot-fade-overlay');
+          if(overlay){
+            overlay.classList.add('fade-out');
+            overlay.addEventListener('transitionend',()=>overlay.remove(),{once:true});
+            setTimeout(()=>{if(overlay.parentNode)overlay.remove();},1000);
+          }
         }
       })();
 
-      /* Exponer para uso desde apps */
       window.__wos_lock=()=>showLockScreen(true);
     }
 
     /* ══ ESCRITORIO — solo se inicializa tras autenticación ══ */
     function initDesktop(kernel){
       if(_desktopReady)return; _desktopReady=true;
+
+        kernel.windows.registerDriver({
+    list() {
+      return Object.entries(WM.windows).map(([pid, w]) => ({
+        pid: +pid, appId: w.proc.appId, title: w.proc.title,
+        minimized: w.minimized, maximized: w.maximized,
+        focused: w.el.classList.contains('focused'),
+      }));
+    },
+    getState(pid) {
+      const w = WM.getWindow(pid); if (!w) return null;
+      return { pid: +pid, appId: w.proc.appId, title: w.proc.title,
+        minimized: w.minimized, maximized: w.maximized,
+        focused: w.el.classList.contains('focused'), ...w.state };
+    },
+    focus(pid)    { const w = WM.getWindow(pid); if (!w) return false; if (w.minimized) WM.minimize(pid); WM.focus(pid); return true; },
+    minimize(pid) { const w = WM.getWindow(pid); if (!w) return false; if (!w.minimized) WM.minimize(pid); return true; },
+    close(pid)    { const w = WM.getWindow(pid); if (!w) return false; WM.close(pid); return true; },
+  });
+
 
       document.addEventListener('keydown',e=>{
         if(e.ctrlKey&&e.altKey&&e.key.toLowerCase()==='t'){e.preventDefault();window.__wos.launch('terminal',{});}
@@ -2486,6 +3428,9 @@ async function resolveShellApps(kernel){
       const startLockBtn=document.getElementById('start-lock');
       if(startLockBtn)startLockBtn.addEventListener('click',()=>{window.__wos_lock&&window.__wos_lock();});
 window.__wos={
+
+  confirm: (msg, opts) => Dialog.confirm(msg, opts),
+prompt:  (msg, opts) => Dialog.prompt(msg, opts),
         launch(appId,opts={}){
           Promise.resolve(_runtimeApps.get(appId)).then(app=>app||kernel.apps.get(appId)).then(app=>{
             if(!app){Toast.show(`App "${appId}" no encontrada`,'error');return;} launchApp(app,opts);
@@ -2537,6 +3482,8 @@ setWindowTitle(pid,text){
       resolveShellApps(kernel).then(renderRegisteredApps).catch(()=>{
         Toast.show('No se pudieron cargar las apps del sistema','error','APPS');
       });
+      Desktop.init().catch(()=>{});
+      NotificationCenter.init(kernel);
       kernel.on('apps:registered',async()=>{const apps=await resolveShellApps(kernel);renderRegisteredApps(apps);});
       kernel.on('apps:unregistered',async()=>{const apps=await resolveShellApps(kernel);renderRegisteredApps(apps);});
       kernel.on('fs:write',()=>Desktop.refreshDesktop().catch(()=>{}));
@@ -2550,7 +3497,7 @@ setWindowTitle(pid,text){
 
       setTimeout(()=>{
         if(kernel.safeMode){
-          Toast.show('⚠ SAFE MODE activo — configuración omitida','amber','SAFE MODE',6000);
+          Toast.show('<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5H2.5L12 3.5z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r="0.9" fill="currentColor" stroke="none"/></svg> SAFE MODE activo — configuración omitida','amber','SAFE MODE',6000);
         }
         Toast.show('HUEBOS Cyberhacker Glass activa','ok','SISTEMA');
       },400);
@@ -2561,19 +3508,19 @@ setWindowTitle(pid,text){
       },1200);
     }
 
-    function waitForKernel(){
-      if(window.Kernel&&window.Kernel.isReady){shellInit(window.Kernel);}
+function waitForKernel(){
+      if(window.Kernel&&window.Kernel.bootComplete){shellInit(window.Kernel);}
       else if(window.Kernel){window.Kernel.once('ready',()=>shellInit(window.Kernel));}
       else{
         document.addEventListener('DOMContentLoaded',()=>{
           if(window.Kernel){
-            if(window.Kernel.isReady)shellInit(window.Kernel);
+            if(window.Kernel.bootComplete)shellInit(window.Kernel);
             else window.Kernel.once('ready',()=>shellInit(window.Kernel));
           } else {
             let tries=0;
             const poll=setInterval(()=>{
               if(window.Kernel){clearInterval(poll);
-                if(window.Kernel.isReady)shellInit(window.Kernel);
+                if(window.Kernel.bootComplete)shellInit(window.Kernel);
                 else window.Kernel.once('ready',()=>shellInit(window.Kernel));}
               if(++tries>50){clearInterval(poll);Toast.show('No se pudo conectar con el Kernel','error','ERROR');}
             },100);

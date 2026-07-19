@@ -9,7 +9,7 @@
     "id":          "config",
     "name":        "Configuración",
     "version":     "0.1.0",
-    "icon":        "⚙️",
+    "icon":        "./apps/public/Config.svg",
     "category":    "system",
     "singleton":   true,
     "description": "Configuración y herramientas del sistema",
@@ -79,7 +79,36 @@
       flex-shrink: 0;
       user-select: none;
     }
-    #header .h-icon { font-size: 1rem; }
+    #header .h-icon {
+      width: 18px; height: 18px;
+      object-fit: contain;
+      flex-shrink: 0;
+      filter: drop-shadow(0 0 3px rgba(0,255,136,0.45));
+    }
+
+    /* ── Icon system (reemplaza emojis) ── */
+    svg.icon {
+      width: 14px; height: 14px;
+      flex-shrink: 0;
+      vertical-align: -2px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .section-title svg.icon,
+    .confirm-box h3 svg.icon,
+    .pwd-box h3 svg.icon {
+      width: 19px; height: 19px;
+      vertical-align: -4px;
+      margin-right: 2px;
+    }
+    .info-box svg.icon { vertical-align: -2px; margin-right: 1px; }
+    .toast svg.icon { width: 12px; height: 12px; vertical-align: -1px; margin-right: 2px; }
+    svg.icon.dot { fill: currentColor; stroke: none; width: 9px; height: 9px; vertical-align: 0; }
+    svg.icon.dot-red   { color: var(--red-err); }
+    svg.icon.dot-green { color: var(--green); }
     #header .h-title {
       font-family: var(--font-display);
       font-size: 1.2rem;
@@ -471,10 +500,102 @@
   </style>
 </head>
 <body>
+<svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+  <defs>
+    <symbol id="ic-palette" viewBox="0 0 24 24">
+      <path d="M12 2a10 10 0 1 0 10 10c0-1.1-.9-2-2.1-2h-1.8a2 2 0 0 1-2-2v-.9a2 2 0 0 1 2-2h.8a2 2 0 0 0 2-2 2 2 0 0 0-.6-1.4A9.9 9.9 0 0 0 12 2z"/>
+      <circle cx="7.3" cy="10.6" r="1.1" fill="currentColor" stroke="none"/>
+      <circle cx="9.3" cy="6.8" r="1.1" fill="currentColor" stroke="none"/>
+      <circle cx="14.5" cy="6.8" r="1.1" fill="currentColor" stroke="none"/>
+    </symbol>
+    <symbol id="ic-monitor" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="12" rx="1.5"/>
+      <line x1="8" y1="20" x2="16" y2="20"/>
+      <line x1="12" y1="16" x2="12" y2="20"/>
+    </symbol>
+    <symbol id="ic-keyboard" viewBox="0 0 24 24">
+      <rect x="2.5" y="6" width="19" height="12" rx="1.5"/>
+      <line x1="6" y1="10" x2="6" y2="10.01"/>
+      <line x1="9" y1="10" x2="9" y2="10.01"/>
+      <line x1="12" y1="10" x2="12" y2="10.01"/>
+      <line x1="15" y1="10" x2="15" y2="10.01"/>
+      <line x1="18" y1="10" x2="18" y2="10.01"/>
+      <line x1="7" y1="14.5" x2="17" y2="14.5"/>
+    </symbol>
+    <symbol id="ic-shield" viewBox="0 0 24 24">
+      <path d="M12 3l7 3v5c0 5-3.2 8.5-7 10-3.8-1.5-7-5-7-10V6l7-3z"/>
+      <path d="M9.3 12.2l1.8 1.8 3.6-3.8"/>
+    </symbol>
+    <symbol id="ic-save" viewBox="0 0 24 24">
+      <path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
+      <path d="M8 3v5h8V3"/>
+      <rect x="7" y="13" width="10" height="6"/>
+    </symbol>
+    <symbol id="ic-warning" viewBox="0 0 24 24">
+      <path d="M12 3L2 20h20L12 3z"/>
+      <line x1="12" y1="9" x2="12" y2="14"/>
+      <line x1="12" y1="17" x2="12" y2="17.01"/>
+    </symbol>
+    <symbol id="ic-clipboard" viewBox="0 0 24 24">
+      <rect x="6" y="4" width="12" height="17" rx="1.5"/>
+      <rect x="9" y="2.3" width="6" height="3" rx="1"/>
+      <line x1="8.5" y1="10" x2="15.5" y2="10"/>
+      <line x1="8.5" y1="13.5" x2="15.5" y2="13.5"/>
+      <line x1="8.5" y1="17" x2="13" y2="17"/>
+    </symbol>
+    <symbol id="ic-trash" viewBox="0 0 24 24">
+      <line x1="4" y1="7" x2="20" y2="7"/>
+      <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/>
+      <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>
+      <line x1="10" y1="11" x2="10" y2="17"/>
+      <line x1="14" y1="11" x2="14" y2="17"/>
+    </symbol>
+    <symbol id="ic-refresh" viewBox="0 0 24 24">
+      <path d="M4 12a8 8 0 0 1 14-5.3"/>
+      <path d="M20 12a8 8 0 0 1-14 5.3"/>
+      <polyline points="18 4 18 7 15 7"/>
+      <polyline points="6 20 6 17 9 17"/>
+    </symbol>
+    <symbol id="ic-wrench" viewBox="0 0 24 24">
+      <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6z"/>
+    </symbol>
+    <symbol id="ic-danger" viewBox="0 0 24 24">
+      <path d="M8 3h8l5 5v8l-5 5H8l-5-5V8l5-5z"/>
+      <line x1="12" y1="8" x2="12" y2="13"/>
+      <line x1="12" y1="16" x2="12" y2="16.01"/>
+    </symbol>
+    <symbol id="ic-folder-x" viewBox="0 0 24 24">
+      <path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6z"/>
+      <line x1="9.5" y1="12" x2="14.5" y2="16"/>
+      <line x1="14.5" y1="12" x2="9.5" y2="16"/>
+    </symbol>
+    <symbol id="ic-lock" viewBox="0 0 24 24">
+      <rect x="5" y="11" width="14" height="9" rx="1.5"/>
+      <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+      <circle cx="12" cy="15.2" r="1.3" fill="currentColor" stroke="none"/>
+    </symbol>
+    <symbol id="ic-bulb" viewBox="0 0 24 24">
+      <path d="M9 18h6M10 21h4"/>
+      <path d="M12 3a6 6 0 0 0-3.5 10.9c.5.4.8 1 .8 1.6h5.4c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3z"/>
+    </symbol>
+    <symbol id="ic-check" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9"/>
+      <polyline points="8 12.5 11 15.5 16 9"/>
+    </symbol>
+    <symbol id="ic-info" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9"/>
+      <line x1="12" y1="11" x2="12" y2="16"/>
+      <line x1="12" y1="8" x2="12" y2="8.01"/>
+    </symbol>
+    <symbol id="ic-dot" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9"/>
+    </symbol>
+  </defs>
+</svg>
 <div id="app">
   <!-- Header -->
   <div id="header">
-    <span class="h-icon">⚙️</span>
+    <img class="h-icon" id="header-icon" src="" alt="" />
     <span class="h-title">CONFIGURACIÓN DEL SISTEMA</span>
     <span class="h-ver">HuebOS v0.1.0</span>
   </div>
@@ -485,29 +606,29 @@
     <div id="sidebar">
       <div class="nav-group-label">General</div>
       <div class="nav-item active" data-panel="panel-apariencia">
-        <span class="ni-icon">🎨</span> Apariencia
+        <span class="ni-icon"><svg class="icon"><use href="#ic-palette"></use></svg></span> Apariencia
       </div>
       <div class="nav-item" data-panel="panel-sistema">
-        <span class="ni-icon">🖥️</span> Sistema
+        <span class="ni-icon"><svg class="icon"><use href="#ic-monitor"></use></svg></span> Sistema
       </div>
       <div class="nav-item" data-panel="panel-shell">
-        <span class="ni-icon">⌨️</span> Shell
+        <span class="ni-icon"><svg class="icon"><use href="#ic-keyboard"></use></svg></span> Shell
       </div>
       <div class="nav-sep"></div>
       <div class="nav-group-label">Avanzado</div>
       <div class="nav-item" data-panel="panel-seguridad">
-        <span class="ni-icon">🔐</span> Seguridad
+        <span class="ni-icon"><svg class="icon"><use href="#ic-shield"></use></svg></span> Seguridad
       </div>
       <div class="nav-item" data-panel="panel-almacenamiento">
-        <span class="ni-icon">💾</span> Almacenamiento
+        <span class="ni-icon"><svg class="icon"><use href="#ic-save"></use></svg></span> Almacenamiento
       </div>
       <div class="nav-item" data-panel="panel-formatear">
-        <span class="ni-icon">⚠️</span> Formatear
+        <span class="ni-icon"><svg class="icon"><use href="#ic-warning"></use></svg></span> Formatear
       </div>
       <div class="nav-sep"></div>
       <div class="nav-group-label">Acerca de</div>
       <div class="nav-item" data-panel="panel-about">
-        <span class="ni-icon">📋</span> Acerca del sistema
+        <span class="ni-icon"><svg class="icon"><use href="#ic-clipboard"></use></svg></span> Acerca del sistema
       </div>
     </div>
 
@@ -516,7 +637,7 @@
 
       <!-- ── APARIENCIA ── -->
       <div id="panel-apariencia" class="panel active">
-        <div class="section-title">🎨 Apariencia</div>
+        <div class="section-title"><svg class="icon"><use href="#ic-palette"></use></svg> Apariencia</div>
         <div class="section-desc">Personaliza el aspecto visual del sistema operativo.</div>
 
         <div class="cfg-card">
@@ -579,12 +700,12 @@
           </div>
         </div>
 
-        <button class="btn btn-primary" id="btn-save-apariencia">💾 GUARDAR CAMBIOS</button>
+        <button class="btn btn-primary" id="btn-save-apariencia"><svg class="icon"><use href="#ic-save"></use></svg> GUARDAR CAMBIOS</button>
       </div>
 
       <!-- ── SISTEMA ── -->
       <div id="panel-sistema" class="panel">
-        <div class="section-title">🖥️ Sistema</div>
+        <div class="section-title"><svg class="icon"><use href="#ic-monitor"></use></svg> Sistema</div>
         <div class="section-desc">Información real del entorno actual y del arranque del sistema.</div>
 
         <div class="cfg-card">
@@ -600,7 +721,7 @@
 
       <!-- ── SHELL ── -->
       <div id="panel-shell" class="panel">
-        <div class="section-title">⌨️ Shell</div>
+        <div class="section-title"><svg class="icon"><use href="#ic-keyboard"></use></svg> Shell</div>
         <div class="section-desc">Configuración de la terminal y el intérprete de comandos.</div>
 
         <div class="cfg-card">
@@ -629,17 +750,17 @@
               <div class="cfg-hint">Borra todos los comandos anteriores guardados</div>
             </div>
             <div class="cfg-control">
-              <button class="btn btn-amber" id="btn-clear-history">🗑️ LIMPIAR</button>
+              <button class="btn btn-amber" id="btn-clear-history"><svg class="icon"><use href="#ic-trash"></use></svg> LIMPIAR</button>
             </div>
           </div>
         </div>
 
-        <button class="btn btn-primary" id="btn-save-shell">💾 GUARDAR CAMBIOS</button>
+        <button class="btn btn-primary" id="btn-save-shell"><svg class="icon"><use href="#ic-save"></use></svg> GUARDAR CAMBIOS</button>
       </div>
 
       <!-- ── SEGURIDAD ── -->
       <div id="panel-seguridad" class="panel">
-        <div class="section-title">🔐 Seguridad</div>
+        <div class="section-title"><svg class="icon"><use href="#ic-shield"></use></svg> Seguridad</div>
         <div class="section-desc">Gestión de usuarios, bloqueo de pantalla y políticas de acceso.</div>
 
         <div class="cfg-card">
@@ -689,7 +810,7 @@
               <div class="cfg-hint">Bloquea la pantalla inmediatamente</div>
             </div>
             <div class="cfg-control">
-              <button class="btn btn-amber" id="btn-sec-lock-now">🔒 BLOQUEAR</button>
+              <button class="btn btn-amber" id="btn-sec-lock-now"><svg class="icon"><use href="#ic-lock"></use></svg> BLOQUEAR</button>
             </div>
           </div>
         </div>
@@ -717,12 +838,12 @@
           <div class="db-store-row"><span class="db-store-name">Sesiones totales</span><span class="db-store-count" id="sec-session-count">…</span></div>
         </div>
 
-        <button class="btn btn-primary" id="btn-save-security">💾 GUARDAR SEGURIDAD</button>
+        <button class="btn btn-primary" id="btn-save-security"><svg class="icon"><use href="#ic-save"></use></svg> GUARDAR SEGURIDAD</button>
       </div>
 
       <!-- ── ALMACENAMIENTO ── -->
       <div id="panel-almacenamiento" class="panel">
-        <div class="section-title">💾 Almacenamiento</div>
+        <div class="section-title"><svg class="icon"><use href="#ic-save"></use></svg> Almacenamiento</div>
         <div class="section-desc">Estadísticas e información de los almacenes de datos IndexedDB.</div>
 
         <div class="info-box ok">
@@ -744,7 +865,7 @@
               <div class="cfg-hint">Borra apps duplicadas del registro. Se re-registran al reiniciar.</div>
             </div>
             <div class="cfg-control">
-              <button class="btn btn-amber" id="btn-clear-apps">🗑️ LIMPIAR</button>
+              <button class="btn btn-amber" id="btn-clear-apps"><svg class="icon"><use href="#ic-trash"></use></svg> LIMPIAR</button>
             </div>
           </div>
           <div class="cfg-row">
@@ -753,7 +874,7 @@
               <div class="cfg-hint">Restablece todas las preferencias a valores por defecto.</div>
             </div>
             <div class="cfg-control">
-              <button class="btn btn-amber" id="btn-clear-prefs">🗑️ LIMPIAR</button>
+              <button class="btn btn-amber" id="btn-clear-prefs"><svg class="icon"><use href="#ic-trash"></use></svg> LIMPIAR</button>
             </div>
           </div>
           <div class="cfg-row">
@@ -762,23 +883,23 @@
               <div class="cfg-hint">Borra el contenido de /temp</div>
             </div>
             <div class="cfg-control">
-              <button class="btn btn-amber" id="btn-clear-tmp">🗑️ /TEMP</button>
+              <button class="btn btn-amber" id="btn-clear-tmp"><svg class="icon"><use href="#ic-trash"></use></svg> /TEMP</button>
             </div>
           </div>
         </div>
 
-        <button class="btn btn-primary" id="btn-refresh-stats">🔄 ACTUALIZAR ESTADÍSTICAS</button>
+        <button class="btn btn-primary" id="btn-refresh-stats"><svg class="icon"><use href="#ic-refresh"></use></svg> ACTUALIZAR ESTADÍSTICAS</button>
       </div>
 
       <!-- ── FORMATEAR ── -->
       <div id="panel-formatear" class="panel">
-        <div class="section-title" style="color:var(--red-err);text-shadow:0 0 8px rgba(255,68,68,0.5)">⚠️ Formatear sistema</div>
+        <div class="section-title" style="color:var(--red-err);text-shadow:0 0 8px rgba(255,68,68,0.5)"><svg class="icon"><use href="#ic-warning"></use></svg> Formatear sistema</div>
         <div class="section-desc" style="color:rgba(255,136,136,0.7)">
           Zona de operaciones destructivas. Úsala cuando el sistema tenga problemas por cache corrupto, apps duplicadas u otros errores de IndexedDB.
         </div>
 
         <div class="info-box danger">
-          ⚠️ <strong>ADVERTENCIA</strong> — Estas operaciones son irreversibles.<br>
+          <svg class="icon"><use href="#ic-warning"></use></svg> <strong>ADVERTENCIA</strong> — Estas operaciones son irreversibles.<br>
           Se recomienda exportar tus archivos importantes antes de formatear.
         </div>
 
@@ -790,7 +911,7 @@
               <div class="cfg-hint">Soluciona apps duplicadas tras actualizaciones. El Kernel las re-registra al reiniciar.</div>
             </div>
             <div class="cfg-control">
-              <button class="btn btn-amber" id="btn-fix-apps">🔧 REPARAR</button>
+              <button class="btn btn-amber" id="btn-fix-apps"><svg class="icon"><use href="#ic-wrench"></use></svg> REPARAR</button>
             </div>
           </div>
           <div class="cfg-row">
@@ -799,7 +920,7 @@
               <div class="cfg-hint">Restablece configuración a valores por defecto.</div>
             </div>
             <div class="cfg-control">
-              <button class="btn btn-amber" id="btn-fix-prefs">🔧 REPARAR</button>
+              <button class="btn btn-amber" id="btn-fix-prefs"><svg class="icon"><use href="#ic-wrench"></use></svg> REPARAR</button>
             </div>
           </div>
         </div>
@@ -815,7 +936,7 @@
               </div>
             </div>
             <div class="cfg-control">
-              <button class="btn btn-danger-solid" id="btn-format-all">💥 FORMATEAR</button>
+              <button class="btn btn-danger-solid" id="btn-format-all"><svg class="icon"><use href="#ic-danger"></use></svg> FORMATEAR</button>
             </div>
           </div>
           <div class="cfg-row">
@@ -826,19 +947,19 @@
               </div>
             </div>
             <div class="cfg-control">
-              <button class="btn btn-danger" id="btn-format-fs">🗂️ BORRAR FS</button>
+              <button class="btn btn-danger" id="btn-format-fs"><svg class="icon"><use href="#ic-folder-x"></use></svg> BORRAR FS</button>
             </div>
           </div>
         </div>
 
         <div class="info-box warning" style="margin-top:6px">
-          💡 <strong>Tip:</strong> Si el sistema funciona bien, no necesitas formatear. Usa "Reparación rápida" primero para resolver problemas menores de caché.
+          <svg class="icon"><use href="#ic-bulb"></use></svg> <strong>Tip:</strong> Si el sistema funciona bien, no necesitas formatear. Usa "Reparación rápida" primero para resolver problemas menores de caché.
         </div>
       </div>
 
       <!-- ── ABOUT ── -->
       <div id="panel-about" class="panel">
-        <div class="section-title">📋 Acerca de HuebOS</div>
+        <div class="section-title"><svg class="icon"><use href="#ic-clipboard"></use></svg> Acerca de HuebOS</div>
 
         <div class="cfg-card" style="padding:18px;text-align:center">
           <div class="about-logo">H U E B O S</div>
@@ -869,7 +990,7 @@
 <!-- Confirm modal -->
 <div id="confirm-modal">
   <div class="confirm-box">
-    <h3 id="confirm-title">⚠️ ¿CONFIRMAR?</h3>
+    <h3 id="confirm-title"><svg class="icon"><use href="#ic-warning"></use></svg> ¿CONFIRMAR?</h3>
     <p id="confirm-body">Esta acción es irreversible.</p>
     <div class="confirm-actions">
       <button class="btn btn-primary" id="confirm-cancel">CANCELAR</button>
@@ -881,7 +1002,7 @@
 <!-- Password verify modal -->
 <div id="pwd-modal">
   <div class="pwd-box">
-    <h3 id="pwd-title">🔒 VERIFICAR CONTRASEÑA</h3>
+    <h3 id="pwd-title"><svg class="icon"><use href="#ic-lock"></use></svg> VERIFICAR CONTRASEÑA</h3>
     <p id="pwd-body">Introduce tu contraseña actual para continuar.</p>
     <input type="password" class="pwd-input" id="pwd-input" placeholder="Contraseña actual" autocomplete="off" />
     <div class="pwd-error" id="pwd-error"></div>
@@ -905,12 +1026,44 @@
 
   const $ = id => document.getElementById(id);
 
+  /* ── Header icon (desde el manifest, resuelto desde la vista del kernel) ── */
+  (function loadHeaderIcon() {
+    try {
+      const manifest = JSON.parse($('wos-manifest').textContent);
+      const iconPath = manifest.icon || './apps/public/Config.svg';
+      // El path del manifest es relativo a la ventana del Kernel (el padre),
+      // no a este documento (que vive en su propio iframe). Se resuelve
+      // contra la ubicación del padre para que apunte al asset real.
+      const kernelBase = (window.parent && window.parent !== window)
+        ? window.parent.location.href
+        : window.location.href;
+      $('header-icon').src = new URL(iconPath, kernelBase).href;
+    } catch (err) {
+      console.error('loadHeaderIcon:', err);
+    }
+  })();
+
+  /* ── Iconos (reemplazan emojis) ── */
+  function iconSvg(name) {
+    return `<svg class="icon" aria-hidden="true"><use href="#ic-${name}"></use></svg>`;
+  }
+  function dotSvg(color) {
+    // color: 'red' | 'green' — usado para indicadores de estado (Safe Mode, Secure Boot)
+    return `<svg class="icon dot dot-${color}" aria-hidden="true"><use href="#ic-dot"></use></svg>`;
+  }
+
   /* ── Toast ── */
   const Toast = {
-    show(msg, type = 'ok', dur = 2600) {
+    // icon: opcional, sobreescribe el icono por defecto según `type`
+    // (ok → check, error → warning, info → info)
+    show(msg, type = 'ok', dur = 2600, icon = null) {
+      const ic = icon || (type === 'ok' ? 'check' : type === 'error' ? 'warning' : 'info');
       const t = document.createElement('div');
       t.className = `toast ${type}`;
-      t.textContent = msg;
+      t.innerHTML = iconSvg(ic);
+      const span = document.createElement('span');
+      span.textContent = msg; // el mensaje siempre va como texto plano, nunca HTML
+      t.appendChild(span);
       $('toast-container').appendChild(t);
       setTimeout(() => t.remove(), dur);
     }
@@ -919,8 +1072,9 @@
   /* ── Confirm modal ── */
   let _confirmCb = null;
   const Confirm = {
-    show(title, body, cb) {
-      $('confirm-title').textContent = title;
+    // icon: 'warning' (default) | 'wrench' | 'danger' | 'folder-x'
+    show(title, body, cb, icon = 'warning') {
+      $('confirm-title').innerHTML = `${iconSvg(icon)} ${title}`;
       $('confirm-body').textContent  = body;
       $('confirm-modal').classList.add('visible');
       _confirmCb = cb;
@@ -944,7 +1098,7 @@
   let _pwdCb = null;
   const PwdVerify = {
     show(title, body, cb) {
-      $('pwd-title').textContent = title;
+      $('pwd-title').innerHTML = `${iconSvg('lock')} ${title}`;
       $('pwd-body').textContent  = body;
       $('pwd-input').value = '';
       $('pwd-error').textContent = '';
@@ -1046,19 +1200,19 @@
     await K.prefs.set('desktop.grid',      $('pref-grid').checked);
     await K.prefs.set('system.fontSize',   parseInt($('pref-fontsize').value) || 14);
     await K.prefs.set('system.theme',      $('pref-theme').value);
-    Toast.show('Apariencia guardada ✓', 'ok');
+    Toast.show('Apariencia guardada', 'ok');
   });
 
   /* ── Save shell ── */
   $('btn-save-shell').addEventListener('click', async () => {
     await K.prefs.set('shell.prompt', $('pref-prompt').value);
-    Toast.show('Shell guardado ✓', 'ok');
+    Toast.show('Shell guardado', 'ok');
   });
 
   /* ── Clear shell history ── */
   $('btn-clear-history').addEventListener('click', () => {
     Confirm.show(
-      '⚠️ LIMPIAR HISTORIAL',
+      'LIMPIAR HISTORIAL',
       'Se borrarán todos los comandos guardados del historial de la terminal.',
       async () => {
         await K.prefs.set('shell.history', []);
@@ -1093,7 +1247,7 @@
   /* ── Clear apps ── */
   $('btn-clear-apps').addEventListener('click', () => {
     Confirm.show(
-      '⚠️ LIMPIAR apps_meta',
+      'LIMPIAR apps_meta',
       'Se borrará el registro de aplicaciones. El Kernel las re-registrará la próxima vez que recargues la página.',
       async () => {
         await K.db.clear(K.STORES.APPS_META);
@@ -1107,7 +1261,7 @@
   /* ── Clear prefs ── */
   $('btn-clear-prefs').addEventListener('click', () => {
     Confirm.show(
-      '⚠️ LIMPIAR prefs',
+      'LIMPIAR prefs',
       'Se borrarán todas las preferencias. El sistema usará valores por defecto al reiniciar.',
       async () => {
         await K.db.clear(K.STORES.PREFS);
@@ -1121,13 +1275,13 @@
   /* ── Clear /temp ── */
 $('btn-clear-tmp').addEventListener('click', () => {
     Confirm.show(
-      '⚠️ LIMPIAR /temp',
+      'LIMPIAR /temp',
       'Se borrarán todos los archivos en /temp.',
       async () => {
         try {
           await K.fs.remove('/temp', { recursive: true });
           await K.fs.mkdir('/temp');
-          Toast.show('/temp limpiado ✓', 'ok');
+          Toast.show('/temp limpiado', 'ok');
           loadStorageStats();
         } catch (e) {
           Toast.show(`Error: ${e.message}`, 'error');
@@ -1139,44 +1293,48 @@ $('btn-clear-tmp').addEventListener('click', () => {
   /* ── Fix apps (formatear panel) ── */
   $('btn-fix-apps').addEventListener('click', () => {
     Confirm.show(
-      '🔧 REPARAR apps_meta',
+      'REPARAR apps_meta',
       'Se borrará el registro de apps_meta para eliminar duplicados. Se recargarán automáticamente al reiniciar.',
       async () => {
         await K.db.clear(K.STORES.APPS_META);
         Toast.show('apps_meta reparado. Reiniciando sistema…', 'info', 2600);
         rebootSystem(1200);
-      }
+      },
+      'wrench'
     );
   });
 
   /* ── Fix prefs (formatear panel) ── */
   $('btn-fix-prefs').addEventListener('click', () => {
     Confirm.show(
-      '🔧 REPARAR prefs',
+      'REPARAR prefs',
       'Se borrarán las preferencias. El sistema reiniciará con valores por defecto.',
       async () => {
         await K.db.clear(K.STORES.PREFS);
         Toast.show('Preferencias reseteadas. Reiniciando sistema…', 'info', 2600);
         rebootSystem(1200);
-      }
+      },
+      'wrench'
     );
   });
 
   /* ── FORMAT ALL — el botón más importante ── */
   $('btn-format-all').addEventListener('click', () => {
     Confirm.show(
-      '💥 FORMATEAR SISTEMA COMPLETO',
-      '⚠️ ACCIÓN IRREVERSIBLE: Se eliminará toda la base de datos Huebos_db de IndexedDB. ' +
+      'FORMATEAR SISTEMA COMPLETO',
+      'ACCIÓN IRREVERSIBLE: Se eliminará toda la base de datos Huebos_db de IndexedDB. ' +
       'Perderás TODOS tus archivos, preferencias y datos guardados. ' +
       'El sistema arrancará limpio al recargar. ¿Estás completamente seguro?',
       () => {
         // Segundo confirm de seguridad
         Confirm.show(
-          '🔴 ÚLTIMA ADVERTENCIA',
+          'ÚLTIMA ADVERTENCIA',
           'Todos tus datos serán eliminados permanentemente. Esta es tu última oportunidad de cancelar.',
-          performFullFormat
+          performFullFormat,
+          'danger'
         );
-      }
+      },
+      'danger'
     );
   });
 
@@ -1207,7 +1365,7 @@ $('btn-clear-tmp').addEventListener('click', () => {
         req.onblocked = () => {
           if (!sawInstanceLock) {
             sawInstanceLock = true;
-            Toast.show('🔒 Solo puede haber una instancia de HUEBOS abierta. Cierra otras pestañas para completar el formateo…', 'info', 4000);
+            Toast.show('Solo puede haber una instancia de HUEBOS abierta. Cierra otras pestañas para completar el formateo…', 'info', 4000, 'lock');
           }
           if (attempt < 5) {
             setTimeout(() => resolve(tryDeleteDB(attempt + 1)), 500);
@@ -1221,7 +1379,7 @@ $('btn-clear-tmp').addEventListener('click', () => {
       if (deleted) {
         Toast.show('Base de datos eliminada. Reiniciando sistema…', 'ok', 2000);
       } else if (sawInstanceLock) {
-        Toast.show('🔒 Sigue bloqueada por otra instancia. Reiniciando de todos modos…', 'info', 3000);
+        Toast.show('Sigue bloqueada por otra instancia. Reiniciando de todos modos…', 'info', 3000, 'lock');
       } else {
         Toast.show('DB bloqueada. Reiniciando forzado…', 'error', 3000);
       }
@@ -1234,7 +1392,7 @@ $('btn-clear-tmp').addEventListener('click', () => {
   /* ── Format FS only ── */
 $('btn-format-fs').addEventListener('click', () => {
     Confirm.show(
-      '⚠️ BORRAR SISTEMA DE ARCHIVOS',
+      'BORRAR SISTEMA DE ARCHIVOS',
       'Se eliminarán todos los archivos del store "fs" y sus datos binarios asociados. Las preferencias y apps se conservan. El Kernel recreará el FS base al recargar.',
       async () => {
         await K.db.clear(K.STORES.FS);
@@ -1242,7 +1400,8 @@ $('btn-format-fs').addEventListener('click', () => {
         K.emit('fs:remove', { path: '/' });
         Toast.show('Sistema de archivos borrado. Reiniciando sistema…', 'info', 2500);
         rebootSystem(1400);
-      }
+      },
+      'folder-x'
     );
   });
 
@@ -1312,8 +1471,10 @@ function detectEngine(ua) {
 
     // Estado del sistema
     const env = K.env || {};
-    $('sec-safemode').textContent = env.safeMode ? '🔴 Activado' : '🟢 Desactivado';
-    $('sec-secureboot').textContent = '🟢 Activado';
+    $('sec-safemode').innerHTML = env.safeMode
+      ? `${dotSvg('red')} Activado`
+      : `${dotSvg('green')} Desactivado`;
+    $('sec-secureboot').innerHTML = `${dotSvg('green')} Activado`;
     const sessionCount = await K.prefs.get('boot.sessionCount') || 0;
     $('sec-session-count').textContent = String(sessionCount);
   }
@@ -1329,7 +1490,7 @@ function detectEngine(ua) {
         /* Revertir el toggle visualmente y pedir contraseña */
         $('sec-lock-password').checked = true;
         PwdVerify.show(
-          '🔒 DESACTIVAR CONTRASEÑA',
+          'DESACTIVAR CONTRASEÑA',
           'Para desactivar el requerimiento de contraseña, verifica tu identidad introduciendo la contraseña actual.',
           async () => {
             /* Verificación OK: desactivar de verdad y BORRAR la contraseña */
@@ -1388,13 +1549,13 @@ function detectEngine(ua) {
       if (existingPwd) {
         /* Hay contraseña: pedir verificación antes de cambiar */
         PwdVerify.show(
-          '🔒 CAMBIAR CONTRASEÑA',
+          'CAMBIAR CONTRASEÑA',
           'Para cambiar tu contraseña, verifica tu identidad introduciendo la contraseña actual.',
           async () => {
             try {
               await K.users.setPassword(newPwd);
               $('sec-new-password').value = '';
-              Toast.show('Contraseña actualizada ✓', 'ok');
+              Toast.show('Contraseña actualizada', 'ok');
               loadSecurity();
             } catch(e) { console.error('setPassword:', e); Toast.show('Error al cambiar contraseña', 'error'); }
           }
@@ -1410,7 +1571,7 @@ function detectEngine(ua) {
     }
 
     $('sec-new-password').value = '';
-    Toast.show('Configuración de seguridad guardada ✓', 'ok');
+    Toast.show('Configuración de seguridad guardada', 'ok');
     loadSecurity();
   });
 
