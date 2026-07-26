@@ -1,34 +1,3 @@
-/* ═══════════════════════════════════════════════════
-   SERVICIO: IPC BRIDGE                        [v1.0.0]
-   ═══════════════════════════════════════════════════
-   Sustituye los postMessage sueltos (editor:open,
-   wos:reboot, wos:lock, ...) por un protocolo único de
-   petición/respuesta entre el shell (ventana superior,
-   donde vive este servicio) y las apps que corren en
-   <iframe>.
-
-   Protocolo (mensaje que envía una app):
-     { channel: 'wos-ipc', action: 'fs.read', payload: {...},
-       requestId: 'r123', appId: 'text-editor' }
-
-   Respuesta que el bridge devuelve a esa misma app:
-     { channel: 'wos-ipc', requestId: 'r123',
-       ok: true, result: {...} }
-     { channel: 'wos-ipc', requestId: 'r123',
-       ok: false, error: 'mensaje de error' }
-
-   Broadcast (el bridge reenvía eventos del Kernel a TODAS
-   las apps abiertas, sin que cada una tenga que suscribirse
-   a mano):
-     { channel: 'wos-ipc', event: 'fs:write', payload: {...} }
-
-   API expuesta como Kernel.ipc:
-     - on(action, handler)   → registra un manejador de acción
-     - off(action)           → lo retira
-     - broadcast(event, payload) → emite a todas las apps
-     - list()                → acciones registradas (debug / Task Manager)
-   ═══════════════════════════════════════════════════ */
-
 function registerService(Kernel) {
   const CHANNEL = 'wos-ipc';
   const _handlers = new Map();   // action -> async (payload, ctx) => result

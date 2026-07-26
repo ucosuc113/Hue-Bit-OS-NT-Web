@@ -1226,11 +1226,7 @@ async create(id, name, opts = {}) {
     };
   })();
 
-  /* ═══════════════════════════════════════════════════
-     CENTRO DE NOTIFICACIONES — backend  (v0.5.0)
-     Cola + persistencia real en IndexedDB. El panel
-     visual vive en shell.html y solo lee/muestra esto.
-  ═══════════════════════════════════════════════════ */
+
   const Notifications = (() => {
     function _uid() { return 'notif_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
 
@@ -1294,11 +1290,7 @@ async create(id, name, opts = {}) {
     return { push, list, unreadCount, markRead, markAllRead, remove, clear, prune };
   })();
 
-  /* ═══════════════════════════════════════════════════
-     PORTAPAPELES DEL SISTEMA  (v0.5.0 — Clipboard)
-     Antes vivía duplicado como `_clipboard` dentro de
-     Desktop en shell.html; se centraliza aquí.
-  ═══════════════════════════════════════════════════ */
+
   const Clipboard = (() => {
     let _state = { op: null, paths: [] };
 
@@ -1430,9 +1422,7 @@ async create(id, name, opts = {}) {
     },
   };
 
-  /* ═══════════════════════════════════════════════════
-     ADMINISTRADOR DE PROCESOS  (v0.3.0)
-  ═══════════════════════════════════════════════════ */
+
   const Procs = (() => {
     let _nextPid = 1;
     const _table = {};
@@ -1448,7 +1438,7 @@ async create(id, name, opts = {}) {
         parentPid: opts.parentPid ?? null,
         children : new Set(),
         cwd      : opts.cwd       || '/home',
-        protected: !!opts.protected, // v0.5.0: servicios críticos no finalizables
+        protected: !!opts.protected,
         spawnedAt: Date.now(),
       };
     }
@@ -1578,11 +1568,7 @@ async create(id, name, opts = {}) {
     };
   })();
 
-  /* ═══════════════════════════════════════════════════
-     SERVICE LOADER  (v0.5.0)
-     Lee y ejecuta de verdad los .js de /Modulos/Servicios
-     como procesos protegidos y reales (no decorativos).
-  ═══════════════════════════════════════════════════ */
+
 const ModuleLoader = (() => {
     const _running = new Map(); // path -> { kind, def, pid, path }
     const _manifestKeyByKind = kind => (MODULE_KINDS.find(k => k.kind === kind) || {}).manifestKey;
@@ -2242,11 +2228,7 @@ await ensureFile('/system/index.sys', '', true, { protected: true, systemApp: tr
     }
   }
 
-  /* ═══════════════════════════════════════════════════
-     MÓDULOS DEL SISTEMA  (v0.5.0)
-     /Modulos/{Servicios,API,Componentes} — el mismo árbol
-     que ya clasifica el Administrador de Tareas.
-  ═══════════════════════════════════════════════════ */
+
 const MODULE_DIRS = {
     Servicios  : '/Modulos/Servicios',
     API        : '/Modulos/API',
@@ -2536,10 +2518,7 @@ const Icons = {
 
 const BUILD_ID = `${KERNEL_VERSION}+db${DB_VERSION}+fs${FS_HIERARCHY_VERSION}`
 
-  /* ═══════════════════════════════════════════════════
-     WINDOWS MANAGER STUB  (v0.5.2)
-     El shell inyecta el driver real mediante registerDriver
-  ═══════════════════════════════════════════════════ */
+
   const Windows = {
     _driver: null,
     registerDriver(driver) { 
