@@ -1182,7 +1182,7 @@
         </div>
 
         <div class="about-grid" id="about-grid">
-          <div class="about-item"><div class="ai-key">Kernel</div><div class="ai-val" id="ab-kernel-ver">v0.3.0</div></div>
+          <div class="about-item"><div class="ai-key">Kernel</div><div class="ai-val" id="ab-kernel-ver">v1.0.0</div></div>
           <div class="about-item"><div class="ai-key">Fase</div><div class="ai-val">3 · Core Apps</div></div>
           <div class="about-item"><div class="ai-key">Motor DB</div><div class="ai-val">IndexedDB</div></div>
           <div class="about-item"><div class="ai-key">Último boot</div><div class="ai-val" id="ab-lastboot">…</div></div>
@@ -1746,7 +1746,7 @@ function detectEngine(ua) {
 
   /* ── About ── */
   async function loadAbout() {
-    $('ab-kernel-ver').textContent = K.version || 'v0.3.0';
+    $('ab-kernel-ver').textContent = K.version || 'v0.5.2';
     $('ab-platform').textContent = navigator.platform || 'N/D';
     $('ab-cores').textContent    = navigator.hardwareConcurrency || 'N/D';
 

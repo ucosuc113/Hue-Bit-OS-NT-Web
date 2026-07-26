@@ -6,7 +6,7 @@
   ═══════════════════════════════════════════════════ */
   const DB_NAME    = 'huebos_db';
   const DB_VERSION = 4;
-  const KERNEL_VERSION = '0.5.2'; // v0.5.2: Permisos + Notificaciones + Portapapeles + Servicios reales
+  const KERNEL_VERSION = '0.5.2';
   const STORES = {
     FS           : 'fs',
     PREFS        : 'prefs',
@@ -709,7 +709,6 @@ async touch(path, opts = {}) {
       return (await DB.get(STORES.FS, this._normalize(path))) !== null;
     },
 
-    /* ── FS Binario (v0.3.0) ── */
 
     async writeBinary(path, data, mime = 'application/octet-stream') {
       path = this._normalize(path);
@@ -909,10 +908,6 @@ async touch(path, opts = {}) {
     },
   };
 
-  /* ═══════════════════════════════════════════════════
-     VARIABLES DE ENTORNO  (v0.5.2 — Env)
-     Persistidas en prefs con prefijo "env.".
-  ═══════════════════════════════════════════════════ */
   const Env = {
     _cache: null,
 
@@ -1016,10 +1011,7 @@ async touch(path, opts = {}) {
     return { hashPassword, looksHashed, verifyPassword };
   })();
 
-  /* ═══════════════════════════════════════════════════
-     GESTIÓN DE USUARIOS  (v0.5.2 — Users)
-     Multiusuario simple: un usuario activo, datos en prefs.
-  ═══════════════════════════════════════════════════ */
+
   const Users = {
     _current: null,
 
@@ -1140,13 +1132,7 @@ async create(id, name, opts = {}) {
     },
   };
 
-  /* ═══════════════════════════════════════════════════
-     SISTEMA DE PERMISOS  (v0.5.0 — Permissions)
-     Capa de políticas consultada por Procs (kill de
-     servicios protegidos) y por apps de terceros (grants
-     por appId). FS sigue enforced vía meta.protected —
-     ver nota de arquitectura.
-  ═══════════════════════════════════════════════════ */
+
   const Permissions = (() => {
     const PREF_ROLE_GRANTS = 'permissions.roleGrants';
     const PREF_APP_GRANTS  = 'permissions.apps';
@@ -2066,56 +2052,18 @@ async function _ensureFsHierarchy() {
     await ensureDir('/sys/crashes');
     await ensureDir(TEMP_DIR);
 
-await ensureFile('/system/index.sys', '<!-- sistema index -->', true, { protected: true, systemApp: true });
-    await ensureFile('/system/shell.sys', '<!-- sistema shell -->', true, { protected: true, systemApp: true });
-    await ensureFile('/system/kernel.sys', '<!-- sistema kernel -->', true, { protected: true, systemApp: true });
-    await ensureFile('/system/uefi.sys', '<!-- sistema uefi -->', true, { protected: true, systemApp: true });
-    await ensureFile('/system/repairboot.sys', '<!-- sistema repairboot -->', true, { protected: true, systemApp: true });
-    await ensureFile('/system/diag-kernel.sys', '<!-- sistema diag-kernel -->', true, { protected: true, systemApp: true });
-    await ensureFile('/system/diag-apps.sys', '<!-- sistema diag-apps -->', true, { protected: true, systemApp: true });
+await ensureFile('/system/index.sys', '', true, { protected: true, systemApp: true });
+    await ensureFile('/system/shell.sys', '', true, { protected: true, systemApp: true });
+    await ensureFile('/system/kernel.sys', '', true, { protected: true, systemApp: true });
+    await ensureFile('/system/uefi.sys', '', true, { protected: true, systemApp: true });
+    await ensureFile('/system/repairboot.sys', '', true, { protected: true, systemApp: true });
+    await ensureFile('/system/diag-kernel.sys', '', true, { protected: true, systemApp: true });
+    await ensureFile('/system/diag-apps.sys', '', true, { protected: true, systemApp: true });
 
     /*esta hardcodeado pq... para que voy a meter un sistema que analize esos archivos?? XDDDD, mejor 'imitarlos', total, el usuario no se
     dara cuenta >:3*/
 
 
-    try {
-      await FS.write('/home/docs/readme.txt', [
-        '╔══════════════════════════════════════════╗',
-        '║         H U E B O S  —  v0.3.0          ║',
-        '║              Release 1.0.0               ║',
-        '╚══════════════════════════════════════════╝',
-        '',
-        'Bienvenido a HUEBOS.',
-        '',
-        'Este es tu espacio de trabajo personal.',
-        'Todos los archivos se almacenan localmente',
-        'en tu navegador mediante IndexedDB.',
-        '',
-        'Novedades v0.3.0:',
-        '  - FS binario: Blob/ArrayBuffer (imágenes, audio)',
-        '  - Árbol de procesos parent/child real',
-        '  - Terminal integrada nativa en el shell',
-        '',
-        'Directorios disponibles:',
-        '  /home        → tu espacio personal',
-        '  /home/docs   → documentos',
-        '  /home/media  → imágenes y media (binarios)',
-        '  /home/downloads → descargas',
-        `  ${DESKTOP_DIR} → escritorio real del sistema`,
-        `  ${SYSTEM_DIR} → sistema protegido`,
-        `  ${TEMP_DIR} → archivos temporales`,
-        '',
-        'Kernel version : 0.5.2 (UEFI Firmware)',
-        `Boot time      : ${new Date().toISOString()}`,
-      ].join('\n'));
-      console.info('[Kernel:boot] FS inicial creado');
-    } catch (err) {
-      console.warn('[Kernel:repair] no se pudo restaurar el contenido base:', err.message);
-    }
-
-    if (repaired.length) {
-      console.info(`[Kernel:repair] estructura restaurada: ${repaired.join(', ')}`);
-    }
   }
 
   async function _bootstrapPrefs() {
