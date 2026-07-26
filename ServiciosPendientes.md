@@ -1,51 +1,45 @@
-Leyenda: 🟩 implementado y funcional · 🟨 existe, pero parcial o integrado en otro módulo · ❌ no implementado
+Leyenda: 🟩 implementado y funcional · 🟨 existe, pero parcial o integrado en otro módulo · ❌ no implementado · 🟦 Planificado
 
 Kernel
 │
 ├── 🟩 Sistema de archivos (FS)
 ├── 🟩 Usuarios
 ├── 🟩 Autenticación
-├── 🟨 Permisos
+├── 🟩 Permisos
 ├── 🟩 Preferencias
 ├── 🟩 Base de datos
 ├── 🟩 Gestión de aplicaciones
 ├── 🟩 Registro de aplicaciones
 ├── 🟩 Registro de servicios
-├── 🟨 IPC (comunicación entre procesos)
+├── 🟩 IPC (comunicación entre procesos)
 ├── 🟩 Bus de eventos
-├── ❌ Scheduler
+├── 🟩 Scheduler
 ├── 🟨 Temporizadores
 ├── 🟩 Procesos
-├── ❌ Servicios en segundo plano
+├── 🟩 Servicios en segundo plano
 ├── 🟩 Variables de entorno
 ├── 🟩 Configuración del sistema
-├── ❌ Registro de logs
+├── 🟩 Registro de logs
 ├── 🟩 Reportes de errores (Crash Reporter)
 ├── 🟩 Gestión de sesiones
-├── ❌ Gestión de energía
 ├── 🟩 Reinicio y apagado
 ├── 🟩 Bloqueo de pantalla
 ├── 🟩 Portapapeles
-├── ❌ Gestor de almacenamiento
+├── 🟩 Gestor de almacenamiento
 ├── 🟨 Sistema de permisos
-├── ❌ Gestor de paquetes
+├── 🟩 Gestor de paquetes
 ├── 🟩 Asociación de archivos
 ├── 🟩 Tipos MIME
-├── ❌ API de red
-├── ❌ API de audio
-├── 🟨 API de ventanas
-├── 🟨 API de notificaciones
-├── ❌ API de dispositivos
-├── ❌ Drivers
-├── ❌ Sistema de montaje (Mount Points)
-├── ❌ Sistema de versiones
+├── 🟩 API de ventanas
+├── 🟩 API de notificaciones
+├── 🟩 Sistema de versiones
 ├── 🟩 Compatibilidad entre versiones
 ├── 🟩 API pública del Kernel
 ├── 🟨 Hooks del sistema
-├── ❌ Monitor de rendimiento
-├── 🟨 Monitor de recursos
-├── ❌ Gestión de memoria (lógica)
-├── ❌ Caché del sistema
+├── 🟩 Monitor de rendimiento
+├── 🟩 Monitor de recursos
+├── 🟩 Gestión de memoria (lógica)
+├── 🟩 Caché del sistema
 ├── 🟩 Virtual File System (VFS)
 ├── 🟨 Sistema de plugins
 ├── ❌ Internacionalización (i18n)
@@ -68,20 +62,20 @@ Shell
 ├── 🟩 Barra de tareas
 ├── ❌ Dock
 ├── 🟩 Menú de aplicaciones
-├── 🟨 Explorador de archivos
+├── 🟩 Explorador de archivos
 ├── 🟩 Gestor de ventanas
 ├── 🟩 Centro de notificaciones
-├── ❌ Centro de control
+├── 🟦 Centro de control
 ├── 🟩 Pantalla de bloqueo
-├── ❌ Pantalla de inicio de sesión
+├── 🟨 Pantalla de inicio de sesión
 ├── 🟨 Selector de fondo
 ├── 🟨 Selector de tema
 ├── 🟩 Diálogos del sistema
 ├── 🟩 Menús contextuales
-├── 🟨 Indicadores del sistema
+├── 🟩 Indicadores del sistema
 ├── 🟨 Bandeja del sistema
 ├── 🟩 Animaciones
-├── ❌ Widgets
+├── 🟦 Widgets
 └── 🟩 Lanzador de aplicaciones
 
 Notas sobre algunas marcas del Shell:
@@ -99,16 +93,14 @@ Servicios del Sistema
 │   │   (módulos en segundo plano que exponen funcionalidad al resto del sistema)
 │   │
 │   ├── 🟩 Notificaciones — cola y persistencia de notificaciones, consumida por el Centro de notificaciones del Shell.
-│   ├── ❌ Bluetooth — descubre, empareja y mantiene conexión con dispositivos Bluetooth cercanos.
-│   ├── ❌ Sincronización — mantiene archivos y preferencias al día entre este dispositivo y una copia remota u otros dispositivos.
-│   ├── ❌ Actualizaciones — comprueba, descarga y aplica nuevas versiones del sistema o de las apps registradas.
+│   ├── 🟨 Sincronización — mantiene archivos y preferencias al día entre este dispositivo y una copia remota u otros dispositivos.
+│   ├── 🟩 Actualizaciones — comprueba, descarga y aplica nuevas versiones del sistema o de las apps registradas.
 │   ├── 🟩 Indexador de archivos — recorre el FS en segundo plano y construye un índice de contenido para búsquedas.
-│   ├── ❌ Motor de búsqueda — resuelve consultas de búsqueda global (nombre + contenido), apoyado en el Indexador de archivos.
-│   ├── ❌ Miniaturas — genera y cachea previsualizaciones de imágenes y otros archivos para el Explorador.
-│   ├── ❌ Papelera de reciclaje — intercepta los borrados del FS y los mueve a una zona recuperable en vez de eliminarlos al instante.
-│   ├── ❌ Telemetría (opcional) — recolecta métricas de uso de forma anónima y las envía si el usuario lo permite.
-│   ├── ❌ Servicio de IA (opcional) — motor de IA que las apps pueden invocar para autocompletar, resumir o generar contenido.
-│   └── ❌ Compatibilidad — traduce o adapta llamadas de apps antiguas/externas al contrato actual del Kernel.
+│   ├── 🟨 Motor de búsqueda — resuelve consultas de búsqueda global (nombre + contenido), apoyado en el Indexador de archivos.
+│   ├── 🟦 Miniaturas — genera y cachea previsualizaciones de imágenes y otros archivos para el Explorador.
+│   ├── 🟦 Papelera de reciclaje — intercepta los borrados del FS y los mueve a una zona recuperable en vez de eliminarlos al instante.
+generar contenido.
+│   └── 🟩 Compatibilidad — traduce o adapta llamadas de apps antiguas/externas al contrato actual del Kernel.
 │
 ├── APIs
 │   │   (interfaces delgadas para que las apps interactúen; sin estado propio complejo)
@@ -119,12 +111,10 @@ Servicios del Sistema
 └── Componentes
     │   (piezas ya existentes, pero enterradas dentro de otro módulo — por eso llevan 🟨)
     │
-    ├── 🟨 Sistema de toasts — alertas temporales con auto-cierre en la esquina superior derecha; módulo `Toast` dentro de shell.html, sin cola ni persistencia.
-    ├── 🟨 Filtro de aplicaciones (Start Menu) — filtra en memoria el listado de apps mientras el usuario escribe; clase `StartMenu`, no indexa ni busca contenido del FS.
-    ├── 🟨 Historial de comandos (Terminal) — navegación ↑/↓ sobre comandos previos; clase `History` de `TerminalModule`, persistida en la preferencia `terminal.history`.
+    ├── 🟩 Sistema de toasts — alertas temporales con auto-cierre en la esquina superior derecha; módulo `Toast` dentro de shell.html, sin cola ni persistencia.
+    ├── 🟩 Filtro de aplicaciones (Start Menu) — filtra en memoria el listado de apps mientras el usuario escribe; clase `StartMenu`, no indexa ni busca contenido del FS.
+    ├── 🟩 Historial de comandos (Terminal) — navegación ↑/↓ sobre comandos previos; clase `History` de `TerminalModule`, persistida en la preferencia `terminal.history`.
     └── 🟨 Respaldo pre-reinicialización — exporta un volcado JSON del FS y los blobs binarios; función `_backupBeforeWipe()` del Kernel, se dispara solo automáticamente al detectar un cambio en `fs.hierarchyVersion`, sin API invocable por el usuario.
-
-Nota: "Audio" y "Red" se retiraron de esta capa — ya están cubiertas por "API de audio" y "API de red" en el árbol del Kernel; mantenerlas aquí duplicaba la arquitectura.
 
 Lo importante de esta lista es que **no es un checklist** de cosas que haya que implementar sí o sí. Es más bien una guía para organizar la arquitectura.
 

@@ -43,6 +43,8 @@
             const match = html.match(
               /<script[^>]+id=["']wos-manifest["'][^>]*>([\s\S]*?)<\/script>/i
             );
+
+            // quien este leyendo estos comentarios y tomandose el tiempo de leerlos... es un ser humano hermoso, y si no lo eres, entonces eres un ser humano hermoso con problemas de autoestima, y eso es normal, todos tenemos problemas de autoestima, pero no te preocupes, todo va a estar bien, y si no lo esta, entonces va a estar bien de todas formas, pq la vida es asi, y la vida es hermosa, y tu eres hermoso, y yo soy hermoso, y todos somos hermosos, y si no lo somos, entonces estamos en el camino de serlo... y eso es hermoso tambien... hermoso el kernel jeje
             if (!match) {
               log(`${file} :: sin manifiesto`);
               continue;

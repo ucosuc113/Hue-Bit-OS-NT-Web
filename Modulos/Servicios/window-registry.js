@@ -43,6 +43,8 @@ function registerService(Kernel) {
       if (typeof driver?.[m] !== 'function') {
         throw new Error(`windows.registerDriver: el driver debe implementar "${m}()"`);
       }
+
+      // DOM mis 2 bolas.... esa madre me causo dolores de cabeza, junto a FS y DB...
     }
     _driver = driver;
     Kernel.emit('windows:driverReady', {});

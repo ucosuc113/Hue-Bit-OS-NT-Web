@@ -8,7 +8,7 @@
 {
   "id": "terminal",
   "name": "Terminal",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "icon": "⌨",
   "category": "system",
   "singleton": false,
@@ -98,6 +98,7 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;}
   color:var(--g); font-family:var(--mono); font-size:12.5px;
   caret-color:var(--g); user-select:text;
 }
+*{scrollbar-width:thin;scrollbar-color:rgba(0,255,136,0.28) rgba(0,10,5,0.4);} /* Firefox no lee ::-webkit-scrollbar */
 ::-webkit-scrollbar{width:3px;height:3px;}
 ::-webkit-scrollbar-thumb{background:rgba(0,255,136,0.28);}
 @keyframes dotPulse {
@@ -123,7 +124,7 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;}
     </div>
   </div>
   <script>
-;(function () {
+console.log('%c[DEBUG-TERM] <script> de terminal.html ejecutándose', 'background:red;color:white;font-size:14px;padding:4px');(function () {
   'use strict';
 
   function escapeHtml(str) {
@@ -339,8 +340,14 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;}
         if(parts.length===1&&!input.endsWith(' ')){
           const partial=parts[0].toLowerCase();
           const matches=ctx.registry.names().filter(n=>n.startsWith(partial));
-          if(matches.length===1)return{replace:matches[0]+' ',completions:[]};
-          if(matches.length>1)return{replace:null,completions:matches};
+          
+          // Incluir comandos del IDEBridge en autocompletado
+          const bridge = window.parent.IDEBridge;
+          const extMatches = bridge ? bridge.listCommands().filter(c => c.name.startsWith(partial)).map(c => c.name) : [];
+          const allMatches = [...matches, ...extMatches];
+          
+          if(allMatches.length===1)return{replace:allMatches[0]+' ',completions:[]};
+          if(allMatches.length>1)return{replace:null,completions:allMatches};
           return null;
         }
         const lastToken=parts[parts.length-1];
@@ -430,15 +437,24 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;}
         return'/'+stack.join('/')||'/';
       }
       _makeCtx(){
-        return {
-          kernel:this.kernel,registry:this.registry,env:this.env,history:this.history,
-          termProc:this.termProc,cwd:this._cwd,resolvePath:(p)=>this.resolvePath(p),
-          print:(t,c)=>this.renderer.print(t,c),printHTML:(h,c)=>this.renderer.printHTML(h,c),
-          clear:()=>this.renderer.clear(),scrollBottom:()=>this.renderer.scrollBottom(),
-          exitCode:this.exitCode,setExitCode:(c)=>{this.exitCode=c;},
-          escapeHtml:escapeHtml,
-        };
-      }
+    return {
+      kernel:this.kernel,
+      registry:this.registry,
+      env:this.env,
+      history:this.history,
+      termProc:this.termProc,
+      cwd:this._cwd,
+      resolvePath:(p)=>this.resolvePath(p),
+      print:(t,c)=>this.renderer.print(t,c),
+      printHTML:(h,c)=>this.renderer.printHTML(h,c),
+      clear:()=>this.renderer.clear(),
+      scrollBottom:()=>this.renderer.scrollBottom(),
+      exitCode:this.exitCode,
+      setExitCode:(c)=>{this.exitCode=c;},
+      escapeHtml:escapeHtml,
+      cmdInput:this.cmdInput,   // ← AGREGAR ESTA LÍNEA
+    };
+}
       async exec(raw){
         const trimmed=(raw||'').trim();
         if(!trimmed)return;
@@ -470,6 +486,32 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;}
       }
       async _execCommand(cmdSpec,ctx,stdin){
         const spec=this.registry.resolve(cmdSpec.name);
+
+        // Si no está en el registro local, buscar en el IDEBridge (Servicio puente)
+        if(!spec){
+          const bridge = window.parent.IDEBridge;
+          console.debug('[DEBUG-TERM] buscando en IDEBridge | comando:', cmdSpec.name, '| bridge existe:', !!bridge, '| bridge.instanceId:', bridge?._instanceId, '| comandos disponibles:', bridge?.listCommands ? bridge.listCommands().map(c=>c.name) : '(sin listCommands)');
+          const extSpec = bridge?.getCommand(cmdSpec.name);
+          console.debug('[DEBUG-TERM] resultado getCommand:', cmdSpec.name, '->', !!extSpec);
+          if(extSpec){
+            const{positionals,flags}=ArgResolver.resolve(cmdSpec.tokens,extSpec);
+            ctx.args=positionals;ctx.flags=flags;ctx.raw=cmdSpec.tokens;ctx.stdin=stdin;
+            let redirectCtx=null;
+            try{redirectCtx=await Redirect.apply(cmdSpec.redirects,ctx);}
+            catch(e){this.renderer.print(`Error de redirección: ${e.message}`,'nt-err');this.exitCode=1;return;}
+            if(redirectCtx?.stdinContent!=null) ctx.stdin=redirectCtx.stdinContent;
+            try{
+              const result=await extSpec.execute(ctx);
+              this.exitCode=result?.exitCode??0;
+              this.renderer.print(`[${cmdSpec.name}] completado (exit ${this.exitCode})`,'nt-success');
+            }catch(err){
+              this.exitCode=ErrorHandler.report(err,ctx)??1;
+            }
+            if(redirectCtx)await redirectCtx.flush();
+            return;
+          }
+        }
+
         if(!spec){
           this.renderer.print(`comando no encontrado: ${cmdSpec.name}`,'nt-err');
           this.exitCode=127;return;
@@ -538,6 +580,20 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;}
             ctx.print('Comandos disponibles:','nt-info');
             const cmds=core.registry.list();
             cmds.forEach(s=>{const pad=(s.name+(s.aliases?.length?'/'+s.aliases.join('/'):'')).padEnd(22,' ');ctx.printHTML(`  <span style="color:var(--g)">${pad}</span><span style="color:var(--g-dim)">${s.description||''}</span>`);});
+
+            // Mostrar comandos del IDEBridge
+            const bridge = window.parent.IDEBridge;
+            if(bridge){
+              const extCmds = bridge.listCommands();
+              if(extCmds.length>0){
+                ctx.print('','nt-line');
+                ctx.print('Comandos del IDE (puente):','nt-info');
+                extCmds.forEach(s=>{
+                  const pad=s.name.padEnd(22,' ');
+                  ctx.printHTML(`  <span style="color:var(--cyan)">${pad}</span><span style="color:var(--g-dim)">${s.description||''}</span>`);
+                });
+              }
+            }
             return{exitCode:0};
           }
         },
@@ -768,7 +824,7 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;}
               `   ██╔══██║██║   ██║██╔══╝  ██╔══██╗██║   ██║╚════██║`,
               `   ██║  ██║╚██████╔╝███████╗██████╔╝╚██████╔╝███████║`,
               `   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚══════╝`,``];
-            const info=[``,`OS: HUEBOS v0.4.0`,`Kernel: HUEBOS Kernel v0.4.0 (UEFI)`,
+            const info=[``,`OS: HUEBOS Release 1.0.0`,`Kernel: HUEBOS Kernel v0.5.2 (UEFI)`,
               `Shell: Cyberhacker+Aero Glass`,`Resolution: ${screen.width}×${screen.height}`,
               `CPU: ${navigator.hardwareConcurrency} core(s)`,
               `Memory: ${navigator.deviceMemory?navigator.deviceMemory+' GB':'N/D'}`,
@@ -884,7 +940,7 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;}
         },
         {name:'ver',description:'Versión del sistema',usage:'ver',
           async execute(ctx){
-            ctx.print(`HUEBOS [Versión ${K.version||'0.4.0'}]`,'nt-info');
+            ctx.print(`HUEBOS [Versión ${K.version||'0.5.2'}]`,'nt-info');
             ctx.print('(c) HUEBOS. Todos los derechos reservados.','nt-dim');
             return{exitCode:0};
           }
@@ -894,7 +950,7 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;}
             const upSec=K.uptimeSeconds;
             const upStr=upSec>=3600?`${Math.floor(upSec/3600)}h ${Math.floor((upSec%3600)/60)}m`:`${Math.floor(upSec/60)}m ${upSec%60}s`;
             ctx.print('Información del sistema:','nt-info');
-            ctx.print(`  Kernel         : ${K.version||'0.4.0'}`,'nt-out');
+            ctx.print(`  Kernel         : ${K.version||'0.5.2'}`,'nt-out');
             ctx.print(`  Resolución     : ${screen.width}×${screen.height}`,'nt-out');
             ctx.print(`  CPU            : ${navigator.hardwareConcurrency} core(s)`,'nt-out');
             ctx.print(`  Memoria        : ${navigator.deviceMemory?navigator.deviceMemory+' GB':'N/D'}`,'nt-out');
@@ -1144,38 +1200,71 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;}
 
   /* ── Boot de la app: se ejecuta dentro del iframe que crea shell.html ── */
   function boot(){
+    console.debug('[DEBUG-TERM] boot() iniciando | window.parent.Kernel:', !!window.parent.Kernel, '| window.parent.IDEBridge:', !!window.parent.IDEBridge, '| window.parent.__wos:', !!window.parent.__wos);
     const K = window.parent.Kernel;
-    const params = new URLSearchParams(window.location.search);
-    const pid = parseInt(params.get('pid'), 10);
-    const termProc = K.procs.get(pid);
     const outputEl = document.getElementById('nt-output');
+    const params = new URLSearchParams(window.location.search);
+    const pidFromUrl = parseInt(params.get('pid'), 10);
 
-    if (!termProc) {
-      outputEl.innerHTML = '<div class="nt-line nt-err">No se pudo vincular al proceso (pid inválido).</div>';
-      return;
+    function initTerminal(pid) {
+      const termProc = K.procs.get(pid);
+      if (!termProc) {
+        outputEl.innerHTML = `<div class="nt-line nt-err">No se pudo vincular al proceso (pid inválido: ${pid}).</div>`;
+        return;
+      }
+
+      if (params.get('embed') === '1') {
+        const header = document.querySelector('.nt-header');
+        if (header) header.style.display = 'none';
+      }
+
+      const renderer = new TerminalModule.Renderer(outputEl);
+      const core = new TerminalModule.TerminalCore({
+        kernel: K,
+        termProc,
+        renderer,
+        cmdInput: document.getElementById('nt-cmd-input'),
+        promptEl: document.getElementById('nt-prompt'),
+        cwdDisplay: document.getElementById('nt-cwd-label'),
+      });
+      core.registry.registerAll(TerminalModule.buildCommandSpecs(core));
+
+      core.init().then(() => {
+        renderer.print('HUEBOS Terminal — escribe "help" para ver los comandos disponibles.', 'nt-success');
+        core.setCwd(termProc.cwd || '/home');
+        document.getElementById('nt-cmd-input').focus();
+        console.debug('[DEBUG-TERM] enviando ide:terminalReady | pid:', pid, '| window.parent.IDEBridge existe ya?:', !!window.parent.IDEBridge);
+        window.parent.postMessage({ type: 'ide:terminalReady', pid }, '*');
+      });
+
+      document.getElementById('nt-cmd-input').addEventListener('keydown', e => core.handleKey(e));
+      document.querySelector('.native-terminal').addEventListener('click', () => {
+        document.getElementById('nt-cmd-input').focus();
+      });
+
+      // Escuchar comandos directos desde el IDE (ej. al hacer click en Run Debug)
+      window.addEventListener('message', (e) => {
+        console.debug('[DEBUG-TERM] mensaje recibido en terminal:', e.data);
+        if (e.data && e.data.type === 'ide:exec') {
+          const cmd = e.data.cmd;
+          console.debug('[DEBUG-TERM] ejecutando via ide:exec:', cmd);
+          core.cmdInput.value = cmd;
+          core.cmdInput.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
+        }
+      });
     }
 
-    const renderer = new TerminalModule.Renderer(outputEl);
-    const core = new TerminalModule.TerminalCore({
-      kernel: K,
-      termProc,
-      renderer,
-      cmdInput: document.getElementById('nt-cmd-input'),
-      promptEl: document.getElementById('nt-prompt'),
-      cwdDisplay: document.getElementById('nt-cwd-label'),
-    });
-    core.registry.registerAll(TerminalModule.buildCommandSpecs(core));
-
-    core.init().then(() => {
-      renderer.print('HUEBOS Terminal — escribe "help" para ver los comandos disponibles.', 'nt-success');
-      core.setCwd(termProc.cwd || '/home');
-      document.getElementById('nt-cmd-input').focus();
-    });
-
-    document.getElementById('nt-cmd-input').addEventListener('keydown', e => core.handleKey(e));
-    document.querySelector('.native-terminal').addEventListener('click', () => {
-      document.getElementById('nt-cmd-input').focus();
-    });
+    // Si el PID viene en la URL (cuando la abre el IDE)
+    if (pidFromUrl) {
+      initTerminal(pidFromUrl);
+    } else {
+      // Si no hay PID en la URL, esperar a que el Shell lo envíe por postMessage (al usar srcdoc)
+      window.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'app:init' && e.data.pid) {
+          initTerminal(e.data.pid);
+        }
+      });
+    }
   }
 
   function waitForParentKernel(){

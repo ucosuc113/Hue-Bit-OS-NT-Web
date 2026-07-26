@@ -9,9 +9,8 @@
 {
   "id": "task-manager",
   "name": "Administrador de tareas",
-  "version": "0.2.0",
-    "icon":        "./apps/public/TaskManager.svg",
-  "category": "system",
+  "version": "1.3.0",
+  "icon":        "./apps/public/TaskManager.svg",  "category": "system",
   "singleton": true,
   "description": "Yo que se, no soy el jefe ;v, AH NO ESPERA SI SOY.",
   "winWidth": 860,
@@ -47,7 +46,7 @@
   .h-icon{font-size:1.3rem;filter:drop-shadow(0 0 6px rgba(0,255,136,0.6));}
   .h-title{font-family:var(--display);font-size:0.95rem;letter-spacing:0.14em;color:var(--g);text-shadow:0 0 10px rgba(0,255,136,0.4);}
   .h-sub{font-size:0.62rem;color:var(--g-dim);letter-spacing:0.1em;margin-top:2px;}
-  .tabs{display:flex;gap:6px;margin-left:auto;}
+  .tabs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end;}
   .tab{
     display:flex;align-items:center;
     font-size:0.64rem;letter-spacing:0.09em;padding:6px 12px;border-radius:7px;
@@ -111,14 +110,18 @@
   .chip.active{background:var(--g-faint);border-color:var(--border-hot);color:var(--g);}
 
   /* ── Table ── */
-  .table-wrap{flex:1;overflow-y:auto;padding:0 16px;}
-  table{width:100%;border-collapse:collapse;font-size:0.72rem;}
+  .table-wrap{flex:1;overflow:auto;padding:0 16px;}
+  table{width:100%;min-width:680px;border-collapse:collapse;font-size:0.72rem;}
   thead th{
     position:sticky;top:0;background:var(--bg);z-index:2;
     text-align:left;padding:9px 8px;color:var(--g-dim);
     font-size:0.62rem;letter-spacing:0.1em;font-weight:400;
     border-bottom:1px solid var(--border);
   }
+  thead th[data-sort]{cursor:pointer;user-select:none;}
+  thead th[data-sort]:hover{color:var(--g);}
+  thead th[data-sort].sort-asc::after{content:' ▲';font-size:0.6em;}
+  thead th[data-sort].sort-desc::after{content:' ▼';font-size:0.6em;}
   tbody tr{border-bottom:1px solid rgba(0,255,136,0.06);transition:background 0.12s;cursor:pointer;}
   tbody tr:hover{background:rgba(0,255,136,0.04);}
   tbody td{padding:9px 8px;vertical-align:middle;color:rgba(220,255,238,0.88);}
@@ -174,6 +177,26 @@
   .btn-kill:disabled{opacity:0.3;cursor:not-allowed;}
 
   .empty-row td{text-align:center;padding:40px 10px;color:var(--g-dim);font-size:0.7rem;letter-spacing:0.06em;}
+
+  .btn-restart{
+    font-family:var(--mono);font-size:0.62rem;letter-spacing:0.05em;
+    padding:5px 11px;border-radius:6px;cursor:pointer;margin-right:6px;
+    background:rgba(255,204,68,0.08);border:1px solid rgba(255,204,68,0.3);color:#ffdd88;
+    transition:all 0.15s;
+  }
+  .btn-restart:hover{background:rgba(255,204,68,0.18);border-color:rgba(255,204,68,0.55);color:#ffe6a8;}
+
+    .group-separator td {
+    background: rgba(0,255,136,0.05);
+    color: var(--g-dim);
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    pointer-events: none;
+  }
+
 
   /* ── Footer ── */
   footer{
@@ -308,7 +331,7 @@
 <body>
 <div id="app">
   <header>
-    <span class="h-icon">📊</span>
+    <span class="h-icon"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"/><path d="M4 19h16"/><rect x="7" y="12" width="3" height="7"/><rect x="12" y="8" width="3" height="11"/><rect x="17" y="4" width="3" height="15"/></svg></span>
     <div>
       <div class="h-title">ADMINISTRADOR DE TAREAS</div>
       <div class="h-sub">Procesos activos del sistema</div>
@@ -317,7 +340,9 @@
       <div class="tab active" data-tab="procesos">Procesos</div>
       <div class="tab" data-tab="rendimiento">Rendimiento</div>
       <div class="tab" data-tab="memoria">Memoria</div>
-      <div class="tab" data-tab="eventos">Eventos<span class="tab-badge" id="badge-eventos"></span></div>
+            <div class="tab" data-tab="eventos">Eventos<span class="tab-badge" id="badge-eventos"></span></div>
+      <div class="tab" data-tab="scheduler">Scheduler</div>
+      <div class="tab" data-tab="ipc">IPC</div>
     </div>
   </header>
 
@@ -334,11 +359,11 @@
       <table>
         <thead>
           <tr>
-            <th style="width:64px">PID</th>
-            <th style="width:120px">Tipo</th>
-            <th style="width:96px">Estado</th>
-            <th>Nombre</th>
-            <th style="width:90px">Iniciado</th>
+            <th style="width:64px" data-sort="pid">PID</th>
+            <th style="width:120px" data-sort="type">Tipo</th>
+            <th style="width:96px" data-sort="status">Estado</th>
+            <th data-sort="title">Nombre</th>
+            <th style="width:90px" data-sort="spawnedAt">Iniciado</th>
             <th style="width:172px"></th>
           </tr>
         </thead>
@@ -370,6 +395,47 @@
     </div>
   </div>
 
+
+  <!-- ── PANEL: SCHEDULER ── -->
+  <div id="panel-scheduler" class="panel">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:200px">ID Tarea</th>
+            <th style="width:96px">Estado</th>
+            <th style="width:120px">Intervalo</th>
+            <th style="width:120px">Últ. Ejecución</th>
+            <th style="width:80px">Ejecucs.</th>
+            <th>Últ. Error</th>
+            <th style="width:172px"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-scheduler">
+          <tr class="empty-row"><td colspan="7">Cargando tareas…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── PANEL: IPC ── -->
+  <div id="panel-ipc" class="panel">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:250px">Canal</th>
+            <th style="width:120px">Estado</th>
+            <th>Detalles</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-ipc">
+          <tr class="empty-row"><td colspan="3">Cargando canales IPC…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- ── PANEL: EVENTOS ── -->
   <div id="panel-eventos" class="panel">
     <div class="toolbar">
@@ -394,7 +460,7 @@
       </div>
       <div class="crash-section">
         <div class="crash-head">
-          <span>💥 Reportes de fallos</span>
+          <span><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5H2.5L12 3.5z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r="0.9" fill="currentColor" stroke="none"/></svg> Reportes de fallos</span>
           <span class="count-pill" id="crash-count">0</span>
           <span class="spacer"></span>
           <button id="btn-clear-crashes" class="btn-secondary">Limpiar reportes</button>
@@ -419,15 +485,14 @@
 ;(function(){
   'use strict';
 
-  const K = (window.parent && window.parent.Kernel) ? window.parent.Kernel : window.Kernel;
-  const WOS = (window.parent && window.parent.__wos) ? window.parent.__wos : null;
+  const WOS = window.WOS; // Inyectado por wos-client.js
   const SELF_APP_ID = 'task-manager';
 
   const MODULES_ROOT = '/Modulos';
   const MOD_TYPES = {
-    Servicios:   { path: MODULES_ROOT + '/Servicios',   label: 'Servicio',   cls: 't-servicio',   icon: '⚙' },
-    API:         { path: MODULES_ROOT + '/API',         label: 'API',        cls: 't-api',        icon: '🔌' },
-    Componentes: { path: MODULES_ROOT + '/Componentes', label: 'Componente', cls: 't-componente', icon: '🧩' },
+    Servicios:   { path: MODULES_ROOT + '/Servicios',   label: 'Servicio',   cls: 't-servicio',   icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.2-1.6l2-1.4-2-3.4-2.3.8a7 7 0 00-2.7-1.6L13.4 2h-2.8l-.4 2.8a7 7 0 00-2.7 1.6l-2.3-.8-2 3.4 2 1.4A7 7 0 005 12c0 .5 0 1 .1 1.6l-2 1.4 2 3.4 2.3-.8a7 7 0 002.7 1.6l.4 2.8h2.8l.4-2.8a7 7 0 002.7-1.6l2.3.8 2-3.4-2-1.4c.1-.6.1-1.1.1-1.6z"/></svg>' },
+    API:         { path: MODULES_ROOT + '/API',         label: 'API',        cls: 't-api',        icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M7 8h10v4a5 5 0 01-5 5 5 5 0 01-5-5V8z"/><path d="M12 17v5"/></svg>' },
+    Componentes: { path: MODULES_ROOT + '/Componentes', label: 'Componente', cls: 't-componente', icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h3.2a1.6 1.6 0 011.6 1.8c-.1.9.6 1.7 1.5 1.7H17a2 2 0 012 2v2.1c0 .9-.8 1.6-1.7 1.5a1.6 1.6 0 00-1.8 1.6V18a2 2 0 01-2 2h-2.1c-.9 0-1.6-.8-1.5-1.7a1.6 1.6 0 00-1.6-1.8H7a2 2 0 01-2-2v-3.2a1.6 1.6 0 011.8-1.6c.9.1 1.7-.6 1.7-1.5V7a2 2 0 012-2z"/></svg>' },
   };
 
   /* ── Referencias DOM: Procesos ── */
@@ -455,10 +520,14 @@
   const crashListEl    = document.getElementById('crash-list');
   const btnClearCrashes = document.getElementById('btn-clear-crashes');
   const badgeEventos   = document.getElementById('badge-eventos');
+  const tbodyScheduler = document.getElementById('tbody-scheduler');
+  const tbodyIpc       = document.getElementById('tbody-ipc');
 
   let _rows = [];
   let _filter = '';
   let _pendingKillPid = null;
+  let _sortKey = null;
+  let _sortDir = 1;
   let _activePanel = 'procesos';
   let _procHistory = [];
   let _eventLog = [];
@@ -469,6 +538,13 @@
 
   function escapeHtml(str){
     return String(str ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+
+  function renderIcon(icon){
+    if (!icon) return '';
+    const isPath = /^(\.{1,2}\/|https?:\/\/|data:image\/)/.test(icon) || /\.(svg|png|jpe?g|gif|webp)(\?.*)?$/i.test(icon);
+    if (isPath) return `<img src="${escapeHtml(icon)}" alt="" style="width:1em;height:1em;object-fit:contain;vertical-align:-0.15em;display:inline-block" />`;
+    return icon; // ya viene como <svg>...</svg> o emoji, listo para insertar
   }
 
   function toast(msg, type){
@@ -501,7 +577,7 @@
 
   /* ── Modal genérico ── */
   function openGenericModal(title, bodyHtml){
-    modalTitleEl.textContent = title;
+    modalTitleEl.innerHTML = title;
     modalBody.innerHTML = bodyHtml;
     modalOverlay.classList.add('show');
   }
@@ -520,6 +596,8 @@
     if (name === 'rendimiento') renderRendimiento();
     if (name === 'memoria') refreshMemoria();
     if (name === 'eventos') { renderEventos(); refreshCrashes(); }
+    if (name === 'scheduler') renderScheduler();
+    if (name === 'ipc') renderIpc();
   }
   document.querySelectorAll('.tab[data-tab]').forEach(t => {
     t.addEventListener('click', () => switchPanel(t.dataset.tab));
@@ -531,38 +609,43 @@
 
   /* ── Asegura que exista /Modulos y sus tres subcarpetas ── */
   async function ensureModulesTree(){
-    await K.fs.mkdir(MODULES_ROOT).catch(()=>{});
+    await WOS.fs.mkdir(MODULES_ROOT).catch(()=>{});
     for (const key of Object.keys(MOD_TYPES)) {
-      await K.fs.mkdir(MOD_TYPES[key].path).catch(()=>{});
+      await WOS.fs.mkdir(MOD_TYPES[key].path).catch(()=>{});
     }
   }
 
-  /* ── Clasifica un proceso: Aplicación / Servicio / API / Componente / Sistema ── */
-  async function classify(proc){
-    for (const key of Object.keys(MOD_TYPES)) {
-      const t = MOD_TYPES[key];
-      if (proc.appId && proc.appId.startsWith(t.path + '/')) {
-        return { label: t.label, cls: t.cls, icon: t.icon, path: proc.appId };
-      }
-    }
-    const app = await K.apps.get(proc.appId).catch(() => null);
-    if (app) return { label: 'Aplicación', cls: 't-app', icon: app.icon || '▪', path: null };
-    return { label: 'Proceso del sistema', cls: 't-sistema', icon: '▪', path: null };
-  }
-
+  /* ── Carga de procesos usando System Registry (vía WOS IPC) ── */
   async function loadActive(){
-    const procs = K.procs.list();
+    // System Registry ya clasifica y normaliza todo por nosotros
+    const procs = await WOS.systemRegistry.listProcesses();
     const rows = [];
     for (const p of procs) {
-      const type = await classify(p);
+      // Mapeamos la respuesta normalizada del Registry al formato de la UI
+      let type;
+      switch (p.type) {
+        case 'service': type = { label: 'Servicio', cls: 't-servicio', icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.2-1.6l2-1.4-2-3.4-2.3.8a7 7 0 00-2.7-1.6L13.4 2h-2.8l-.4 2.8a7 7 0 00-2.7 1.6l-2.3-.8-2 3.4 2 1.4A7 7 0 005 12c0 .5 0 1 .1 1.6l-2 1.4 2 3.4 2.3-.8a7 7 0 002.7 1.6l.4 2.8h2.8l.4-2.8a7 7 0 002.7-1.6l2.3.8 2-3.4-2-1.4c.1-.6.1-1.1.1-1.6z"/></svg>', path: p.metadata?.path }; break;
+        case 'api': type = { label: 'API', cls: 't-api', icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M7 8h10v4a5 5 0 01-5 5 5 5 0 01-5-5V8z"/><path d="M12 17v5"/></svg>', path: p.metadata?.path }; break;
+        case 'component': type = { label: 'Componente', cls: 't-componente', icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h3.2a1.6 1.6 0 011.6 1.8c-.1.9.6 1.7 1.5 1.7H17a2 2 0 012 2v2.1c0 .9-.8 1.6-1.7 1.5a1.6 1.6 0 00-1.8 1.6V18a2 2 0 01-2 2h-2.1c-.9 0-1.6-.8-1.5-1.7a1.6 1.6 0 00-1.6-1.8H7a2 2 0 01-2-2v-3.2a1.6 1.6 0 011.8-1.6c.9.1 1.7-.6 1.7-1.5V7a2 2 0 012-2z"/></svg>', path: p.metadata?.path }; break;
+        case 'process':
+          type = { label: 'Aplicación', cls: 't-app', icon: p.metadata?.icon || '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>', path: p.metadata?.appId }; 
+          break;
+        default: type = { label: 'Proceso del sistema', cls: 't-sistema', icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>', path: null };
+      }
+      
       rows.push({
-        pid: p.pid, appId: p.appId, title: p.title || p.appId,
-        icon: type.icon, type, spawnedAt: p.spawnedAt,
-        isSelf: p.appId === SELF_APP_ID,
-        protected: !!p.protected,
-        status: p.state || 'running',
-        cwd: p.cwd,
-        parentPid: p.parentPid,
+        pid: Number(p.id), 
+        appId: p.metadata?.appId || p.id,
+        title: p.name,
+        icon: type.icon,
+        type,
+        spawnedAt: p.metadata?.spawnedAt,
+        isSelf: p.metadata?.appId === SELF_APP_ID,
+        protected: p.status === 'protegido',
+        status: p.status === 'suspendido' ? 'suspended' : 'running',
+        cwd: p.metadata?.cwd,
+        parentPid: p.metadata?.parentPid,
+        group: (p.type === 'process' && !String(p.metadata?.appId || '').startsWith(MODULES_ROOT + '/')) ? 'foreground' : 'background'
       });
     }
     rows.sort((a, b) => a.pid - b.pid);
@@ -597,38 +680,64 @@
       visible = _rows
         .filter(r => r.title.toLowerCase().includes(q) || r.appId.toLowerCase().includes(q))
         .map(r => Object.assign({}, r, { depth: 0 }));
+    } else if (_sortKey) {
+      visible = _rows.map(r => Object.assign({}, r, { depth: 0 }));
     } else {
       visible = buildTreeOrder(_rows);
     }
+    if (_sortKey) {
+      visible = visible.slice().sort((a, b) => {
+        let av, bv;
+        if (_sortKey === 'status')         { av = a.status;             bv = b.status; }
+        else if (_sortKey === 'title')     { av = a.title.toLowerCase(); bv = b.title.toLowerCase(); }
+        else if (_sortKey === 'type')      { av = a.type.label;          bv = b.type.label; }
+        else if (_sortKey === 'spawnedAt') { av = a.spawnedAt || 0;      bv = b.spawnedAt || 0; }
+        else                                { av = a.pid;                bv = b.pid; }
+        if (av < bv) return -1 * _sortDir;
+        if (av > bv) return 1 * _sortDir;
+        return 0;
+      });
+    }
+
+    const renderRow = r => {
+      const suspended = r.status === 'suspended';
+      return `
+      <tr data-pid="${r.pid}">
+        <td class="pid">#${String(r.pid).padStart(4,'0')}</td>
+        <td><span class="type-chip ${r.type.cls}"><span class="dot"></span>${r.type.label}</span></td>
+        <td>
+          <span class="status-pill ${suspended ? 'status-suspended' : 'status-running'}">
+            <span class="status-dot"></span>${suspended ? 'Suspendido' : 'Activo'}
+          </span>
+        </td>
+        <td>
+          <div class="proc-name" style="margin-left:${r.depth * 18}px">
+${r.depth > 0 ? '<span class="tree-branch">↳</span>' : ''}<span class="proc-icon">${renderIcon(r.icon)}</span>${escapeHtml(r.title)}${r.isSelf ? '<span class="proc-self">(este proceso)</span>' : ''}${r.protected ? '<span class="proc-self" style="color:var(--amber)"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V7a4 4 0 018 0v4"/><path d="M12 15v3"/></svg> protegido</span>' : ''}          </div>
+          ${r.type.path ? `<div class="proc-path" style="margin-left:${r.depth * 18}px">${escapeHtml(r.type.path)}</div>` : ''}
+        </td>
+        <td>${fmtTime(r.spawnedAt)}</td>
+        <td class="actions">
+          ${r.isSelf ? '' : `<button class="btn-restart" data-pid="${r.pid}" data-path="${r.type.path || ''}" data-appid="${r.appId}" data-mode="${['Servicio', 'API', 'Componente'].includes(r.type.label) ? 'module' : 'app'}" ${r.protected ? 'disabled' : ''}><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 5v6h-6"/></svg> Reiniciar</button>`}
+          <button class="btn-kill" data-pid="${r.pid}" ${r.protected ? 'disabled title="Servicio protegido del sistema"' : ''}>Finalizar</button>
+        </td>
+      </tr>`;
+    };
 
     if (!visible.length) {
       tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${q ? 'Sin coincidencias.' : 'No hay procesos activos.'}</td></tr>`;
     } else {
-      tbody.innerHTML = visible.map(r => {
-        const suspended = r.status === 'suspended';
-        return `
-        <tr data-pid="${r.pid}">
-          <td class="pid">#${String(r.pid).padStart(4,'0')}</td>
-          <td><span class="type-chip ${r.type.cls}"><span class="dot"></span>${r.type.label}</span></td>
-          <td>
-            <span class="status-pill ${suspended ? 'status-suspended' : 'status-running'}">
-              <span class="status-dot"></span>${suspended ? 'Suspendido' : 'Activo'}
-            </span>
-          </td>
-          <td>
-            <div class="proc-name" style="margin-left:${r.depth * 18}px">
-              ${r.depth > 0 ? '<span class="tree-branch">↳</span>' : ''}<span class="proc-icon">${r.icon}</span>${escapeHtml(r.title)}${r.isSelf ? '<span class="proc-self">(este proceso)</span>' : ''}${r.protected ? '<span class="proc-self" style="color:var(--amber)">🔒 protegido</span>' : ''}
-            </div>
-            ${r.type.path ? `<div class="proc-path" style="margin-left:${r.depth * 18}px">${escapeHtml(r.type.path)}</div>` : ''}
-          </td>
-          <td>${fmtTime(r.spawnedAt)}</td>
-          <td class="actions">
-            <button class="btn-toggle" data-pid="${r.pid}" ${(r.isSelf||r.protected) ? 'disabled' : ''}>${suspended ? '▶ Reanudar' : '⏸ Suspender'}</button>
-            <button class="btn-kill" data-pid="${r.pid}" ${r.isSelf ? 'disabled title="No puedes finalizar el Administrador de tareas desde sí mismo"' : (r.protected ? 'disabled title="Servicio protegido del sistema"' : '')}>Finalizar</button>
-          </td>
-        </tr>
-      `;
-      }).join('');
+      const foreground = visible.filter(r => r.group === 'foreground');
+      const background = visible.filter(r => r.group === 'background');
+      let html = '';
+      if (foreground.length) {
+        html += `<tr class="group-separator"><td colspan="6">PRIMER PLANO (APLICACIONES)</td></tr>`;
+        html += foreground.map(renderRow).join('');
+      }
+      if (background.length) {
+        html += `<tr class="group-separator"><td colspan="6">SEGUNDO PLANO (SERVICIOS Y SISTEMA)</td></tr>`;
+        html += background.map(renderRow).join('');
+      }
+      tbody.innerHTML = html;
     }
 
     countPill.textContent = `${_rows.length} proceso${_rows.length === 1 ? '' : 's'}`;
@@ -659,11 +768,11 @@
 
   /* ── Abrir detalles de un proceso ── */
   async function openProcDetails(pid){
-    const proc = K.procs.get(pid);
+    const proc = await WOS.procs.get(Number(pid));
     if (!proc) { toast('El proceso ya no existe', 'error'); return; }
-    const type = await classify(proc);
-    const children = K.procs.getChildren(pid) || [];
-    const ancestry = (K.procs.ancestry(pid) || []).slice().reverse();
+    const type = { label: proc.appId, cls: 't-sistema' }; // Simplificado para el modal
+    const children = await WOS.procs.getChildren(Number(pid)) || [];
+    const ancestry = (await WOS.procs.ancestry(Number(pid)) || []).slice().reverse();
     const breadcrumb = ancestry.map(a => escapeHtml(a.title || a.appId)).join(' › ');
 
     openGenericModal(`🔎 PROCESO #${String(pid).padStart(4,'0')}`, `
@@ -672,8 +781,8 @@
         <div class="pd-row"><span class="pd-label">Tipo</span><span class="pd-value"><span class="type-chip ${type.cls}"><span class="dot"></span>${type.label}</span></span></div>
         <div class="pd-row"><span class="pd-label">App ID</span><span class="pd-value">${escapeHtml(proc.appId)}</span></div>
         <div class="pd-row"><span class="pd-label">PID / PID padre</span><span class="pd-value">#${proc.pid} ${proc.parentPid != null ? '← #' + proc.parentPid : '(raíz)'}</span></div>
-        <div class="pd-row"><span class="pd-label">Estado</span><span class="pd-value">${proc.state === 'suspended' ? '⏸ Suspendido' : '▶ Ejecutando'}</span></div>
-        <div class="pd-row"><span class="pd-label">Protegido</span><span class="pd-value">${proc.protected ? '🔒 Sí — servicio del sistema' : 'No'}</span></div>
+        <div class="pd-row"><span class="pd-label">Estado</span><span class="pd-value">${proc.state === 'suspended' ? '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg> Suspendido' : '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="currentColor"><path d="M7 5l12 7-12 7V5z"/></svg> Ejecutando'}</span></div>
+        <div class="pd-row"><span class="pd-label">Protegido</span><span class="pd-value">${proc.protected ? '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V7a4 4 0 018 0v4"/><path d="M12 15v3"/></svg> Sí — servicio del sistema' : 'No'}</span></div>
         <div class="pd-row"><span class="pd-label">Directorio</span><span class="pd-value">${escapeHtml(proc.cwd || '/home')}</span></div>        <div class="pd-row"><span class="pd-label">Iniciado</span><span class="pd-value">${proc.spawnedAt ? new Date(proc.spawnedAt).toLocaleString('es') : '—'}</span></div>
         <div class="pd-row"><span class="pd-label">Ascendencia</span><span class="pd-value">${breadcrumb || '—'}</span></div>
         <div class="pd-row"><span class="pd-label">Hijos (${children.length})</span><span class="pd-value">${children.length ? children.map(c => escapeHtml(c.title || c.appId) + ' #' + c.pid).join(', ') : '—'}</span></div>
@@ -689,20 +798,34 @@
     openProcDetails(Number(tr.dataset.pid));
   });
 
-  /* ── Suspender / reanudar ── */
-  tbody.addEventListener('click', e => {
-    const btn = e.target.closest('.btn-toggle');
+  /* ── Reiniciar proceso / módulo ── */
+  tbody.addEventListener('click', async e => {
+    const btn = e.target.closest('.btn-restart');
     if (!btn || btn.disabled) return;
+    const mode = btn.dataset.mode;
+    const path = btn.dataset.path;
     const pid = Number(btn.dataset.pid);
-    const proc = K.procs.get(pid);
-    if (!proc) return;
-    if (proc.state === 'suspended') {
-      K.procs.resume(pid);
-      toast(`Proceso #${pid} reanudado`, 'ok');
-    } else {
-      K.procs.suspend(pid);
-      toast(`Proceso #${pid} suspendido`, 'ok');
+    const appId = btn.dataset.appid;
+    btn.disabled = true;
+    btn.textContent = '...';
+    try {
+      if (mode === 'module') {
+        await WOS.modules.restart(path);
+        toast(`Módulo ${path} reiniciado`, 'ok');
+      } else {
+        if (WOS && WOS.closeWindow) WOS.closeWindow(pid);
+        else if (WOS && WOS.procs) WOS.procs.kill(pid);
+        // esperamos a que termine la animación de cierre (200ms en el shell)
+        // antes de relanzar, para que un app singleton no crea que la
+        // ventana vieja (a medio cerrar) sigue abierta.
+        await new Promise(r => setTimeout(r, 260));
+        if (WOS && WOS.launch) await WOS.launch(appId, {});
+        toast(`"${appId}" reiniciado`, 'ok');
+      }
+    } catch (err) {
+      toast(`Error al reiniciar: ${err.message}`, 'error');
     }
+    setTimeout(refresh, 500);
   });
 
   /* ── Finalizar proceso (con confirmación inline de un clic) ── */
@@ -727,13 +850,75 @@
 
     _pendingKillPid = null;
     if (WOS && WOS.closeWindow) WOS.closeWindow(pid);
-    K.procs.kill(pid);
+    WOS.procs.kill(pid);
     toast(`Proceso #${pid} finalizado`, 'ok');
   });
 
+  /* ══════════════════════════════════════════════════════════
+     PESTAÑAS: VENTANAS, SCHEDULER, IPC
+     ══════════════════════════════════════════════════════════ */
+
+  async function renderScheduler() {
+    const tasks = await WOS.systemRegistry.listScheduler();
+    if (!tasks.length) {
+      tbodyScheduler.innerHTML = `<tr class="empty-row"><td colspan="7">No hay tareas programadas.</td></tr>`;
+      return;
+    }
+    tbodyScheduler.innerHTML = tasks.map(t => {
+      const isPaused = t.metadata?.paused;
+      const stateClass = isPaused ? 'status-suspended' : 'status-running';
+      const stateText = isPaused ? 'Pausada' : 'Activa';
+      return `
+      <tr data-id="${t.id}">
+        <td>${escapeHtml(t.id)}</td>
+        <td><span class="status-pill ${stateClass}"><span class="status-dot"></span>${stateText}</span></td>
+        <td>${t.metadata?.intervalMs || '—'} ms</td>
+        <td>${t.metadata?.lastRun ? fmtTime(t.metadata.lastRun) : '—'}</td>
+        <td>${t.metadata?.runCount || 0}</td>
+        <td style="color:var(--red);font-size:0.62rem">${escapeHtml(t.metadata?.lastError || '')}</td>
+        <td class="actions">
+          <button class="btn-toggle" data-act="toggle" data-id="${t.id}">${isPaused ? 'Reanudar' : 'Pausar'}</button>
+          <button class="btn-secondary" data-act="runnow" data-id="${t.id}">Ejecutar ya</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    tbodyScheduler.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const act = btn.dataset.act;
+        if (act === 'toggle') {
+          const task = (await WOS.systemRegistry.listScheduler()).find(t => t.id === id);
+          if (task?.metadata?.paused) await WOS.scheduler.resume(id);
+          else await WOS.scheduler.pause(id);
+        }
+        if (act === 'runnow') await WOS.scheduler.runNow(id);
+        setTimeout(renderScheduler, 300);
+      });
+    });
+  }
+
+  async function renderIpc() {
+    const channels = await WOS.systemRegistry.listIPC();
+    if (!channels.length) {
+      tbodyIpc.innerHTML = `<tr class="empty-row"><td colspan="3">No hay canales IPC registrados.</td></tr>`;
+      return;
+    }
+    tbodyIpc.innerHTML = channels.map(c => `
+      <tr>
+        <td>${escapeHtml(c.id)}</td>
+        <td><span class="status-pill status-running"><span class="status-dot"></span>${c.status}</span></td>
+        <td style="font-size:0.66rem;color:var(--g-dim)">
+          Handler: ${c.metadata?.hasHandler ? '✅' : '❌'} <br>
+          Registro: ${c.metadata?.registeredAt ? fmtTime(c.metadata.registeredAt) : '—'}
+        </td>
+      </tr>
+    `).join('');
+  }
+
   /* ── Modal: nuevo proceso ── */
 async function openModal(){
-  openGenericModal('🚀 INICIAR NUEVO PROCESO', `
+  openGenericModal(`<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/></svg> PROCESO #${String(pid).padStart(4,'0')}`, `
     <div class="np-form">
       <label class="np-label">ID DE APP O RUTA DE MÓDULO</label>
       <input id="new-proc-input" type="text" placeholder="ej: notes   ó   /Modulos/Servicios/watcher.js" autocomplete="off" spellcheck="false" class="np-input" />
@@ -780,23 +965,24 @@ if (raw.startsWith(MODULES_ROOT + '/')) {
           throw new Error(`No se encontró "${fileName}" en el proyecto real (${parentDir}).${hint}`);
         }
 
-        const active = K.procs.list().some(p => p.appId === raw);
+        const procs = await WOS.procs.list();
+        const active = procs.some(p => p.appId === raw);
         if (active) throw new Error(`"${fileName}" ya está en ejecución.`);
 
-        K.procs.spawn(raw, {
+        WOS.procs.spawn(raw, {
           title: fileName.replace(/\.js$/, ''),
           icon: MOD_TYPES[dirKey].icon,
           cwd: MOD_TYPES[dirKey].path,
         });
         toast(`"${fileName}" cargado como proceso`, 'ok');
       } else {
-        const app = await K.apps.get(raw).catch(() => null);
+        const app = await WOS.apps.get(raw).catch(() => null);
         if (!app) throw new Error(`No existe ninguna app registrada con el ID "${raw}".`);
-        const active = K.procs.list().some(p => p.appId === raw);
-        if (active) throw new Error(`"${raw}" ya está en ejecución.`);
+        const procs2 = await WOS.procs.list();
+        const active2 = procs2.some(p => p.appId === raw);
+        if (active2) throw new Error(`"${raw}" ya está en ejecución.`);
 
-        if (WOS && WOS.launch) WOS.launch(raw);
-        else K.emit('shell:launch', { appId: raw });
+       if (WOS && WOS.launch) WOS.launch(raw);
         toast(`Iniciando "${raw}"…`, 'ok');
       }
       setTimeout(closeModal, 250);
@@ -812,6 +998,17 @@ if (raw.startsWith(MODULES_ROOT + '/')) {
   btnNew.addEventListener('click', openModal);
 
   searchInput.addEventListener('input', () => { _filter = searchInput.value; render(); });
+
+  document.querySelectorAll('#panel-procesos thead th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (_sortKey === key) _sortDir *= -1;
+      else { _sortKey = key; _sortDir = 1; }
+      document.querySelectorAll('#panel-procesos thead th[data-sort]').forEach(t => t.classList.remove('sort-asc','sort-desc'));
+      th.classList.add(_sortDir === 1 ? 'sort-asc' : 'sort-desc');
+      render();
+    });
+  });
 
   /* ══════════════════════════════════════════════════════════
      PESTAÑA: RENDIMIENTO
@@ -835,8 +1032,11 @@ if (raw.startsWith(MODULES_ROOT + '/')) {
     `;
   }
 
-  function renderRendimiento(){
-    const session = K.session || {};
+  async function renderRendimiento(){
+    const session = await WOS.kernel.session();
+    const uptime = await WOS.kernel.uptimeSeconds();
+    const version = await WOS.kernel.version();
+    const safeMode = await WOS.kernel.safeMode();
     const typeCounts = { Aplicación: 0, Servicio: 0, API: 0, Componente: 0, 'Proceso del sistema': 0 };
     _rows.forEach(r => { typeCounts[r.type.label] = (typeCounts[r.type.label] || 0) + 1; });
     const maxType = Math.max(1, ...Object.values(typeCounts));
@@ -845,15 +1045,15 @@ if (raw.startsWith(MODULES_ROOT + '/')) {
       <div class="perf-grid">
         <div class="perf-card">
           <div class="perf-card-label">Tiempo activo</div>
-          <div class="perf-card-value" id="perf-uptime">${formatDuration(K.uptimeSeconds)}</div>
+          <div class="perf-card-value" id="perf-uptime">${formatDuration(uptime)}</div>
         </div>
         <div class="perf-card">
           <div class="perf-card-label">Versión del Kernel</div>
-          <div class="perf-card-value">${escapeHtml(K.version || '—')}</div>
+          <div class="perf-card-value">${escapeHtml(version || '—')}</div>
         </div>
         <div class="perf-card">
           <div class="perf-card-label">Modo seguro</div>
-          <div class="perf-card-value">${K.safeMode ? '⚠ Activado' : 'Desactivado'}</div>
+          <div class="perf-card-value">${safeMode ? '⚠ Activado' : 'Desactivado'}</div>
         </div>
         <div class="perf-card">
           <div class="perf-card-label">Procesos activos</div>
@@ -892,10 +1092,13 @@ if (raw.startsWith(MODULES_ROOT + '/')) {
     `;
   }
 
-  setInterval(() => {
+  setInterval(async () => {
     if (_activePanel === 'rendimiento') {
       const el = document.getElementById('perf-uptime');
-      if (el) el.textContent = formatDuration(K.uptimeSeconds);
+      if (el) {
+        const uptime = await WOS.kernel.uptimeSeconds();
+        el.textContent = formatDuration(uptime);
+      }
     }
   }, 1000);
 
@@ -932,20 +1135,20 @@ if (raw.startsWith(MODULES_ROOT + '/')) {
     }
 
     const storeDefs = [
-      { key: 'FS', label: 'Archivos (fs)', icon: '📁' },
-      { key: 'PREFS', label: 'Preferencias', icon: '🎛' },
-      { key: 'APPS_META', label: 'Apps registradas', icon: '📦' },
-      { key: 'CRASHES', label: 'Reportes de fallos', icon: '💥' },
-      { key: 'BINARY_BLOBS', label: 'Blobs binarios', icon: '🧬' },
-      { key: 'NOTIFICATIONS', label: 'Notificaciones', icon: '🔔' },
-      { key: 'SOCIAL', label: 'Social (reservado)', icon: '👥' },
+      { key: 'FS', label: 'Archivos (fs)', icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a1 1 0 011-1h5l2 2h9a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V7z"/></svg>' },
+      { key: 'PREFS', label: 'Preferencias', icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.2-1.6l2-1.4-2-3.4-2.3.8a7 7 0 00-2.7-1.6L13.4 2h-2.8l-.4 2.8a7 7 0 00-2.7 1.6l-2.3-.8-2 3.4 2 1.4A7 7 0 005 12c0 .5 0 1 .1 1.6l-2 1.4 2 3.4 2.3-.8a7 7 0 002.7 1.6l.4 2.8h2.8l.4-2.8a7 7 0 002.7-1.6l2.3.8 2-3.4-2-1.4c.1-.6.1-1.1.1-1.6z"/></svg>' },
+      { key: 'APPS_META', label: 'Apps registradas', icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg>' },
+      { key: 'CRASHES', label: 'Reportes de fallos', icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5H2.5L12 3.5z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r="0.9" fill="currentColor" stroke="none"/></svg>' },
+      { key: 'BINARY_BLOBS', label: 'Blobs binarios', icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4c3 2 3 4 0 6s-3 4 0 6M12 4c3 2 3 4 0 6s-3 4 0 6M18 4c3 2 3 4 0 6s-3 4 0 6"/></svg>' },
+      { key: 'NOTIFICATIONS', label: 'Notificaciones', icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v3M12 17.5v3"/><path d="M18 10a6 6 0 00-12 0c0 4.5-2 6-2 6h16s-2-1.5-2-6z"/></svg>' },
+      { key: 'SOCIAL', label: 'Social (reservado)', icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="9" r="2.8"/><circle cx="16" cy="9" r="2.2"/><path d="M2.8 19c.6-3 2.8-5 5.7-5s5.1 2 5.7 5"/><path d="M13.8 15c2.2.3 3.9 2 4.4 4"/></svg>' },
     ];
 
     const results = [];
     for (const def of storeDefs) {
-      const storeName = (K.STORES && K.STORES[def.key]) || def.key.toLowerCase();
+      const storeName = def.key.toLowerCase();
       try {
-        const records = await K.db.list(storeName);
+        const records = await WOS.db.list(storeName);
         let bytes = 0;
         for (const r of records) bytes += approxSize(r);
         results.push(Object.assign({}, def, { count: records.length, bytes, error: false }));
@@ -979,15 +1182,15 @@ if (raw.startsWith(MODULES_ROOT + '/')) {
      PESTAÑA: EVENTOS
      ══════════════════════════════════════════════════════════ */
   const CAT_META = {
-    boot:  { icon: '🥾', color: 'var(--g)' },
-    fs:    { icon: '📁', color: 'var(--cyan)' },
-    prefs: { icon: '🎛', color: 'var(--violet)' },
-    users: { icon: '👤', color: 'var(--amber)' },
-    apps:  { icon: '📦', color: 'var(--g)' },
-    procs: { icon: '🧠', color: 'var(--cyan)' },
-    crash: { icon: '💥', color: 'var(--red)' },
-    notif: { icon: '🔔', color: '#ff2d78' },
-    otro:  { icon: '•',  color: 'var(--dim)' },
+    boot:  { icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M4.2 4.2l2.8 2.8M17 17l2.8 2.8M3 12h4M17 12h4M4.2 19.8L7 17M17 7l2.8-2.8"/></svg>', color: 'var(--g)' },
+    fs:    { icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a1 1 0 011-1h5l2 2h9a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V7z"/></svg>', color: 'var(--cyan)' },
+    prefs: { icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.2-1.6l2-1.4-2-3.4-2.3.8a7 7 0 00-2.7-1.6L13.4 2h-2.8l-.4 2.8a7 7 0 00-2.7 1.6l-2.3-.8-2 3.4 2 1.4A7 7 0 005 12c0 .5 0 1 .1 1.6l-2 1.4 2 3.4 2.3-.8a7 7 0 002.7 1.6l.4 2.8h2.8l.4-2.8a7 7 0 002.7-1.6l2.3.8 2-3.4-2-1.4c.1-.6.1-1.1.1-1.6z"/></svg>', color: 'var(--violet)' },
+    users: { icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1.2-4 4-6 7-6s5.8 2 7 6"/></svg>', color: 'var(--amber)' },
+    apps:  { icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg>', color: 'var(--g)' },
+    procs: { icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M7 3.5V7M12 3.5V7M17 3.5V7M7 17v3.5M12 17v3.5M17 17v3.5M3.5 7H7M3.5 12H7M3.5 17H7M17 7h3.5M17 12h3.5M17 17h3.5"/></svg>', color: 'var(--cyan)' },
+    crash: { icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5H2.5L12 3.5z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r="0.9" fill="currentColor" stroke="none"/></svg>', color: 'var(--red)' },
+    notif: { icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v3M12 17.5v3"/><path d="M18 10a6 6 0 00-12 0c0 4.5-2 6-2 6h16s-2-1.5-2-6z"/></svg>', color: '#ff2d78' },
+    otro:  { icon: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor"><circle cx="12" cy="12" r="3.2"/></svg>',  color: 'var(--dim)' },
   };
 
   function categorize(eventName){
@@ -1112,12 +1315,12 @@ if (raw.startsWith(MODULES_ROOT + '/')) {
   /* ── Reportes de fallos ── */
   async function refreshCrashes(){
     let entries = [];
-    try { entries = await K.crash.list(); } catch { entries = []; }
+    try { entries = await WOS.crash.list(); } catch { entries = []; }
 
     const details = await Promise.all(entries.map(async e => {
       const rid = (e.name || e.id || '').replace(/\.json$/, '');
       try {
-        const r = await K.crash.read(rid);
+        const r = await WOS.crash.read(rid);
         return { rid, source: r.source, message: r.message, ts: r.ts };
       } catch {
         return { rid, source: null, message: null, ts: e.mtime || e.ctime || 0 };
@@ -1132,7 +1335,7 @@ if (raw.startsWith(MODULES_ROOT + '/')) {
     }
 
     if (!details.length) {
-      crashListEl.innerHTML = `<div class="group-empty">No hay reportes de fallos registrados. 🎉</div>`;
+      crashListEl.innerHTML = `<div class="group-empty">No hay reportes de fallos registrados. <svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6"/></svg></div>`;
       return;
     }
     crashListEl.innerHTML = details.map(d => `
@@ -1152,8 +1355,8 @@ if (raw.startsWith(MODULES_ROOT + '/')) {
     if (!item) return;
     const rid = item.dataset.id;
     try {
-      const report = await K.crash.read(rid);
-      openGenericModal('💥 REPORTE DE FALLO', `
+      const report = await WOS.crash.read(rid);
+      openGenericModal('<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5H2.5L12 3.5z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r="0.9" fill="currentColor" stroke="none"/></svg> REPORTE DE FALLO', `
         <div class="crash-detail">
           <div class="crash-detail-row"><b>Origen:</b> ${escapeHtml(report.source || '—')}</div>
           <div class="crash-detail-row"><b>Fecha:</b> ${report.ts ? new Date(report.ts).toLocaleString('es') : '—'}</div>
@@ -1187,7 +1390,7 @@ if (raw.startsWith(MODULES_ROOT + '/')) {
     btn.textContent = 'Limpiar reportes';
     btn.classList.remove('confirm');
     try {
-      await K.crash.clear();
+      await WOS.crash.clear();
       toast('Reportes de fallos eliminados', 'ok');
       refreshCrashes();
     } catch {
@@ -1221,33 +1424,20 @@ if (raw.startsWith(MODULES_ROOT + '/')) {
   }
 
   async function boot(){
-    if (!K) {
-      document.getElementById('app').innerHTML = '<div id="boot-msg">⚠ No se pudo acceder al Kernel. Abre esta app desde el escritorio de HUEBOS.</div>';
+    if (!WOS) {
+      document.getElementById('app').innerHTML = '<div id="boot-msg">⚠ No se pudo acceder al cliente WOS. Asegúrate de incluir wos-client.js</div>';
       return;
     }
-    if (!K.isReady) { await new Promise(res => K.once('ready', res)); }
 
     await ensureModulesTree();
     await refresh();
     refreshCrashes();
 
-    K.on('procs:spawn', refresh);
-    K.on('procs:kill', refresh);
-    K.on('procs:killDenied', () => toast('Ese proceso es un servicio protegido del sistema', 'error'));
-    K.on('procs:update', refresh);
-    K.on('procs:suspend', refresh);
-    K.on('procs:resume', refresh);
-    K.on('apps:registered', refresh);
-    K.on('apps:unregistered', refresh);
-    K.on('fs:write',  p => scheduleFsRefresh(p && p.path));
-    K.on('fs:remove', p => scheduleFsRefresh(p && p.path));
-    K.on('fs:mkdir',  p => scheduleFsRefresh(p && p.path));
-    K.on('crash:logged', () => refreshCrashes());
+    // Al desacoplar del Kernel vía IPC, perdimos el acceso directo al EventBus interno.
+    // Usamos polling cada 2 segundos como fuente de verdad administrativa estable.
+    setInterval(refresh, 2000);
+    setInterval(refreshCrashes, 5000);
 
-    EVENTS_TO_LOG.forEach(ev => K.on(ev, payload => pushEvent(ev, payload)));
-
-    /* Refresco de respaldo por si algún evento se pierde */
-    setInterval(refresh, 5000);
   }
 
   boot();

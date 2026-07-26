@@ -7,7 +7,7 @@
   {
     "id":          "files",
     "name":        "Archivos",
-    "version":     "0.2.1",
+    "version":     "1.0.1",
     "icon":        "./apps/public/Archivos.svg",
     "category":    "system",
     "singleton":   false,
@@ -265,6 +265,7 @@
   <div class="tb-sep"></div>
   <button class="tb-btn" id="btn-rename" title="Renombrar (F2)" disabled><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 4.5l4 4L8 20H4v-4l11.5-11.5z"/></svg></button>
   <button class="tb-btn" id="btn-delete" title="Eliminar (Supr)" disabled><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
+  <button class="tb-btn" id="btn-shortcut" title="Crear acceso directo en el escritorio" disabled><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13.5H11L10.5 22 19.5 10H13z"/></svg></button>
   <button class="tb-btn" id="btn-pin" title="Anclar carpeta actual a favoritos"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6-4.4-4.2 6-.8L12 3.5z"/></svg></button>
   <div class="tb-sep"></div>
   <button class="tb-btn" id="btn-view" title="Cambiar vista"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg></button>
@@ -412,7 +413,6 @@ function escapeHtml(str) {
   let tabs = [];
   let activeTabId = null;
   let tabCounter = 0;
-  let clipboard = null;     // { mode: 'copy'|'cut', items: [{id,name,type}] }
   let pinned = [];          // array of paths
   let sidebarVisible = true;
   let panelVisible = false;
@@ -911,10 +911,18 @@ function escapeHtml(str) {
     if (panelVisible) renderPanel();
   });
 
-  filelistEl.addEventListener('contextmenu', e => {
-    if (e.target !== filelistEl) return;
+  filelistEl.addEventListener('dragover', e => {
+    if (!e.dataTransfer.types.includes('text/x-huebos-paths')) return;
+    if (e.target.closest('.entry')) return; // el propio item ya gestiona su drop
     e.preventDefault();
-    showEmptyCtx(e.clientX, e.clientY);
+    e.dataTransfer.dropEffect = 'move';
+  });
+  filelistEl.addEventListener('drop', async e => {
+    if (e.target.closest('.entry')) return;
+    const raw = e.dataTransfer.getData('text/x-huebos-paths');
+    if (!raw) return;
+    e.preventDefault();
+    await moveItemsTo(JSON.parse(raw), activeTab().cwd);
   });
 
   function selectAll() {
@@ -969,25 +977,27 @@ if (app) {
   function copySelection() {
     const tab = activeTab();
     if (!tab.selection.size) return;
-    clipboard = { mode: 'copy', items: [...tab.selection].map(id => {
-      const it = tab.rawItems.find(i => i.id === id);
-      return { id, name: it?.name, type: it?.type };
-    }).filter(x => x.name) };
+    const isProtectedId = id => id === '/system' || id.startsWith('/system/');
+    const ids = [...tab.selection];
+    const blocked = ids.filter(isProtectedId);
+    const allowed = ids.filter(id => !isProtectedId(id));
+    if (blocked.length) toast('Los elementos de /system no se pueden copiar — usa "Copiar acceso directo".', 'warn');
+    if (!allowed.length) return;
+    cleanupPendingShortcutTemp().catch(() => {});
+    const { paths } = K.clipboard.copy(allowed);
     renderStatus();
     updateToolbarState();
-    toast(`${clipboard.items.length} elemento(s) copiados`);
+    toast(`${paths.length} elemento(s) copiados`);
   }
 
   function cutSelection() {
     const tab = activeTab();
     if (!tab.selection.size) return;
-    clipboard = { mode: 'cut', items: [...tab.selection].map(id => {
-      const it = tab.rawItems.find(i => i.id === id);
-      return { id, name: it?.name, type: it?.type };
-    }).filter(x => x.name) };
+    cleanupPendingShortcutTemp().catch(() => {});
+    const { paths } = K.clipboard.cut([...tab.selection]);
     renderStatus();
     updateToolbarState();
-    toast(`${clipboard.items.length} elemento(s) listos para mover`);
+    toast(`${paths.length} elemento(s) listos para mover`);
   }
 
   function splitNameExt(name) {
@@ -1023,6 +1033,16 @@ if (app) {
       }
       return;
     }
+    if (stat.type === 'shortcut') {
+      await K.fs.createShortcut(destPath, {
+        appId: stat.meta?.appId,
+        name: stat.name,
+        icon: stat.icon,
+        entry: stat.meta?.entry ?? null,
+        metadata: { ...(stat.meta || {}) },
+      });
+      return;
+    }
     if (await K.fs.isBinary(srcPath)) {
       const blob = await K.fs.readBlob(srcPath);
       const mime = await K.fs.getMime(srcPath);
@@ -1034,32 +1054,37 @@ if (app) {
   }
 
   async function pasteClipboard() {
-    if (!clipboard || !clipboard.items.length) return;
+    const { op, paths } = K.clipboard.get();
+    if (!op || !paths.length) return;
     const tab = activeTab();
     const destDir = tab.cwd;
     let errors = 0;
-    for (const it of clipboard.items) {
-      const srcDir = K.fs.dirname(it.id);
+    const succeeded = [];
+    for (const srcPath of paths) {
+      const srcDir = K.fs.dirname(srcPath);
+      const name = K.fs.basename(srcPath);
       try {
-        if (clipboard.mode === 'copy') {
-          let targetName = it.name;
+        if (op === 'copy') {
+          let targetName = name;
           if (srcDir === destDir || await K.fs.exists(destDir + '/' + targetName)) {
-            targetName = await uniqueName(destDir, appendCopySuffix(it.name));
+            targetName = await uniqueName(destDir, appendCopySuffix(name));
           }
-          await copyRecursive(it.id, destDir + '/' + targetName);
+          await copyRecursive(srcPath, destDir + '/' + targetName);
         } else {
           if (srcDir === destDir) continue;
-          let targetName = it.name;
+          let targetName = name;
           if (await K.fs.exists(destDir + '/' + targetName)) {
             targetName = await uniqueName(destDir, targetName);
           }
-          await K.fs.move(it.id, destDir + '/' + targetName);
+          await K.fs.move(srcPath, destDir + '/' + targetName);
         }
+        succeeded.push(srcPath);
       } catch (e) { errors++; }
     }
-    if (clipboard.mode === 'cut') clipboard = null;
+    if (op === 'cut') K.clipboard.clear();
 if (errors) toast(`${errors} elemento(s) no se pudieron pegar.`, 'error');
 else toast('Pegado correctamente', 'ok');
+    if (op === 'copy') await cleanupPastedTempShortcuts(succeeded);
     refresh();
   }
 
@@ -1097,6 +1122,130 @@ else toast('Pegado correctamente', 'ok');
 if (errors) toast(`${errors} elemento(s) no se pudieron mover.`, 'error');
 else if (moved) toast(`${moved} elemento(s) movidos`, 'ok');
     refresh();
+  }
+
+  /* ═══════════════════════ DESKTOP SHORTCUTS ═══════════════════════ */
+
+  function isSysItem(it) {
+    return !!it && it.type !== 'dir' && (it.name || '').toLowerCase().endsWith('.sys');
+  }
+
+  function iconForShortcutItem(item) {
+    const isShortcut = item.type === 'shortcut' || item.meta?.isDesktopShortcut;
+    if (item.type === 'dir') return Icon.folder;
+    if (isShortcut) return Icon.link;
+    return getIcon(item.name);
+  }
+
+  async function buildShortcutTarget(p, destDir) {
+    const item = await K.fs.stat(p);
+    if (!item) return null;
+    if (isSysItem(item)) return null;
+    const isShortcut = item.type === 'shortcut' || item.meta?.isDesktopShortcut;
+    const isExe = !isShortcut && item.type === 'file' && (item.name || '').endsWith('.exe') && !!item.meta?.appId;
+    let appId, entry = null, filePath = null, startPath = null;
+    const icon = item.meta?.icon || item.icon || iconForShortcutItem(item);
+    const name = item.name || p.split('/').pop();
+    if (isShortcut || isExe) {
+      appId = item.meta?.appId; entry = item.meta?.entry || null;
+    } else if (item.type === 'dir') {
+      appId = 'files'; startPath = p;
+    } else {
+      const ext = K.extensions.getExtension(p);
+      const resolved = K.extensions.resolve(ext);
+      if (!resolved) return { error: `Sin app asociada a "${name}"` };
+      appId = resolved.handler; filePath = p;
+    }
+    if (!appId) return { error: `No se pudo crear acceso a "${name}"` };
+    let target = `${destDir}/${name} - acceso directo`;
+    let n = 1;
+    while (await K.fs.exists(target)) { target = `${destDir}/${name} - acceso directo (${++n})`; }
+    return { target, appId, name, icon, entry, filePath, startPath };
+  }
+
+  async function createShortcutsAt(ids, destDir) {
+    if (!ids || !ids.length) return 0;
+    let count = 0, skipped = 0;
+    for (const p of ids) {
+      try {
+        const spec = await buildShortcutTarget(p, destDir);
+        if (!spec) { skipped++; continue; }
+        if (spec.error) { toast(spec.error, 'warn'); skipped++; continue; }
+        await K.fs.createShortcut(spec.target, {
+          appId: spec.appId, name: spec.name, icon: spec.icon, entry: spec.entry,
+          metadata: { isDesktopShortcut: true, protected: false, systemApp: false, filePath: spec.filePath, startPath: spec.startPath },
+        });
+        count++;
+      } catch (err) {
+        toast(err.message || 'No se pudo crear el acceso directo', 'error');
+      }
+    }
+    if (!count && skipped) toast('No se pudo crear ningún acceso directo (¿archivos .sys?)', 'warn');
+    return count;
+  }
+
+  async function createDesktopShortcuts(ids) {
+    const count = await createShortcutsAt(ids, '/home/desktop');
+    if (count) toast(`${count} acceso(s) directo(s) creado(s) en el escritorio`, 'ok');
+  }
+
+  async function getPendingShortcutTemp() {
+    const list = await K.prefs.get('files.pendingShortcutTemp', []);
+    return Array.isArray(list) ? list : [];
+  }
+
+  async function cleanupPendingShortcutTemp() {
+    const list = await getPendingShortcutTemp();
+    if (!list.length) return;
+    for (const p of list) { try { await K.fs.remove(p); } catch (e) {} }
+    await K.prefs.set('files.pendingShortcutTemp', []);
+  }
+
+  async function cleanupPastedTempShortcuts(pastedPaths) {
+    if (!pastedPaths || !pastedPaths.length) return;
+    const pending = await getPendingShortcutTemp();
+    if (!pending.length) return;
+    const matched = pastedPaths.filter(p => pending.includes(p));
+    if (!matched.length) return;
+    for (const p of matched) { try { await K.fs.remove(p); } catch (e) {} }
+    const remaining = pending.filter(p => !matched.includes(p));
+    await K.prefs.set('files.pendingShortcutTemp', remaining);
+  }
+
+  async function copyShortcutSelection(ids) {
+    const validIds = (ids || []).filter(Boolean);
+    if (!validIds.length) return;
+    await cleanupPendingShortcutTemp();
+    const tempDir = '/temp';
+    try { if (!(await K.fs.exists(tempDir))) await K.fs.mkdir(tempDir); } catch (e) {}
+
+    const tempPaths = [];
+    let skipped = 0;
+    for (const p of validIds) {
+      const item = await K.fs.stat(p).catch(() => null);
+      if (!item || isSysItem(item)) { skipped++; continue; }
+      const spec = await buildShortcutTarget(p, tempDir);
+      if (!spec) { skipped++; continue; }
+      if (spec.error) { toast(spec.error, 'warn'); skipped++; continue; }
+      try {
+        await K.fs.createShortcut(spec.target, {
+          appId: spec.appId, name: spec.name, icon: spec.icon, entry: spec.entry,
+          metadata: { isDesktopShortcut: true, protected: false, systemApp: false, filePath: spec.filePath, startPath: spec.startPath },
+        });
+        tempPaths.push(spec.target);
+      } catch (err) {
+        toast(err.message || 'No se pudo crear el acceso directo', 'error');
+      }
+    }
+    if (!tempPaths.length) {
+      toast('No se pudo crear ningún acceso directo (¿archivos .sys?)', 'warn');
+      return;
+    }
+    await K.prefs.set('files.pendingShortcutTemp', tempPaths);
+    K.clipboard.copy(tempPaths);
+    renderStatus();
+    updateToolbarState();
+    toast(`${tempPaths.length} acceso(s) directo(s) listo(s) para pegar`, 'ok');
   }
 
   /* ═══════════════════════ CREATE / RENAME / DELETE ═══════════════════════ */
@@ -1306,10 +1455,26 @@ else toast(`${ids.length} elemento(s) eliminado(s)`, 'ok');
       menuItems.push('sep');
     }
 
-    menuItems.push({ icon: Icon.clipboard, text: 'Copiar', action: () => copySelection() });
+    if (!isProtected) menuItems.push({ icon: Icon.clipboard, text: 'Copiar', action: () => copySelection() });
     if (!isProtected) menuItems.push({ icon: Icon.scissors, text: 'Cortar', action: () => cutSelection() });
-    if (clipboard) menuItems.push({ icon: Icon.paste, text: 'Pegar aquí', action: () => pasteClipboard() });
+    if (K.clipboard.get().paths.length) menuItems.push({ icon: Icon.paste, text: 'Pegar aquí', action: () => pasteClipboard() });
     if (!multi && !isProtected) menuItems.push({ icon: Icon.duplicate, text: 'Duplicar', action: () => duplicateSelection() });
+
+    const shortcutIds = multi
+      ? [...tab.selection].filter(id => !isSysItem(tab.rawItems.find(i => i.id === id)))
+      : (!isSysItem(item) ? [item.id] : []);
+    if (shortcutIds.length) {
+      menuItems.push({
+        icon: Icon.bolt,
+        text: multi ? 'Crear accesos directos en escritorio' : 'Crear acceso directo en escritorio',
+        action: () => createDesktopShortcuts(shortcutIds),
+      });
+      menuItems.push({
+        icon: Icon.link,
+        text: multi ? 'Copiar accesos directos' : 'Copiar acceso directo',
+        action: () => copyShortcutSelection(shortcutIds),
+      });
+    }
 
     menuItems.push('sep');
     if (isProtected) {
@@ -1338,7 +1503,7 @@ else toast(`${ids.length} elemento(s) eliminado(s)`, 'ok');
       { icon: Icon.folder, text: 'Nueva carpeta', action: () => startCreate('dir') },
       { icon: Icon.file, text: 'Nuevo archivo', action: () => startCreate('file') },
     ];
-    if (clipboard) {
+    if (K.clipboard.get().paths.length) {
       menuItems.push('sep');
       menuItems.push({ icon: Icon.paste, text: 'Pegar', action: () => pasteClipboard() });
     }
@@ -1446,8 +1611,9 @@ else toast(`${ids.length} elemento(s) eliminado(s)`, 'ok');
       : `${total} elemento${total !== 1 ? 's' : ''}`;
 
     if (tab.selection.size === 0) {
-      statusSel.innerHTML = clipboard
-        ? `${Icon.clipboard} ${clipboard.items.length} en portapapeles (${clipboard.mode === 'cut' ? 'cortar' : 'copiar'})`
+      const cb = K.clipboard.get();
+      statusSel.innerHTML = cb.paths.length
+        ? `${Icon.clipboard} ${cb.paths.length} en portapapeles (${cb.op === 'cut' ? 'cortar' : 'copiar'})`
         : '';
     } else if (tab.selection.size === 1) {
       const item = tab.rawItems.find(i => i.id === [...tab.selection][0]);
@@ -1468,8 +1634,9 @@ else toast(`${ids.length} elemento(s) eliminado(s)`, 'ok');
     $('#btn-rename').disabled = n !== 1;
     $('#btn-delete').disabled = n === 0;
     $('#btn-cut').disabled = n === 0;
-    $('#btn-copy').disabled = n === 0;
-    $('#btn-paste').disabled = !clipboard;
+    $('#btn-copy').disabled = n === 0 || ![...tab.selection].some(id => !(id === '/system' || id.startsWith('/system/')));
+    $('#btn-paste').disabled = !K.clipboard.get().paths.length;
+    $('#btn-shortcut').disabled = n === 0 || ![...tab.selection].some(id => !isSysItem(tab.rawItems.find(i => i.id === id)));
     $('#btn-back').disabled = tab.historyIndex <= 0;
     $('#btn-forward').disabled = tab.historyIndex >= tab.history.length - 1;
     $('#btn-up').disabled = tab.cwd === '/';
@@ -1502,6 +1669,11 @@ else toast(`${ids.length} elemento(s) eliminado(s)`, 'ok');
   });
   $('#btn-delete').addEventListener('click', deleteSelected);
   $('#btn-pin').addEventListener('click', () => togglePin(activeTab().cwd));
+  $('#btn-shortcut').addEventListener('click', () => {
+    const tab = activeTab();
+    const ids = [...tab.selection].filter(id => !isSysItem(tab.rawItems.find(i => i.id === id)));
+    createDesktopShortcuts(ids);
+  });
   $('#btn-view').addEventListener('click', () => {
     const tab = activeTab();
     tab.viewMode = tab.viewMode === 'grid' ? 'list' : 'grid';
@@ -1615,27 +1787,82 @@ else toast(`${ids.length} elemento(s) eliminado(s)`, 'ok');
     K.on('fs:remove', () => refresh());
     K.on('fs:mkdir',  () => refresh());
     K.on('fs:move',   () => refresh());
+    K.on('clipboard:change', () => { renderStatus(); updateToolbarState(); });
+  }
+
+  let filesReady = false;
+  const pendingMsgs = [];
+
+function handleAppMessage(data) {
+    if (data.type === 'files:navigate' && data.path) navigate(data.path);
+    else if (data.type === 'app:init' && data.opts && data.opts.pickerMode) {
+      enablePickerMode(data.pid, data.opts.pickerTarget);
+    }
   }
 
   window.addEventListener('message', e => {
-    if (e.origin !== window.location.origin) return;
-    const { type, path } = e.data || {};
-    if (type === 'files:navigate' && path) navigate(path);
+    const data = e.data || {};
+    if (data.type !== 'files:navigate' && data.type !== 'app:init') return;
+    if (!filesReady) { pendingMsgs.push(data); return; }
+    handleAppMessage(data);
   });
+
+  function enablePickerMode(pid, targetFile) {
+    console.log('[FILES] Modo picker activado. PID:', pid, 'Target:', targetFile);
+    if (document.getElementById('picker-select-btn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'picker-select-btn';
+    btn.className = 'tb-btn';
+    btn.style.background = '#00ff88';
+    btn.style.color = '#000';
+    btn.style.fontWeight = 'bold';
+    btn.style.marginLeft = 'auto';
+    btn.textContent = '✓ Seleccionar esta carpeta';
+    btn.addEventListener('click', async () => {
+      const tab = activeTab();
+      const path = tab.cwd;
+      const outputPath = targetFile || '/temp/ide_picker_result.txt';
+      console.log('[FILES] Botón clickeado. Guardando ruta en:', outputPath, '| Ruta:', path);
+      try {
+        await K.fs.write(outputPath, path);
+        console.log('[FILES] Archivo escrito correctamente. Cerrando ventana...');
+      } catch (e) {
+        console.error('[FILES] Error al guardar la selección:', e);
+        toast('Error al guardar la selección', 'error');
+        return;
+      }
+      setTimeout(() => {
+        if (window.parent.__wos && pid != null) {
+          window.parent.__wos.closeWindow(Number(pid));
+        }
+      }, 150);
+    });
+    toolbarEl.appendChild(btn);
+  }
 
   /* ═══════════════════════ INIT ═══════════════════════ */
 
-  waitForKernel(kernel => {
+waitForKernel(kernel => {
     K = kernel;
-    bindKernelEvents();
 
     (async () => {
       await loadPinned();
+      await cleanupPendingShortcutTemp();
       const startPath = getStartPath();
       const initial = startPath ? (K.fs.normalize(startPath) || '/home') : '/home';
       tabs = [createTab(initial)];
       activeTabId = tabs[0].id;
+      bindKernelEvents();
       await refresh();
+
+filesReady = true;
+      
+      if (window.__APP_OPTS && window.__APP_OPTS.pickerMode) {
+        console.log('[FILES] Detectado modo picker por variable inyectada.');
+        enablePickerMode(window.__APP_PID ?? 0, window.__APP_OPTS.pickerTarget);
+      }
+      
+      while (pendingMsgs.length) handleAppMessage(pendingMsgs.shift());
     })();
   });
 

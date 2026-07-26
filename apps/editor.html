@@ -8,7 +8,7 @@
   {
     "id":          "text-editor",
     "name":        "Editor de Texto",
-    "version":     "0.1.0",
+    "version":     "0.4.1",
     "icon":        "./apps/public/EditorTexto.svg",
     "category":    "utility",
     "singleton":   false,
@@ -62,14 +62,12 @@
       );
     }
 
-    /* ── Layout ── */
     #app {
       display: flex;
       flex-direction: column;
       width: 100%; height: 100%;
     }
 
-    /* ── Toolbar ── */
     #toolbar {
       height: var(--toolbar-h);
       display: flex;
@@ -135,7 +133,6 @@
     }
     #dirty-dot.visible { display: block; }
 
-    /* ── Editor area ── */
     #editor-wrap {
       display: flex;
       flex: 1;
@@ -143,7 +140,6 @@
       position: relative;
     }
 
-    /* Line numbers */
     #line-numbers {
       width: 46px;
       flex-shrink: 0;
@@ -188,7 +184,6 @@
     #editor::-webkit-scrollbar-track { background: transparent; }
     #editor::-webkit-scrollbar-thumb { background: var(--green-dim); border-radius: 3px; }
 
-    /* ── Status bar ── */
     #statusbar {
       height: var(--statusbar-h);
       display: flex;
@@ -209,7 +204,6 @@
     .sb-label { color: rgba(0,255,136,0.4); }
     .sb-val   { color: var(--green-dim); }
 
-    /* ── Open file dialog overlay ── */
     #open-dialog {
       display: none;
       position: fixed; inset: 0; z-index: 200;
@@ -267,7 +261,6 @@
     .dialog-file-item:hover { background: rgba(0,255,136,0.1); color: var(--green); }
     .dialog-file-item .fi-icon { display: inline-flex; align-items: center; flex-shrink: 0; }
 
-    /* ── Empty state ── */
     #empty-state {
       position: absolute; inset: 0;
       display: flex; flex-direction: column;
@@ -289,7 +282,6 @@
     }
     #empty-state.hidden { display: none; }
 
-    /* ── Toast ── */
     #toast-container {
       position: fixed; bottom: 32px; right: 12px;
       display: flex; flex-direction: column; gap: 6px;
@@ -311,7 +303,6 @@
 </head>
 <body>
 <div id="app">
-  <!-- Toolbar -->
   <div id="toolbar">
     <button class="tb-btn accent" id="btn-new"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l1.8 5.7L19.5 10.5l-5.7 1.8L12 18l-1.8-5.7L4.5 10.5l5.7-1.8L12 3z"/></svg> NUEVO</button>
     <button class="tb-btn" id="btn-open"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5V6a1 1 0 0 1 1-1h4l2 2h9a1 1 0 0 1 1 1v1"/><path d="M3.3 7.5h17a1 1 0 0 1 .97 1.24l-1.5 6.5A1 1 0 0 1 18.8 16H4.7a1 1 0 0 1-.97-.76l-1.5-6.5a1 1 0 0 1 .1-.24z"/></svg> ABRIR</button>
@@ -323,7 +314,6 @@
     <div id="file-path-label">— sin título —</div>
   </div>
 
-  <!-- Editor area -->
   <div id="editor-wrap">
     <div id="line-numbers"></div>
     <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
@@ -334,7 +324,6 @@
     </div>
   </div>
 
-  <!-- Status bar -->
   <div id="statusbar">
     <div class="sb-left">
       <div class="sb-item"><span class="sb-label">LN</span><span class="sb-val" id="sb-line">1</span></div>
@@ -349,7 +338,6 @@
   </div>
 </div>
 
-<!-- Open file dialog -->
 <div id="open-dialog">
   <div class="dialog-box">
     <h3><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M3 7.5V6a1 1 0 0 1 1-1h4l2 2h9a1 1 0 0 1 1 1v1"/><path d="M3.3 7.5h17a1 1 0 0 1 .97 1.24l-1.5 6.5A1 1 0 0 1 18.8 16H4.7a1 1 0 0 1-.97-.76l-1.5-6.5a1 1 0 0 1 .1-.24z"/></svg> ABRIR ARCHIVO</h3>
@@ -362,7 +350,6 @@
   </div>
 </div>
 
-<!-- Save As dialog -->
 <div id="saveas-dialog" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;">
   <div class="dialog-box">
     <h3><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M4 4a1 1 0 0 1 1-1h10.6a1 1 0 0 1 .7.3l2.4 2.4a1 1 0 0 1 .3.7V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4z"/><path d="M7.5 3v5h7V3"/><path d="M7 21v-6.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1V21"/></svg> GUARDAR COMO</h3>
@@ -374,14 +361,13 @@
   </div>
 </div>
 
-<!-- Toast container -->
 <div id="toast-container"></div>
 
 <script>
 /* ══════════════════════════════════════════════
    HuebOS · Editor de Texto
-   Usa exclusivamente Kernel.* (via window.parent o self)
-   Versión: 0.1.0
+   Usa exclusivamente WOS (SDK inyectado en el iframe)
+   Versión: 0.2.0
 ══════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -392,7 +378,6 @@
     }[ch]));
   }
 
-  /* ── Helpers ── */
   const $ = id => document.getElementById(id);
 
   const Icon = {
@@ -410,11 +395,9 @@
     }
   };
 
-  /* ── Estado ── */
-  let K         = null;   // Kernel reference
-  let filePath  = null;   // ruta actual
-  let dirty     = false;  // cambios sin guardar
-  let lastSaved = '';     // contenido guardado
+  let filePath  = null;
+  let dirty     = false;
+  let lastSaved = '';
 
   const DEFAULT_PREFS = {
     'system.theme': 'dark',
@@ -423,41 +406,22 @@
 
   const THEME_PALETTES = {
     dark: {
-      green: '#00ff88',
-      greenDim: '#00aa55',
-      greenFaint: '#003322',
-      greenDark: '#001a0e',
-      amber: '#ffb300',
-      red: '#ff4444',
-      blue: '#00ccff',
-      bg: '#030a05',
-      border: 'rgba(0,255,136,0.18)',
+      green: '#00ff88', greenDim: '#00aa55', greenFaint: '#003322',
+      greenDark: '#001a0e', amber: '#ffb300', red: '#ff4444',
+      blue: '#00ccff', bg: '#030a05', border: 'rgba(0,255,136,0.18)',
     },
     amber: {
-      green: '#ffbf47',
-      greenDim: '#c98a18',
-      greenFaint: '#3a2300',
-      greenDark: '#221300',
-      amber: '#ffd36b',
-      red: '#ff6868',
-      blue: '#ffd36b',
-      bg: '#0b0601',
-      border: 'rgba(255,191,71,0.22)',
+      green: '#ffbf47', greenDim: '#c98a18', greenFaint: '#3a2300',
+      greenDark: '#221300', amber: '#ffd36b', red: '#ff6868',
+      blue: '#ffd36b', bg: '#0b0601', border: 'rgba(255,191,71,0.22)',
     },
     blue: {
-      green: '#6ee7ff',
-      greenDim: '#2ea9d6',
-      greenFaint: '#062433',
-      greenDark: '#041824',
-      amber: '#7de3ff',
-      red: '#ff6b6b',
-      blue: '#00ccff',
-      bg: '#020912',
-      border: 'rgba(110,231,255,0.18)',
+      green: '#6ee7ff', greenDim: '#2ea9d6', greenFaint: '#062433',
+      greenDark: '#041824', amber: '#7de3ff', red: '#ff6b6b',
+      blue: '#00ccff', bg: '#020912', border: 'rgba(110,231,255,0.18)',
     },
   };
 
-  /* ── DOM ── */
   const editor      = $('editor');
   const lineNums    = $('line-numbers');
   const emptyState  = $('empty-state');
@@ -467,36 +431,6 @@
   const sbCol       = $('sb-col');
   const sbChars     = $('sb-chars');
   const sbStatus    = $('sb-status');
-
-  /* ── Kernel bootstrap ── */
-  function getKernel() {
-    // Prioridad: Kernel del padre (iframe dentro de shell), luego propio
-    if (window.parent && window.parent !== window && window.parent.Kernel && window.parent.Kernel.isReady) {
-      return window.parent.Kernel;
-    }
-    if (window.Kernel && window.Kernel.isReady) {
-      return window.Kernel;
-    }
-    return null;
-  }
-
-  function waitForKernel(cb) {
-    const k = getKernel();
-    if (k) { cb(k); return; }
-
-    const check = () => {
-      const k2 = getKernel();
-      if (k2) { cb(k2); return; }
-      setTimeout(check, 100);
-    };
-
-    if (window.parent !== window && window.parent.Kernel && window.parent.Kernel.once) {
-      window.parent.Kernel.once('ready', () => cb(window.parent.Kernel));
-      return;
-    }
-
-    setTimeout(check, 100);
-  }
 
   function applyTheme(theme) {
     const palette = THEME_PALETTES[theme] || THEME_PALETTES[DEFAULT_PREFS['system.theme']];
@@ -520,20 +454,23 @@
   }
 
   async function applyPrefs() {
-    const all = await K.prefs.all();
-    applyTheme(all['system.theme'] ?? DEFAULT_PREFS['system.theme']);
-    applyFontSize(all['system.fontSize'] ?? DEFAULT_PREFS['system.fontSize']);
+    try {
+      const all = await WOS.prefs.all();
+      applyTheme(all['system.theme'] ?? DEFAULT_PREFS['system.theme']);
+      applyFontSize(all['system.fontSize'] ?? DEFAULT_PREFS['system.fontSize']);
+    } catch (e) {
+      console.warn("No se pudieron cargar las preferencias:", e);
+      applyTheme(DEFAULT_PREFS['system.theme']);
+      applyFontSize(DEFAULT_PREFS['system.fontSize']);
+    }
   }
 
-  /* ── Line numbers ── */
   function updateLineNumbers() {
     const lines = editor.value.split('\n');
     lineNums.innerHTML = lines.map((_, i) => `<div>${i + 1}</div>`).join('');
-    // Sync scroll
     lineNums.scrollTop = editor.scrollTop;
   }
 
-  /* ── Status bar ── */
   function updateStatus() {
     const val   = editor.value;
     const start = editor.selectionStart;
@@ -543,7 +480,6 @@
     sbChars.textContent = val.length;
   }
 
-  /* ── Dirty state ── */
   function setDirty(d) {
     dirty = d;
     dirtyDot.classList.toggle('visible', d);
@@ -557,9 +493,8 @@
     pathLabel.textContent = path || '— sin título —';
   }
 
-  /* ── File operations ── */
   async function newFile() {
-    if (dirty && !confirm('¿Descartar cambios sin guardar?')) return;
+    if (dirty && !await WOS.confirm('Hay cambios sin guardar. ¿Descartarlos y crear un nuevo archivo?')) return;
     editor.value = '';
     lastSaved    = '';
     setPath(null);
@@ -571,12 +506,12 @@
     editor.focus();
   }
 
-async function openFile(path) {
+  async function openFile(path) {
     if (!path) return;
-    if (dirty && !confirm('Hay cambios sin guardar en el archivo actual. ¿Descartarlos y abrir otro archivo?')) return;
+    if (dirty && !await WOS.confirm('Hay cambios sin guardar en el archivo actual. ¿Descartarlos y abrir otro archivo?')) return;
     sbStatus.textContent = 'CARGANDO…';
     try {
-      const content = await K.fs.read(path);
+      const content = await WOS.fs.read(path);
       editor.value  = content;
       lastSaved     = content;
       setPath(path);
@@ -593,7 +528,7 @@ async function openFile(path) {
     }
   }
 
-async function saveFile(path) {
+  async function saveFile(path) {
     const target = path || filePath;
     if (!target) {
       showSaveAsDialog();
@@ -601,14 +536,12 @@ async function saveFile(path) {
     }
     sbStatus.textContent = 'GUARDANDO…';
     try {
-      await K.fs.write(target, editor.value);
+      await WOS.fs.write(target, editor.value);
       lastSaved = editor.value;
       setPath(target);
       setDirty(false);
       sbStatus.textContent = 'GUARDADO';
       Toast.show(`Guardado: ${target}`, 'ok');
-      // Notificar al sistema que el FS cambió
-      K.emit('fs:write', { path: target });
     } catch (err) {
       sbStatus.textContent = 'ERROR';
       const msg = err.message === 'INVALID_FILE_TARGET'
@@ -618,7 +551,6 @@ async function saveFile(path) {
     }
   }
 
-  /* ── Open dialog ── */
   const openDialog  = $('open-dialog');
   const openInput   = $('open-path-input');
   const fileListEl  = $('dialog-file-list');
@@ -634,7 +566,7 @@ async function saveFile(path) {
   async function populateFileList(dir) {
     fileListEl.innerHTML = '';
     try {
-      const entries = await K.fs.readdir(dir);
+      const entries = await WOS.fs.readdir(dir);
       const sorted  = entries.sort((a, b) => {
         if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
         return a.name.localeCompare(b.name);
@@ -646,7 +578,7 @@ async function saveFile(path) {
       sorted.forEach(e => {
         const item = document.createElement('div');
         item.className = 'dialog-file-item';
-        item.innerHTML = `<span class="fi-icon">${e.type === 'dir' ? Icon.folder : Icon.file}</span><span>${e.name}</span>`;
+        item.innerHTML = `<span class="fi-icon">${e.type === 'dir' ? Icon.folder : Icon.file}</span><span>${escapeHtml(e.name)}</span>`;
         item.addEventListener('click', () => {
           if (e.type === 'dir') {
             openInput.value = e.id + '/';
@@ -664,10 +596,9 @@ async function saveFile(path) {
         fileListEl.appendChild(item);
       });
     } catch (_) {
-      // Try root
       try {
-        const all = await K.fs.readdir('/');
-fileListEl.innerHTML = all.map(e =>
+        const all = await WOS.fs.readdir('/');
+        fileListEl.innerHTML = all.map(e =>
           `<div class="dialog-file-item">
             <span class="fi-icon">${e.type === 'dir' ? Icon.folder : Icon.file}</span>
             <span>${escapeHtml(e.name)}</span>
@@ -697,7 +628,6 @@ fileListEl.innerHTML = all.map(e =>
     if (e.target === openDialog) closeOpenDialog();
   });
 
-  /* ── Save As dialog ── */
   const saveAsDialog = $('saveas-dialog');
   const saveAsInput  = $('saveas-path-input');
 
@@ -710,15 +640,16 @@ fileListEl.innerHTML = all.map(e =>
 
   $('btn-save-as').addEventListener('click', showSaveAsDialog);
   $('saveas-cancel').addEventListener('click', () => saveAsDialog.style.display = 'none');
-async function confirmSaveAs(p) {
+
+  async function confirmSaveAs(p) {
     if (!p) return;
     try {
-      const existing = await K.fs.stat(p);
+      const existing = await WOS.fs.stat(p);
       if (existing && existing.type === 'dir') {
         Toast.show(`"${p}" es una carpeta, no se puede guardar ahí`, 'error', 3500);
         return;
       }
-      if (existing && !confirm(`Ya existe el archivo "${p}". ¿Sobrescribirlo?`)) return;
+      if (existing && !await WOS.confirm(`Ya existe el archivo "${p}". ¿Sobrescribirlo?`)) return;
     } catch (_) { /* si stat falla, dejamos que saveFile reporte el error real */ }
     saveAsDialog.style.display = 'none';
     saveFile(p);
@@ -730,12 +661,10 @@ async function confirmSaveAs(p) {
     if (e.key === 'Escape') saveAsDialog.style.display = 'none';
   });
 
-  /* ── Toolbar buttons ── */
   $('btn-new').addEventListener('click', newFile);
   $('btn-save').addEventListener('click', () => saveFile());
 
-  /* ── Editor events ── */
-editor.addEventListener('input', () => {
+  editor.addEventListener('input', () => {
     updateLineNumbers();
     updateStatus();
     setDirty(true);
@@ -743,22 +672,18 @@ editor.addEventListener('input', () => {
   });
 
   editor.addEventListener('keydown', e => {
-    // Ctrl+S → save
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
       saveFile();
     }
-    // Ctrl+O → open
     if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
       e.preventDefault();
       showOpenDialog();
     }
-    // Ctrl+N → new
     if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
       e.preventDefault();
       newFile();
     }
-    // Tab → insert spaces
     if (e.key === 'Tab') {
       e.preventDefault();
       const start = editor.selectionStart;
@@ -776,51 +701,26 @@ editor.addEventListener('input', () => {
   editor.addEventListener('click', updateStatus);
   editor.addEventListener('keyup', updateStatus);
 
-  /* ── postMessage API (para que files.html abra archivos) ── */
-window.addEventListener('message', e => {
-    if (e.origin !== window.location.origin) return;
+  /* ── postMessage API ── */
+  window.addEventListener('message', e => {
+    if (e.origin !== window.location.origin && e.origin !== 'null') return;
     const { type, path } = e.data || {};
     if (type === 'editor:open' && path) openFile(path);
     if (type === 'editor:new')         newFile();
   });
 
-  /* ── URL params: ?path=... ── */
-  function getUrlPath() {
-    const p = new URLSearchParams(window.location.search).get('path');
-    return p || null;
-  }
-
-  /* ── Init ── */
-  async function init(kernel) {
-    K = kernel;
+  async function init() {
     await applyPrefs();
 
-    // Sync scroll for line numbers
     updateLineNumbers();
     updateStatus();
 
-    // Check URL param
-    const urlPath = getUrlPath();
-    if (urlPath) {
-      openFile(urlPath);
+    // Abrir archivo si el shell nos pasó la ruta al arrancar
+    if (window.__APP_OPTS && window.__APP_OPTS.filePath) {
+      openFile(window.__APP_OPTS.filePath);
     }
 
-    // Listen for external open requests via Kernel event
-    K.on('editor:open', ({ path }) => {
-      if (path) openFile(path);
-    });
-
-    K.on('prefs:change', ({ key, value }) => {
-      if (key === 'system.theme') applyTheme(value);
-      if (key === 'system.fontSize') applyFontSize(value);
-    });
-
-    K.on('prefs:delete', ({ key }) => {
-      if (key === 'system.theme') applyTheme(DEFAULT_PREFS['system.theme']);
-      if (key === 'system.fontSize') applyFontSize(DEFAULT_PREFS['system.fontSize']);
-    });
-
-    // Keyboard shortcuts when NOT inside editor (global)
+    // Atajos globales
     document.addEventListener('keydown', e => {
       if (e.target !== editor) {
         if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveFile(); }
@@ -830,7 +730,17 @@ window.addEventListener('message', e => {
     });
   }
 
-  waitForKernel(init);
+  // Esperar a que el SDK WOS esté disponible
+  if (window.WOS) {
+    init();
+  } else {
+    const wosInterval = setInterval(() => {
+      if (window.WOS) {
+        clearInterval(wosInterval);
+        init();
+      }
+    }, 50);
+  }
 
 })();
 </script>

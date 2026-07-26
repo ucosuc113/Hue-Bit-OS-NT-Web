@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HUEBOS IDE v2</title>
+<script id="wos-manifest" type="application/json">
+{
+  "id": "ide",
+  "name": "IDE",
+  "version": "1.0.0",
+  "icon": "./apps/public/ide.svg",
+  "category": "system",
+  "singleton": true,
+  "systemApp": true,
+  "permissions": ["fs.read", "fs.write", "fs.delete", "fs.system.write", "proc.kill", "app.install", "notifications.send", "system.config"],
+  "description": "Entorno oficial de desarrollo de aplicaciones para HUEBOS.",
+  "winWidth": 1024,
+  "winHeight": 720,
+  "author": "HUEBOS Team"
+}
+</script>
+
+<!-- CodeMirror 5 CSS & JS (CDN) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closetag.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --g:#00ff88; --g-dim:#00bb66; --bg:#020c06; --panel:#04140c;
+    --border:rgba(0,255,136,0.16); --border-hot:rgba(0,255,136,0.42);
+    --cyan:#00d4ff; --amber:#ffcc44; --red:#ff4466;
+    --mono:'Share Tech Mono', monospace; --display:'Orbitron', monospace;
+  }
+html,body{width:100%;height:100%;background:var(--bg);color:var(--g);font-family:var(--mono);overflow:hidden;position:relative;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9998;background:repeating-linear-gradient(0deg,rgba(0,255,136,0.015) 0px,rgba(0,255,136,0.015) 1px,transparent 1px,transparent 3px);mix-blend-mode:overlay;}
+  *{scrollbar-width:thin;scrollbar-color:rgba(0,180,90,0.45) rgba(0,20,10,0.35);} /* Firefox no lee ::-webkit-scrollbar */
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-thumb{background:rgba(0,180,90,0.3);border-radius:3px;}
+  
+  .CodeMirror{height:100%;background:transparent;color:var(--g);font-family:var(--mono);font-size:14px;}
+  .CodeMirror-gutters{background:rgba(0,0,0,0.2);border-right:1px solid var(--border);}
+  .CodeMirror-linenumber{color:var(--g-dim);opacity:0.6;}
+  .CodeMirror-cursor{border-left:1px solid var(--g);}
+  .cm-s-default .cm-keyword{color:var(--cyan);} .cm-s-default .cm-string{color:var(--amber);}
+  .cm-s-default .cm-tag{color:var(--red);} .cm-s-default .cm-attribute{color:var(--cyan);}
+  .cm-s-default .cm-comment{color:var(--g-dim);opacity:0.7;}
+  .CodeMirror-activeline-background{background:rgba(0,255,136,0.045);}
+
+#ide{display:grid;grid-template-rows:54px 1fr 5px 220px 24px;height:100vh;}
+  
+  /* ═══ MENUBAR CLÁSICA ═══ */
+  .menubar{display:flex;align-items:center;height:28px;background:linear-gradient(180deg,rgba(0,255,136,0.06),rgba(0,0,0,0.3));border-bottom:1px solid var(--border);padding:0 4px;gap:0;user-select:none;}
+  .menu-item{position:relative;height:100%;display:flex;align-items:center;}
+  .menu-label{padding:0 10px;height:100%;display:flex;align-items:center;font-size:0.72rem;color:var(--g-dim);cursor:pointer;letter-spacing:0.04em;transition:all 0.12s;border-radius:4px 4px 0 0;}
+  .menu-label:hover{background:rgba(0,255,136,0.08);color:var(--g);}
+  .menu-item.active .menu-label{background:rgba(0,255,136,0.14);color:var(--g);text-shadow:0 0 6px rgba(0,255,136,0.3);}
+  .menu-dropdown{display:none;position:absolute;top:100%;left:0;min-width:220px;background:rgba(2,12,7,0.98);border:1px solid var(--border-hot);border-radius:0 5px 5px 5px;box-shadow:0 12px 40px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.03);z-index:10000;padding:4px 0;backdrop-filter:blur(20px);}
+  .menu-item.active .menu-dropdown{display:block;animation:menuDrop 0.12s ease-out;}
+  @keyframes menuDrop{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:none;}}
+  .menu-action{padding:6px 16px;font-size:0.72rem;color:var(--g-dim);cursor:pointer;display:flex;align-items:center;gap:8px;white-space:nowrap;transition:all 0.08s;position:relative;}
+  .menu-action:hover{background:linear-gradient(90deg,rgba(0,255,136,0.10),rgba(0,212,255,0.04));color:var(--g);padding-left:20px;}
+  .menu-action.checked::before{content:'✓';color:var(--g);font-weight:bold;position:absolute;left:6px;}
+  .menu-action.unchecked::before{content:'▫';color:var(--g-dim);position:absolute;left:6px;}
+  .menu-action.danger{color:var(--red);}
+  .menu-action.danger:hover{background:rgba(255,68,102,0.10);}
+  .menu-action.disabled{opacity:0.38;cursor:default;pointer-events:none;}
+  .menu-action .shortcut{margin-left:auto;font-size:0.6rem;color:rgba(0,180,80,0.4);letter-spacing:0.06em;}
+  .menu-sep{height:1px;background:var(--border);margin:4px 8px;}
+  .menu-section-label{padding:4px 16px 2px;font-size:0.56rem;color:rgba(0,180,80,0.35);letter-spacing:0.16em;text-transform:uppercase;}
+  
+/* Header con marca visible */
+  #ide-header{display:flex;align-items:center;gap:0;padding:0;background:linear-gradient(180deg,rgba(0,255,136,0.04),transparent);border-bottom:1px solid var(--border);flex-direction:column;height:auto;}
+  .ide-header-bar{display:flex;align-items:center;gap:10px;padding:0 12px;width:100%;height:26px;border-bottom:1px solid var(--border);}
+  .ide-title{font-family:var(--display);font-size:0.8rem;letter-spacing:0.14em;color:var(--g);text-shadow:0 0 8px rgba(0,255,136,0.45),0 0 18px rgba(0,255,136,0.15);padding:0 4px;display:flex;align-items:center;}
+  #ide-project-name{font-size:0.72rem;color:var(--cyan);letter-spacing:0.06em;cursor:pointer;position:relative;padding:0 8px;margin-left:auto;display:flex;align-items:center;}
+  
+  /* Botones antiguos ocultos */
+  .ide-btn{display:none;}
+  #recent-dropdown{position:absolute;top:100%;right:0;background:var(--panel);border:1px solid var(--border-hot);min-width:200px;z-index:1000;display:none;max-height:300px;overflow-y:auto;}
+  #recent-dropdown.show{display:block;}
+  .recent-item{padding:8px 12px;font-size:0.7rem;cursor:pointer;border-bottom:1px solid var(--border);}
+  .recent-item:hover{background:rgba(0,255,136,0.1);}
+  
+
+  
+  /* Panel de jerarquía y output */
+#hierarchy-panel{display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:8px;font-size:0.7rem;}
+  .panel-section-header{padding:6px 10px;font-size:0.62rem;color:var(--cyan);letter-spacing:0.12em;border-bottom:1px solid var(--border);background:rgba(0,212,255,0.03);flex-shrink:0;}
+  .hierarchy-node{padding:3px 8px;cursor:pointer;display:flex;align-items:center;gap:6px;border-radius:3px;transition:background 0.1s;}
+  .hierarchy-node:hover{background:rgba(0,255,136,0.06);}
+  .hierarchy-node .h-icon{font-size:0.8rem;}
+  .hierarchy-node .h-label{color:var(--g-dim);}
+  .hierarchy-node .h-type{margin-left:auto;font-size:0.56rem;color:rgba(0,212,255,0.35);letter-spacing:0.08em;}
+  
+  #output-panel{display:none;flex-direction:column;height:100%;overflow-y:auto;padding:8px 12px;font-size:0.7rem;line-height:1.6;}
+  #output-panel.active{display:flex;}
+  .output-line{padding:2px 0;color:var(--g-dim);}
+  .output-line.info{color:var(--cyan);}
+  .output-line.warn{color:var(--amber);}
+  .output-line.error{color:var(--red);}
+  .output-line.success{color:var(--g);}
+  
+/* Bottom panel 3 columnas */
+  #ide-bottom{display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;}
+  .bottom-tabs{flex-shrink:0;}
+.bottom-content{display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0;overflow:hidden;}
+  .panel-section{display:flex;flex-direction:column;height:100%;min-height:0;min-width:0;overflow:hidden;}
+  .panel-section:not(:last-child){border-right:1px solid var(--border);}
+  
+  #diag-list, #console-ide, #console-preview, #output-panel{flex:1;overflow-y:auto;overflow-x:hidden;padding:6px 10px;font-size:0.7rem;line-height:1.5;display:none;flex-direction:column;white-space:pre-wrap;word-break:break-all;}
+  #diag-list.active, #console-ide.active, #console-preview.active, #output-panel.active{display:flex;}
+  
+  /* Contenedor de la terminal embebida real */
+  #terminal-ide{display:none;flex-direction:column;height:100%;background:rgba(1,8,4,0.96);overflow:hidden;flex:1;min-height:0;}
+  #terminal-ide.active{display:flex;}
+  #ide-terminal-frame{width:100%;height:100%;border:none;}
+  
+  /* Los items de log/diag deben envolver texto verticalmente */
+  .diag-item, .log-item{padding:3px 0;border-bottom:1px solid rgba(0,255,136,0.05);cursor:pointer;white-space:pre-wrap;word-break:break-all;}
+  .diag-item.error{color:var(--red);} .diag-item.warn{color:var(--amber);} .diag-item.info{color:var(--cyan);}
+
+  /* ═══ LAYOUT DEL IDE (Estructura faltante) ═══ */
+  #ide-body{display:flex;flex-direction:row;min-height:0;overflow:hidden;}
+#ide-sidebar{width:240px;min-width:140px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+  .sidebar-header{padding:8px 12px;font-size:0.68rem;color:var(--cyan);letter-spacing:0.14em;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;background:linear-gradient(90deg,rgba(0,212,255,0.05),transparent);}
+  #ide-tree{flex:1;overflow-y:auto;padding:4px 0;}
+  .tree-item{display:flex;align-items:center;gap:4px;padding:3px 8px;cursor:pointer;font-size:0.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--g-dim);border-left:2px solid transparent;transition:background 0.12s,border-color 0.12s;}
+  .tree-item:hover{background:rgba(0,255,136,0.06);}
+  .tree-item.selected{background:rgba(0,255,136,0.15);color:var(--g);border-left-color:var(--g);text-shadow:0 0 6px rgba(0,255,136,0.3);}
+  .tree-chevron{width:10px;display:inline-block;text-align:center;opacity:0.7;}
+  .tree-chevron-spacer{width:10px;display:inline-block;}
+#sidebar-resizer{width:5px;cursor:col-resize;background:transparent;border-right:1px solid var(--border);}
+  #sidebar-resizer:hover,#sidebar-resizer.dragging{background:var(--border-hot);}
+  #bottom-resizer{height:5px;cursor:row-resize;background:transparent;border-top:1px solid var(--border);}
+  #bottom-resizer:hover,#bottom-resizer.dragging{background:var(--border-hot);}
+  
+  #ide-main{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg);}
+  #ide-tabs{display:flex;background:rgba(0,0,0,0.2);border-bottom:1px solid var(--border);overflow-x:auto;min-height:32px;}
+  #editor-breadcrumb{display:none;padding:4px 12px;font-size:0.65rem;color:var(--g-dim);background:rgba(0,0,0,0.15);border-bottom:1px solid var(--border);white-space:nowrap;overflow-x:auto;}
+  #editor-breadcrumb.active{display:block;}
+  #editor-breadcrumb .crumb-sep{opacity:0.4;margin:0 4px;}
+  #editor-breadcrumb .crumb-file{color:var(--g);}
+.ide-tab{display:flex;align-items:center;gap:6px;padding:6px 14px;font-size:0.72rem;color:var(--g-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;position:relative;}
+  .ide-tab:hover{background:rgba(0,255,136,0.05);color:var(--g);}
+  .ide-tab.active{background:var(--bg);color:var(--g);}
+  .ide-tab.active::after{content:'';position:absolute;top:-1px;left:0;right:0;height:2px;background:var(--g);box-shadow:0 0 8px rgba(0,255,136,0.6);}
+  .ide-tab .dot{width:6px;height:6px;border-radius:50%;background:transparent;}
+  .ide-tab.dirty .dot{background:var(--amber);box-shadow:0 0 4px var(--amber);}
+  .ide-tab .close{font-size:0.8rem;opacity:0.5;padding:0 2px;}
+  .ide-tab .close:hover{opacity:1;color:var(--red);}
+  .ide-tab.dragging{opacity:0.4;}
+  .ide-tab.drag-over{box-shadow:inset 2px 0 0 var(--cyan);}
+  
+  #ide-content{flex:1;position:relative;overflow:hidden;}
+  #code-editor-container, #manifest-editor, #ide-preview{position:absolute;top:0;left:0;width:100%;height:100%;display:none;}
+  #code-editor-container.active, #manifest-editor.active, #ide-preview.active{display:block;}
+  
+  #manifest-editor{background:var(--bg);color:var(--g);overflow-y:auto;padding:16px;font-family:var(--mono);}
+  .mf-group{margin-bottom:20px;border:1px solid var(--border);border-radius:5px;padding:12px;background:rgba(0,255,136,0.02);}
+  .mf-group-title{color:var(--cyan);font-size:0.7rem;margin-bottom:12px;letter-spacing:0.1em;}
+  .mf-row{display:flex;align-items:center;margin-bottom:10px;gap:10px;}
+  .mf-row label{width:140px;font-size:0.7rem;color:var(--g-dim);}
+  .mf-row input{flex:1;background:rgba(0,0,0,0.3);border:1px solid var(--border);color:var(--g);padding:5px 8px;font-family:var(--mono);font-size:0.75rem;border-radius:3px;}
+  .icon-preview{width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:4px;font-size:1.2rem;}
+  .perms-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .perm-item{display:flex;align-items:center;gap:6px;font-size:0.68rem;color:var(--g-dim);}
+  
+  .bottom-tabs{display:flex;background:rgba(0,0,0,0.2);border-bottom:1px solid var(--border);padding:0 4px;}
+.bottom-tab{padding:6px 14px;font-size:0.7rem;color:var(--g-dim);cursor:pointer;border-bottom:2px solid transparent;transition:color 0.12s,border-color 0.12s;}
+  .bottom-tab:hover{color:var(--g);}
+  .bottom-tab.active{color:var(--g);border-bottom-color:var(--g);text-shadow:0 0 6px rgba(0,255,136,0.35);}
+  .rename-input{background:var(--bg);border:1px solid var(--g);color:var(--g);padding:1px 4px;font-family:var(--mono);font-size:0.7rem;width:100%;}
+
+#ide-statusbar{display:flex;align-items:center;gap:0;padding:0 12px;background:linear-gradient(180deg,rgba(0,255,136,0.03),transparent);border-top:1px solid var(--border);font-size:0.65rem;color:var(--g-dim);}
+  .st-item{display:flex;align-items:center;gap:6px;padding:0 12px;height:100%;border-right:1px solid rgba(0,255,136,0.08);}
+  .st-item.right{margin-left:auto;border-right:none;padding-left:12px;border-left:1px solid rgba(0,255,136,0.08);}
+  #st-lang{color:var(--cyan);}
+  #st-diag{cursor:pointer;}
+  #st-diag:hover{color:var(--g);text-shadow:0 0 6px rgba(0,255,136,0.4);}
+
+  /* Context Menu */
+  #ctx-menu{position:fixed;background:var(--panel);border:1px solid var(--border-hot);border-radius:4px;z-index:9999;min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:none;}
+  .ctx-item{padding:6px 12px;font-size:0.7rem;cursor:pointer;color:var(--g-dim);}
+  .ctx-item:hover{background:rgba(0,255,136,0.1);color:var(--g);}
+  .ctx-sep{height:1px;background:var(--border);margin:4px 0;}
+
+  .menu-action svg,.ctx-item svg,.sidebar-header svg,.ide-title svg,
+  .tree-item .icon svg,.hierarchy-node .h-icon svg,.ide-tab .tab-icon svg{
+    vertical-align:-2px;margin-right:5px;flex-shrink:0;
+  }
+</style>
+</head>
+<body>
+<div id="ide">
+  <div id="ide-header">
+    <div class="menubar">
+      <div class="menu-item" data-menu="archivo">
+        <span class="menu-label">Archivo</span>
+        <div class="menu-dropdown">
+          <div class="menu-action" data-action="new">Nuevo proyecto<span class="shortcut">Ctrl+N</span></div>
+          <div class="menu-action" data-action="open">Abrir proyecto…<span class="shortcut">Ctrl+O</span></div>
+          <div class="menu-sep"></div>
+          <div class="menu-section-label">Recientes</div>
+          <div id="menu-recent-list"></div>
+          <div class="menu-sep"></div>
+          <div class="menu-action" data-action="save">Guardar<span class="shortcut">Ctrl+S</span></div>
+          <div class="menu-action" data-action="saveas">Guardar como…</div>
+          <div class="menu-sep"></div>
+          <div class="menu-action" data-action="load">Cargar proyecto</div>
+          <div class="menu-sep"></div>
+          <div class="menu-action" data-action="build">Compilar<span class="shortcut">Ctrl+B</span></div>
+          <div class="menu-action" data-action="install">Instalar</div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="editar">
+        <span class="menu-label">Editar</span>
+        <div class="menu-dropdown">
+          <div class="menu-action" data-action="undo">Undo<span class="shortcut">Ctrl+Z</span></div>
+          <div class="menu-action" data-action="redo">Redo<span class="shortcut">Ctrl+Y</span></div>
+          <div class="menu-sep"></div>
+          <div class="menu-action" data-action="cut">Cortar<span class="shortcut">Ctrl+X</span></div>
+          <div class="menu-action" data-action="copy">Copiar<span class="shortcut">Ctrl+C</span></div>
+          <div class="menu-action" data-action="paste">Pegar<span class="shortcut">Ctrl+V</span></div>
+          <div class="menu-sep"></div>
+          <div class="menu-action" data-action="find">Encontrar<span class="shortcut">Ctrl+F</span></div>
+          <div class="menu-action" data-action="replace">Reemplazar<span class="shortcut">Ctrl+H</span></div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="seleccion">
+        <span class="menu-label">Selección</span>
+        <div class="menu-dropdown">
+          <div class="menu-action" data-action="select-all">Seleccionar todo<span class="shortcut">Ctrl+A</span></div>
+          <div class="menu-sep"></div>
+          <div class="menu-action" data-action="dup-up">Copiar una línea arriba<span class="shortcut">Alt+↑</span></div>
+          <div class="menu-action" data-action="dup-down">Copiar una línea abajo<span class="shortcut">Alt+↓</span></div>
+          <div class="menu-sep"></div>
+          <div class="menu-action" data-action="expand">Expandir Selección<span class="shortcut">Alt+Shift+→</span></div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="ver">
+        <span class="menu-label">Ver</span>
+        <div class="menu-dropdown" id="view-menu-dropdown">
+          <div class="menu-section-label">Paneles</div>
+          <div class="menu-action checked" data-action="view-sidebar" id="view-toggle-sidebar">Explorador</div>
+          <div class="menu-sep"></div>
+          <div class="menu-section-label">Pestañas inferiores</div>
+          <div class="menu-action checked" data-action="view-diag" id="view-toggle-diag">Diagnóstico</div>
+          <div class="menu-action checked" data-action="view-log" id="view-toggle-log">Log</div>
+          <div class="menu-action checked" data-action="view-console" id="view-toggle-console">Consola</div>
+          <div class="menu-action checked" data-action="view-output" id="view-toggle-output">Output</div>
+          <div class="menu-action checked" data-action="view-terminal" id="view-toggle-terminal">Terminal</div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="correr">
+        <span class="menu-label">Correr</span>
+        <div class="menu-dropdown">
+          <div class="menu-action" data-action="run-debug">Correr Debug<span class="shortcut">F5</span></div>
+          <div class="menu-sep"></div>
+          <div class="menu-action" data-action="compile">Compilar<span class="shortcut">Ctrl+B</span></div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="herramientas">
+        <span class="menu-label">Herramientas</span>
+        <div class="menu-dropdown">
+          <div class="menu-action" data-action="format">Formatear documento<span class="shortcut">Alt+Shift+F</span></div>
+          <div class="menu-action" data-action="clean-spaces">Limpiar espacios</div>
+          <div class="menu-sep"></div>
+          <div class="menu-action" data-action="validate">Validar proyecto</div>
+          <div class="menu-action" data-action="rebuild-manifest">Reconstruir manifest.json</div>
+          <div class="menu-sep"></div>
+          <div class="menu-action danger" data-action="clear-cache">Limpiar cache del compilador</div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="ayuda">
+        <span class="menu-label">Ayuda</span>
+        <div class="menu-dropdown">
+          <div class="menu-action" data-action="help">Documentación de APIs…<span class="shortcut">F1</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="ide-header-bar">
+      <span class="ide-title" id="ide-title-icon"></span>
+      <span id="ide-project-name">Sin proyecto ▾
+        <div id="recent-dropdown"></div>
+      </span>
+    </div>
+  </div>
+  
+  <div id="ide-body">
+    <div id="ide-sidebar">
+      <div class="sidebar-header" id="explorer-header"></div>
+      <div id="ide-tree"></div>
+    </div>
+    <div id="sidebar-resizer"></div>
+    <div id="ide-main">
+      <div id="ide-tabs"></div>
+      <div id="editor-breadcrumb"></div>
+      <div id="ide-content">
+        <div id="code-editor-container"><textarea id="code-editor" spellcheck="false"></textarea></div>
+        <div id="manifest-editor"></div>
+        <iframe id="ide-preview" sandbox="allow-scripts allow-same-origin allow-forms allow-modals"></iframe>
+      </div>
+    </div>
+  </div>
+  
+  <div id="bottom-resizer"></div>
+  <div id="ide-bottom">
+    <div class="bottom-tabs">
+      <div class="bottom-tab active" data-target="diag-list">Diagnóstico</div>
+      <div class="bottom-tab" data-target="console-ide">Log</div>
+      <div class="bottom-tab" data-target="console-preview">Consola</div>
+      <div class="bottom-tab" data-target="output-panel">Output</div>
+      <div class="bottom-tab" data-target="terminal-ide">Terminal</div>
+    </div>
+    <div class="bottom-content">
+      <div class="panel-section">
+        <div id="diag-list" class="active"></div>
+        <div id="console-ide"></div>
+        <div id="console-preview"></div>
+        <div id="output-panel"></div>
+        <div id="terminal-ide">
+          <iframe id="ide-terminal-frame" style="width:100%;height:100%;border:none;background:rgba(1,8,4,0.96);"></iframe>
+        </div>
+      </div>
+<div class="panel-section">
+        <div id="debug-info-panel" style="padding:10px;color:var(--g-dim);font-size:0.7rem;overflow-y:auto;height:100%;">
+          <div id="debug-manifest-info">Sin proyecto cargado</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ide-statusbar">
+    <div class="st-item" id="st-path">Sin proyecto</div>
+    <div class="st-item" id="st-cursor">Ln 1, Col 1</div>
+    <div class="st-item" id="st-lang">Texto</div>
+    <div class="st-item" id="st-diag"></div>
+    <div class="st-item right" id="st-save">Listo</div>
+    <div class="st-item" id="st-unsaved"></div>
+  </div>
+</div>
+
+<div id="ctx-menu"></div>
+
+<script>
+;(function(){
+  'use strict';
+  
+  const WOS = window.WOS;
+  const Kernel = window.parent.Kernel; // Direct access for prefs/clipboard
+  const PERMS = ['fs.read', 'fs.write', 'fs.delete', 'fs.system.write', 'proc.kill', 'app.install', 'notifications.send', 'system.config'];
+  const escapeHtml = (s) => String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const Icons = {
+    ide: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="19" height="13.5" rx="1.6"/><path d="M8.5 20.5h7M12 17v3.5"/><polyline points="7 8 10 10.5 7 13" stroke-width="1.5"/><line x1="12" y1="13" x2="15.5" y2="13" stroke-width="1.5"/></svg>',
+    explorer: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 3 3 8 12 13 21 8 12 3"/><polyline points="3 13 12 18 21 13"/><polyline points="3 17.5 12 22 21 17.5"/></svg>',
+    folder: '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M4 5a2 2 0 0 1 2-2h4.5a2 2 0 0 1 1.4.6L13.4 5H18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5z"/></svg>',
+    folderOpen: '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M4 6a2 2 0 0 1 2-2h4.5a2 2 0 0 1 1.4.6L13.4 6H19a2 2 0 0 1 2 1.8L19.8 18a2 2 0 0 1-2 1.7H6a2 2 0 0 1-2-2V6z" opacity=".55"/><path d="M2.6 9.4A1.5 1.5 0 0 1 4 8h17a1.5 1.5 0 0 1 1.4 2l-2.3 8A2 2 0 0 1 18.2 19.7H5.3a2 2 0 0 1-1.9-1.4l-2-8a1.5 1.5 0 0 1 .2-.9z"/></svg>',
+    file: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M6.5 2.5h7l4 4v14a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z"/><path d="M13.5 2.5V7h4"/></svg>',
+    fileHtml: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 6 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-6-3.8-9S9.5 5.5 12 3z"/></svg>',
+    fileJs: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 3 12 9 18"/><polyline points="15 6 21 12 15 18"/></svg>',
+    fileCss: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3a9 9 0 1 0 .3 18c1.3 0 1.9-.9 1.9-1.8 0-.5-.2-.9-.5-1.3-.4-.5-.1-1.3.6-1.3H16a4 4 0 0 0 4-4.2C19.8 7.6 16.3 3 12 3z"/><circle cx="7.3" cy="10.8" r="1.15" fill="currentColor" stroke="none"/><circle cx="10.8" cy="7.3" r="1.15" fill="currentColor" stroke="none"/><circle cx="15.2" cy="8.3" r="1.15" fill="currentColor" stroke="none"/></svg>',
+    fileJson: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8.5 4c-1.4 0-2 .7-2 2v2.6c0 1.1-.5 1.7-1.5 1.9v1c1 .2 1.5.8 1.5 1.9V16c0 1.3.6 2 2 2"/><path d="M15.5 4c1.4 0 2 .7 2 2v2.6c0 1.1.5 1.7 1.5 1.9v1c-1 .2-1.5.8-1.5 1.9V16c0 1.3-.6 2-2 2"/></svg>',
+    fileImage: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="8.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/><path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.1 0L4 19"/></svg>',
+    cut: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><line x1="19.5" y1="4.5" x2="8.1" y2="15.9"/><line x1="14.2" y1="14.2" x2="19.5" y2="19.5"/><line x1="8.1" y1="8.1" x2="11.5" y2="11.5"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="1.5"/><path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"/></svg>',
+    paste: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M15 4h2.5A1.5 1.5 0 0 1 19 5.5v15A1.5 1.5 0 0 1 17.5 22h-11A1.5 1.5 0 0 1 5 20.5v-15A1.5 1.5 0 0 1 6.5 4H9"/><rect x="8.5" y="2" width="7" height="3.5" rx="1"/></svg>',
+    rename: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7.5 18.5 3 20l1.5-4.5L16.5 3.5z"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5 6 5.5 6 20.5 6"/><path d="M18.5 6v13a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2"/><line x1="10" y1="10.5" x2="10" y2="17"/><line x1="14" y1="10.5" x2="14" y2="17"/></svg>',
+    newFile: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 2.5h7l4 4v14a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z"/><path d="M13.5 2.5V7h4"/><line x1="9" y1="14" x2="15" y2="14"/><line x1="12" y1="11" x2="12" y2="17"/></svg>',
+    newFolder: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h4.5a2 2 0 0 1 1.4.6L13.4 5H18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5z"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="12" y1="9" x2="12" y2="15"/></svg>',
+    selectAll: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 2.5"/></svg>',
+    find: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="7"/><line x1="21" y1="21" x2="15.8" y2="15.8"/></svg>',
+    replace: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 2 21 6 17 10"/><path d="M3 12V9a3 3 0 0 1 3-3h15"/><polyline points="7 22 3 18 7 14"/><path d="M21 12v3a3 3 0 0 1-3 3H3"/></svg>',
+    clean: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4L10 14"/><path d="M10 14l-1.5 4.5c-.3.9.5 1.7 1.4 1.4L14.5 18"/><path d="M6.5 15.5L3 19M9 18L5 22M11.5 15L8 19"/></svg>',
+    book: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 19V4.8A1.8 1.8 0 0 1 5.8 3H12v18H5.8A1.8 1.8 0 0 1 4 19z"/><path d="M12 3h6.2A1.8 1.8 0 0 1 20 4.8V19a1.8 1.8 0 0 1-1.8 1.8H12"/></svg>',
+    terminal: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="16" rx="1.8"/><polyline points="6.5 9 10.5 12 6.5 15"/><line x1="12.5" y1="15.5" x2="17.5" y2="15.5"/></svg>'
+  };
+
+  function logConsole(msg, type='info', target='ide'){
+    const list = document.getElementById(`console-${target}`);
+    if(!list) return;
+    const div = document.createElement('div');
+    div.className = `log-item ${type}`;
+    div.style.color = type==='error'?'var(--red)':type==='warn'?'var(--amber)':'var(--cyan)';
+    div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    list.appendChild(div);
+    list.scrollTop = list.scrollHeight;
+  }
+  function logDiag(msg, type='info', filePath=null){
+    const list = document.getElementById('diag-list');
+    const div = document.createElement('div');
+    div.className = `diag-item ${type}`;
+    const icon = type==='error' ? '✖' : type==='warn' ? '▲' : 'ℹ';
+    div.innerHTML = `<span class="diag-icon">${icon}</span> ${escapeHtml(msg)}`;
+    if(filePath) div.dataset.filePath = filePath;
+    list.appendChild(div);
+  }
+  function clearDiag(){ document.getElementById('diag-list').innerHTML = ''; }
+
+  const Prefs = {
+    get: (k, d) => Kernel?.prefs.get(k, d) || d,
+    set: (k, v) => Kernel?.prefs.set(k, v)
+  };
+
+  const ProjectManager = {
+    root: null,
+    manifest: null,
+    
+async open(path){
+      this.root = path.replace(/\/$/, '');
+      document.getElementById('ide-project-name').firstChild.textContent = `${this.root} ▾`;
+      document.getElementById('st-path').textContent = this.root;
+      logConsole(`Abriendo proyecto: ${this.root}`);
+      await this.addToRecent(this.root);
+      await this.loadManifest();
+      FileExplorer.expanded = new Set([this.root]);
+      await FileExplorer.refresh();
+      
+      // Auto-cd en la terminal integrada
+      IDETerminal.runCommand(`cd ${this.root}`);
+      
+      // Restore session tabs
+      const session = await Prefs.get('ide.lastOpenTabs', {});
+      if(session[this.root]) {
+        for(const tabPath of session[this.root].tabs) {
+          await Editor.openTab(tabPath);
+        }
+        if(session[this.root].activeTab) Editor.switchTab(session[this.root].activeTab);
+      }
+    },
+    async loadManifest(){
+      try{
+        const raw = await WOS.fs.read(`${this.root}/manifest.json`);
+        this.manifest = JSON.parse(raw);
+        ManifestEditor.render(this.manifest);
+      }catch(e){
+        this.manifest = { id:'nueva-app', name:'Nueva App', version:'1.0.0', icon:'▪', entry:'index.html', singleton:false, permissions:[] };
+      }
+    },
+async saveSession() {
+      if(!this.root) return;
+      const session = await Prefs.get('ide.lastOpenTabs', {});
+      session[this.root] = {
+        tabs: Editor.tabs.map(t => t.path),
+        activeTab: Editor.activeTab ? Editor.activeTab.path : null
+      };
+      await Prefs.set('ide.lastOpenTabs', session);
+    },
+    async addToRecent(path) {
+      let recent = await Prefs.get('ide.recentProjects', []);
+      recent = recent.filter(p => p !== path);
+      recent.unshift(path);
+      recent = recent.slice(0, 8);
+      await Prefs.set('ide.recentProjects', recent);
+      renderRecentDropdown();
+    },
+    async saveAll(){
+      if(!this.root) return;
+      document.getElementById('st-save').textContent = 'Guardando...';
+      await WOS.fs.write(`${this.root}/manifest.json`, JSON.stringify(this.manifest, null, 2));
+      let unsaved = 0;
+      for(const tab of Editor.tabs){
+        if(tab.dirty){
+          await WOS.fs.write(tab.path, tab.content);
+          tab.dirty = false;
+          tab.originalContent = tab.content;
+        }
+        if(tab.dirty) unsaved++;
+      }
+      Editor.renderTabs();
+      await FileExplorer.refresh();
+      await this.saveSession();
+      
+      logConsole('Proyecto guardado.', 'info');
+      document.getElementById('st-save').textContent = `Guardado ${new Date().toLocaleTimeString()}`;
+      document.getElementById('st-unsaved').textContent = unsaved > 0 ? `${unsaved} no guardados` : '';
+    }
+  };
+
+  const FileExplorer = {
+    expanded: new Set(),
+    selectedPath: null,
+    
+    async refresh(){
+      const treeEl = document.getElementById('ide-tree');
+      if(!ProjectManager.root){
+        treeEl.innerHTML = '<div style="padding:10px;color:var(--g-dim);font-size:0.7rem">Ningún proyecto abierto</div>';
+        return;
+      }
+      const rootName = ProjectManager.root.split('/').pop();
+      const treeData = await this.buildTreeData(ProjectManager.root, rootName);
+      treeEl.innerHTML = '';
+      treeEl.appendChild(this.renderNode(treeData, 0));
+    },
+    async buildTreeData(path, name){
+      const node = { path, name, isDir: true, children: [] };
+      if(this.expanded.has(path)){
+        try{
+          const items = await WOS.fs.readdir(path);
+          items.sort((a, b) => (a.type === 'dir' && b.type !== 'dir') ? -1 : (a.type !== 'dir' && b.type === 'dir') ? 1 : a.name.localeCompare(b.name));
+          for(const item of items){
+            if(item.type === 'dir') node.children.push(await this.buildTreeData(item.id, item.name));
+            else node.children.push({ path: item.id, name: item.name, isDir: false, children: [] });
+          }
+        }catch(e){}
+      }
+      return node;
+    },
+renderNode(node, depth){
+      const div = document.createElement('div');
+      const item = document.createElement('div');
+      item.className = 'tree-item';
+      item.style.paddingLeft = `${10 + depth * 12}px`;
+      item.dataset.path = node.path;
+      item.dataset.isDir = node.isDir;
+      item.title = node.path;
+      const isExpanded = this.expanded.has(node.path);
+      const icon = node.isDir ? (isExpanded ? Icons.folderOpen : Icons.folder) : Icons.file;
+      const chevron = node.isDir ? `<span class="tree-chevron">${isExpanded ? '▾' : '▸'}</span>` : '<span class="tree-chevron-spacer"></span>';
+      item.innerHTML = `${chevron}<span class="icon">${icon}</span> <span class="label">${escapeHtml(node.name)}</span>`;
+      div.appendChild(item);
+      
+      if(node.isDir){
+        item.addEventListener('click', async () => {
+          if(this.expanded.has(node.path)) this.expanded.delete(node.path);
+          else this.expanded.add(node.path);
+          await this.refresh();
+        });
+      } else {
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.tree-item').forEach(t => t.classList.remove('selected'));
+          item.classList.add('selected');
+          this.selectedPath = node.path;
+          Editor.openTab(node.path);
+        });
+      }
+      
+      // Context Menu Listener
+      item.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        document.querySelectorAll('.tree-item').forEach(t => t.classList.remove('selected'));
+        item.classList.add('selected');
+        this.selectedPath = node.path;
+        showTreeContextMenu(e.clientX, e.clientY, node);
+      });
+      
+      if(node.children.length){
+        const childContainer = document.createElement('div');
+        node.children.forEach(c => childContainer.appendChild(this.renderNode(c, depth + 1)));
+        div.appendChild(childContainer);
+      }
+      return div;
+    },
+    
+    async createNode(type) {
+      if(!this.selectedPath) return;
+      const basePath = this.selectedPath;
+      const isDir = await WOS.fs.stat(basePath).then(s => s.type === 'dir').catch(()=>false);
+      const dirPath = isDir ? basePath : Kernel.fs.dirname(basePath);
+      const name = await WOS.prompt(`Nombre del nuevo ${type === 'dir' ? 'carpeta' : 'archivo'}:`, { title: 'Nuevo elemento' });
+      if(!name) return;
+      const newPath = `${dirPath}/${name}`;
+      try {
+        if(type === 'dir') await WOS.fs.mkdir(newPath);
+        else await WOS.fs.write(newPath, '');
+        this.expanded.add(dirPath);
+        await this.refresh();
+      } catch(e) { WOS.toast(e.message, 'error'); }
+    },
+    
+    async renameNode() {
+      if(!this.selectedPath) return;
+      const itemEl = document.querySelector(`.tree-item[data-path="${CSS.escape(this.selectedPath)}"] .label`);
+      if(!itemEl) return;
+      const oldName = itemEl.textContent;
+      const input = document.createElement('input');
+      input.className = 'rename-input';
+      input.value = oldName;
+      itemEl.replaceWith(input);
+      input.focus();
+      input.select();
+      
+      const commit = async () => {
+        const newName = input.value.trim();
+        if(newName && newName !== oldName) {
+          const dir = Kernel.fs.dirname(this.selectedPath);
+          try { await WOS.fs.move(this.selectedPath, `${dir}/${newName}`); } catch(e) { WOS.toast(e.message, 'error'); }
+        }
+        await this.refresh();
+      };
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', (e) => { if(e.key === 'Enter') commit(); if(e.key === 'Escape') this.refresh(); });
+    },
+    
+    async deleteNode() {
+      if(!this.selectedPath) return;
+      if(!await WOS.confirm('¿Eliminar este elemento permanentemente?')) return;
+      try { await WOS.fs.remove(this.selectedPath, {recursive: true}); } catch(e) { WOS.toast(e.message, 'error'); }
+      this.selectedPath = null;
+      await this.refresh();
+    },
+    
+    async clipboardAction(action) {
+      if(!this.selectedPath) return;
+      try {
+        if(action === 'copy' || action === 'cut') Kernel.clipboard[action]([this.selectedPath]);
+        else if(action === 'paste') {
+          const destDir = Kernel.fs.stat(this.selectedPath).type === 'dir' ? this.selectedPath : Kernel.fs.dirname(this.selectedPath);
+          await Kernel.clipboard.paste(destDir);
+          this.expanded.add(destDir);
+          await this.refresh();
+        }
+      } catch(e) { WOS.toast(e.message, 'error'); }
+    }
+  };
+
+  const Editor = {
+    tabs: [],
+    activeTab: null,
+    cm: null,
+    
+    init(){
+      this.cm = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+        lineNumbers: true, mode: 'javascript', theme: 'default',
+        autoCloseBrackets: true, autoCloseTags: true, lineWrapping: false,
+        styleActiveLine: true
+      });
+      this.cm.on('change', () => this.onInput());
+      this.cm.on('cursorActivity', () => this.updateStatusBar());
+      this.cm.getWrapperElement().addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const pos = this.cm.coordsChar({left: e.clientX, top: e.clientY});
+        const insideSelection = this.cm.somethingSelected() &&
+          CodeMirror.cmpPos(pos, this.cm.getCursor('from')) >= 0 &&
+          CodeMirror.cmpPos(pos, this.cm.getCursor('to')) <= 0;
+        if(!insideSelection) this.cm.setCursor(pos);
+        showEditorContextMenu(e.clientX, e.clientY, insideSelection);
+      });
+    },
+    getModeFromExt(name){
+      const ext = name.split('.').pop().toLowerCase();
+      if(['js','mjs','json'].includes(ext)) return {mode:'javascript', lang:'JavaScript'};
+      if(['html','htm'].includes(ext)) return {mode:'htmlmixed', lang:'HTML'};
+      if(['css'].includes(ext)) return {mode:'css', lang:'CSS'};
+      return {mode:'text/plain', lang:'Texto'};
+    },
+    async openTab(path){
+      const existing = this.tabs.find(t => t.path === path);
+      if(existing){ this.switchTab(path); return; }
+      try{
+        const content = await WOS.fs.read(path);
+        const name = path.split('/').pop();
+        const doc = new CodeMirror.Doc(content, this.getModeFromExt(name).mode);
+        this.tabs.push({ path, name, content, originalContent: content, dirty: false, doc });
+        this.switchTab(path);
+        await ProjectManager.saveSession();
+      }catch(e){ logConsole(`Error al abrir ${path}: ${e.message}`, 'error'); }
+    },
+    switchTab(path){
+      this.activeTab = this.tabs.find(t => t.path === path);
+      if(!this.activeTab) return;
+      document.getElementById('manifest-editor').classList.remove('active');
+      document.getElementById('ide-preview').classList.remove('active');
+      document.getElementById('code-editor-container').classList.remove('active');
+      const crumb = document.getElementById('editor-breadcrumb');
+      
+      if(this.activeTab.isLocalhost) {
+        document.getElementById('ide-preview').classList.add('active');
+        document.getElementById('st-lang').textContent = 'Localhost';
+        crumb.classList.remove('active');
+      } else {
+        document.getElementById('code-editor-container').classList.add('active');
+        this.cm.swapDoc(this.activeTab.doc);
+        const modeInfo = this.getModeFromExt(this.activeTab.name);
+        document.getElementById('st-lang').textContent = modeInfo.lang;
+        const relPath = ProjectManager.root ? this.activeTab.path.replace(ProjectManager.root + '/', '') : this.activeTab.path;
+        const parts = relPath.split('/');
+        crumb.innerHTML = parts.map((p, i) => i === parts.length - 1 ? `<span class="crumb-file">${escapeHtml(p)}</span>` : `<span>${escapeHtml(p)}</span><span class="crumb-sep">/</span>`).join('');
+        crumb.classList.add('active');
+      }
+      this.renderTabs();
+      this.updateStatusBar();
+    },
+    
+    openLocalhostTab(html) {
+      let tab = this.tabs.find(t => t.path === 'localhost');
+      if(!tab) {
+        tab = { path: 'localhost', name: 'localhost:8080', content: '', originalContent: '', dirty: false, isLocalhost: true };
+        this.tabs.push(tab);
+      }
+      const iframe = document.getElementById('ide-preview');
+      iframe.srcdoc = html;
+      this.switchTab('localhost');
+    },
+    
+    clearLocalhostTab() {
+      const iframe = document.getElementById('ide-preview');
+      iframe.srcdoc = '';
+    },
+    async closeTab(path, e){
+      if(e) e.stopPropagation();
+      const tab = this.tabs.find(t => t.path === path);
+      if(tab && tab.dirty){ if(!await WOS.confirm(`Cerrar ${tab.name} sin guardar?`)) return; }
+      this.tabs = this.tabs.filter(t => t.path !== path);
+      if(this.activeTab === tab){
+        this.activeTab = this.tabs[0] || null;
+        if(this.activeTab) this.switchTab(this.activeTab.path);
+        else { this.cm.setValue(''); document.getElementById('code-editor-container').classList.remove('active'); document.getElementById('st-lang').textContent = ''; }
+      }
+      this.renderTabs();
+      ProjectManager.saveSession();
+    },
+    onInput(){
+      if(!this.activeTab) return;
+      this.activeTab.content = this.cm.getValue();
+      this.activeTab.dirty = this.activeTab.content !== this.activeTab.originalContent;
+      this.renderTabs();
+      this.updateStatusBar();
+    },
+    updateStatusBar(){
+      const cursor = this.cm.getCursor();
+      document.getElementById('st-cursor').textContent = `Ln ${cursor.line+1}, Col ${cursor.ch+1}`;
+      const dirtyCount = this.tabs.filter(t => t.dirty).length;
+      document.getElementById('st-unsaved').textContent = dirtyCount > 0 ? `${dirtyCount} sin guardar` : '';
+    },
+    renderTabs(){
+      const tabsEl = document.getElementById('ide-tabs');
+      tabsEl.innerHTML = '';
+      this.tabs.forEach(tab => {
+        const el = document.createElement('div');
+        el.className = `ide-tab ${this.activeTab === tab ? 'active' : ''} ${tab.dirty ? 'dirty' : ''}`;
+        el.title = tab.path;
+        el.draggable = true;
+        const tIcon = tab.isLocalhost ? Icons.fileHtml : ProjectTools.getFileIcon(tab.name);
+        el.innerHTML = `<span class="tab-icon">${tIcon}</span> ${escapeHtml(tab.name)} <span class="dot"></span> <span class="close" title="Cerrar (Ctrl+W)">✕</span>`;
+        el.addEventListener('click', () => this.switchTab(tab.path));
+        el.querySelector('.close').addEventListener('click', (e) => this.closeTab(tab.path, e));
+        el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', tab.path); e.dataTransfer.effectAllowed = 'move'; el.classList.add('dragging'); });
+        el.addEventListener('dragend', () => el.classList.remove('dragging'));
+        el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('drag-over'); });
+        el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+        el.addEventListener('drop', (e) => {
+          e.preventDefault();
+          el.classList.remove('drag-over');
+          const draggedPath = e.dataTransfer.getData('text/plain');
+          if(draggedPath === tab.path) return;
+          const from = this.tabs.findIndex(t => t.path === draggedPath);
+          const to = this.tabs.findIndex(t => t.path === tab.path);
+          if(from === -1 || to === -1) return;
+          const [moved] = this.tabs.splice(from, 1);
+          this.tabs.splice(to, 0, moved);
+          this.renderTabs();
+        });
+        tabsEl.appendChild(el);
+      });
+    },
+
+    /* Editar */
+    undo(){ if(this.cm)this.cm.undo(); },
+    redo(){ if(this.cm)this.cm.redo(); },
+    cut(){ if(!this.cm)return; const s=this.cm.getSelection(); if(s){navigator.clipboard.writeText(s).catch(()=>{}); this.cm.replaceSelection('');} },
+    copy(){ if(!this.cm)return; const s=this.cm.getSelection(); if(s){navigator.clipboard.writeText(s).catch(()=>{}); } },
+    paste(){ if(!this.cm)return; navigator.clipboard.readText().then(t=>this.cm.replaceSelection(t)).catch(()=>logConsole('Portapapeles bloqueado','warn')); },
+    
+    _lastSearch:null,
+    async find(){ const q=await WOS.prompt('Buscar:'); if(!q)return; this._lastSearch=q; this._findNext(q); },
+    findNext(){ if(!this._lastSearch){this.find();return;} this._findNext(this._lastSearch); },
+    _findNext(q){ if(!this.cm||!q)return; let c=this.cm.getSearchCursor(q,this.cm.getCursor()); if(c.findNext()){this.cm.setSelection(c.from(),c.to());this.cm.scrollIntoView({from:c.from(),to:c.to()},50);} else {c=this.cm.getSearchCursor(q,{line:0,ch:0}); if(c.findNext()){this.cm.setSelection(c.from(),c.to());this.cm.scrollIntoView({from:c.from(),to:c.to()},50);} } },
+    async replace(){ const q=await WOS.prompt('Buscar:'); if(!q)return; const r=await WOS.prompt('Reemplazar con:'); if(r===null)return; const all=await WOS.confirm('¿Reemplazar TODAS?'); if(all){const c=this.cm.getValue(); const n=c.split(q).join(r); this.cm.setValue(n); WOS.toast('Reemplazado','ok');} else {let c=this.cm.getSearchCursor(q,this.cm.getCursor()); if(c.findNext()){this.cm.setSelection(c.from(),c.to()); c.replace(r);}} },
+
+    /* Selección */
+    selectAll(){ if(!this.cm)return; this.cm.setSelection({line:0,ch:0},{line:this.cm.lineCount(),ch:0}); },
+    duplicateLineUp(){ if(!this.cm)return; const c=this.cm.getCursor(); const l=this.cm.getLine(c.line); this.cm.replaceRange(l+'\n',{line:c.line,ch:0}); this.cm.setCursor({line:c.line,ch:c.ch}); },
+    duplicateLineDown(){ if(!this.cm)return; const c=this.cm.getCursor(); const l=this.cm.getLine(c.line); this.cm.replaceRange('\n'+l,{line:c.line,ch:l.length}); this.cm.setCursor({line:c.line+1,ch:c.ch}); },
+    _expandLevel:0,
+    expandSelection(){ if(!this.cm)return; const c=this.cm.getCursor(); const l=this.cm.getLine(c.line); const ch=c.ch; if(this.cm.somethingSelected()&&this._expandLevel>0)this._expandLevel++; else this._expandLevel=1; const isW=(x)=>/[\w$]/.test(x);
+      if(this._expandLevel===1){ let s=ch,e=ch; while(s>0&&isW(l[s-1]))s--; while(e<l.length&&isW(l[e]))e++; this.cm.setSelection({line:c.line,ch:s},{line:c.line,ch:e}); return; }
+      if(this._expandLevel===2){ let s=ch,e=ch; while(s>0&&isW(l[s-1])){s--; if(s>0&&/[A-Z]/.test(l[s])&&/[a-z0-9]/.test(l[s-1]))break;} while(e<l.length&&isW(l[e])){ if(e>s&&/[A-Z]/.test(l[e])&&/[a-z0-9]/.test(l[e-1]))break; e++; } this.cm.setSelection({line:c.line,ch:s},{line:c.line,ch:e}); return; }
+      if(this._expandLevel===3){ let s=ch,e=ch; const isD=(x)=>/[^\w\s]/.test(x); while(s>0&&!isD(l[s-1])&&l[s-1]!==' ')s--; while(e<l.length&&!isD(l[e])&&l[e]!==' ')e++; this.cm.setSelection({line:c.line,ch:s},{line:c.line,ch:e}); return; }
+      if(this._expandLevel>=4){ this.cm.setSelection({line:c.line,ch:0},{line:c.line,ch:l.length}); this._expandLevel=0; return; }
+    },
+
+    /* Herramientas */
+    formatDocument(){ if(!this.cm||!this.activeTab)return; const m=this.cm.getOption('mode'); const c=this.cm.getValue(); let f=c; try{ if(m==='javascript')f=this.formatJS(c); else if(m==='htmlmixed')f=this.formatHTML(c); else if(m==='css')f=this.formatCSS(c); else if(this.activeTab.name.endsWith('.json'))f=JSON.stringify(JSON.parse(c),null,2); }catch(e){logConsole('No se pudo formatear: '+e.message,'warn');return;} if(f!==c){this.cm.setValue(f); WOS.toast('Formateado','ok');} },
+    formatJS(code){ let o='',i=0,inS=false,sC=null,inB=false,inL=false,esc=false; for(let x=0;x<code.length;x++){ const c=code[x],n=code[x+1]; if(esc){o+=c;esc=false;continue;} if(c==='\\'){o+=c;esc=true;continue;} if(inL){o+=c;if(c==='\n')inL=false;continue;} if(inB){o+=c;if(c==='*'&&n==='/'){o+=n;x++;inB=false;}continue;} if(inS){o+=c;if(c===sC)inS=false;continue;} if(c==='/'&&n==='/'){inL=true;o+=c;continue;} if(c==='/'&&n==='*'){inB=true;o+=c;continue;} if(c==='"'||c==="'"||c==='`'){inS=true;sC=c;o+=c;continue;} if(c==='{'){o+=c;i++;if(n!=='\n'&&n!=='}'&&n!==undefined){o+='\n'+'  '.repeat(i);}} else if(c==='}'){i=Math.max(0,i-1);if(o.endsWith('  '))o=o.slice(0,-2);o+=c;if(n!==';'&&n!==')'&&n!==','&&n!=='\n'&&n!==undefined){o+='\n'+'  '.repeat(i);}} else if(c===';'){o+=c;if(n!=='\n'&&n!==' '&&n!==')'&&n!=='}'&&n!==undefined){o+='\n'+'  '.repeat(i);}} else {o+=c;} } return o; },
+    formatHTML(code){ const doc=new DOMParser().parseFromString(code,'text/html'); const vE=['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']; const fN=(n,d)=>{ if(n.nodeType===Node.TEXT_NODE){const t=n.textContent.trim();return t?'  '.repeat(d)+t+'\n':'';} if(n.nodeType!==Node.ELEMENT_NODE)return''; const tg=n.tagName.toLowerCase(); let a=''; for(const at of n.attributes)a+=` ${at.name}="${at.value}"`; let r='  '.repeat(d)+`<${tg}${a}`; if(vE.includes(tg))return r+'/>\n'; r+='>'; const ch=Array.from(n.childNodes); const hE=ch.some(c=>c.nodeType===Node.ELEMENT_NODE); if(hE){r+='\n'; for(const c of ch)r+=fN(c,d+1); r+='  '.repeat(d)+`</${tg}>\n`;} else {const t=n.textContent.trim(); if(t)r+=t; r+=`</${tg}>\n`;} return r; }; let r='<!DOCTYPE html>\n'+fN(doc.documentElement,0); return r.trim(); },
+    formatCSS(code){ let f='',d=0,inS=false,sC=null; for(let i=0;i<code.length;i++){ const c=code[i]; if(inS){f+=c;if(c===sC)inS=false;continue;} if(c==='"'||c==="'"){inS=true;sC=c;f+=c;continue;} if(c==='{'){f=f.trimEnd()+' {\n';d++;} else if(c==='}'){d=Math.max(0,d-1);f=f.trimEnd()+'\n'+'  '.repeat(d)+'}\n';} else if(c===';'){f+=';\n'+'  '.repeat(d);} else {f+=c;} } return f.replace(/\n\s*\n/g,'\n').replace(/  +/g,' ').trim(); },
+    cleanTrailingWhitespace(){ if(!this.cm||!this.activeTab)return; const c=this.cm.getValue(); const cl=c.split('\n').map(l=>l.replace(/\s+$/,'')).join('\n'); if(cl!==c){this.cm.setValue(cl); WOS.toast('Espacios limpiados','ok');} }
+  };
+
+  // DEBERIA DEJAR DE HACER ESTO, ESTOY CANSADISIMO XDDDDD, mejor me compro un camello
+
+  const Preview = {
+    blobUrls: [],
+    async run(){
+      if(!ProjectManager.manifest) return;
+      logConsole('Generando vista previa...', 'info');
+      const m = ProjectManager.manifest;
+      this.blobUrls.forEach(url => URL.revokeObjectURL(url));
+      this.blobUrls = [];
+      try{
+        let html = await WOS.fs.read(`${ProjectManager.root}/${m.entry}`);
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        const links = doc.querySelectorAll('link[rel="stylesheet"][href]');
+        for(const link of links){
+          const href = link.getAttribute('href');
+          if(!/^(https?:)?\/\//i.test(href) && !href.startsWith('data:')){
+             const content = await WOS.fs.read(`${ProjectManager.root}/${href.replace(/^\.\//, '').replace(/^\//, '')}`);
+             const blob = new Blob([content], {type: 'text/css'});
+             const url = URL.createObjectURL(blob);
+             this.blobUrls.push(url);
+             link.setAttribute('href', url);
+          }
+        }
+        const scripts = doc.querySelectorAll('script[src]');
+        for(const script of scripts){
+          const src = script.getAttribute('src');
+          if(!/^(https?:)?\/\//i.test(src) && !src.startsWith('data:')){
+             const content = await WOS.fs.read(`${ProjectManager.root}/${src.replace(/^\.\//, '').replace(/^\//, '')}`);
+             const blob = new Blob([content], {type: 'application/javascript'});
+             const url = URL.createObjectURL(blob);
+             this.blobUrls.push(url);
+             script.setAttribute('src', url);
+          }
+        }
+        
+        // Inline images (Base64) for local paths
+        const imgs = doc.querySelectorAll('img[src]');
+        for(const img of imgs){
+          const src = img.getAttribute('src');
+          if(!/^(https?:)?\/\//i.test(src) && !src.startsWith('data:')){
+            const path = `${ProjectManager.root}/${src.replace(/^\.\//, '').replace(/^\//, '')}`;
+            if(await WOS.fs.isBinary(path)) {
+               const dataUrl = await WOS.fs.readDataURL(path);
+               img.setAttribute('src', dataUrl);
+            }
+          }
+        }
+        
+        const shim = doc.createElement('script');
+        shim.textContent = `
+          const origLog = console.log, origWarn = console.warn, origErr = console.error;
+          const sendLog = (level, args) => window.parent.postMessage({ type: 'ide:console', level, args: args.map(a => String(a)) }, '*');
+          console.log = (...args) => { sendLog('info', args); origLog(...args); };
+          console.warn = (...args) => { sendLog('warn', args); origWarn(...args); };
+          console.error = (...args) => { sendLog('error', args); origErr(...args); };
+          window.onerror = (msg, src, line, col) => sendLog('error', [\`Error: \${msg} at \${line}:\${col}\`]);
+        `;
+        doc.head.insertBefore(shim, doc.head.firstChild);
+        
+        const finalHtml = '<!DOCTYPE html>' + doc.documentElement.outerHTML;
+        const iframe = document.getElementById('ide-preview');
+        iframe.srcdoc = finalHtml;
+        iframe.classList.add('active');
+        document.getElementById('code-editor-container').classList.remove('active');
+        document.getElementById('manifest-editor').classList.remove('active');
+        switchBottomTab('console-preview');
+      }catch(e){ logConsole('Error en vista previa: ' + e.message, 'error'); }
+    }
+  };
+
+  const ManifestEditor = {
+    render(m){
+      const el = document.getElementById('manifest-editor');
+      const permsHtml = PERMS.map(p => `
+        <div class="perm-item">
+          <input type="checkbox" id="perm-${p}" value="${p}" ${(m.permissions||[]).includes(p) ? 'checked' : ''}>
+          <label for="perm-${p}">${p}</label>
+        </div>`).join('');
+      el.innerHTML = `
+        <div class="mf-group">
+          <div class="mf-group-title">Identidad</div>
+          <div class="mf-row"><label>ID (único)</label><input type="text" id="mf-id" value="${escapeHtml(m.id)}"></div>
+          <div class="mf-row"><label>Nombre</label><input type="text" id="mf-name" value="${escapeHtml(m.name)}"></div>
+          <div class="mf-row"><label>Versión</label><input type="text" id="mf-version" value="${escapeHtml(m.version)}"></div>
+        </div>
+        <div class="mf-group">
+          <div class="mf-group-title">Ejecución</div>
+          <div class="mf-row"><label>Punto de entrada</label><input type="text" id="mf-entry" value="${escapeHtml(m.entry||'index.html')}"></div>
+          <div class="mf-row">
+            <label>Icono</label>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <input type="text" id="mf-icon" value="${escapeHtml(m.icon||'▪')}">
+              <div class="icon-preview" id="mf-icon-preview">${escapeHtml(m.icon||'▪')}</div>
+            </div>
+          </div>
+        </div>
+        <div class="mf-group">
+          <div class="mf-group-title">Permisos del Kernel</div>
+          <div class="perms-grid">${permsHtml}</div>
+        </div>`;
+      el.querySelectorAll('input[type="text"]').forEach(inp => inp.addEventListener('input', () => this.save()));
+      el.querySelectorAll('input[type="checkbox"]').forEach(inp => inp.addEventListener('change', () => this.save()));
+      document.getElementById('mf-icon').addEventListener('input', (e) => {
+        document.getElementById('mf-icon-preview').innerHTML = escapeHtml(e.target.value || '▪');
+      });
+    },
+    save(){
+      if(!ProjectManager.manifest) return;
+      const m = ProjectManager.manifest;
+      m.id = document.getElementById('mf-id').value.trim();
+      m.name = document.getElementById('mf-name').value.trim();
+      m.version = document.getElementById('mf-version').value.trim();
+      m.entry = document.getElementById('mf-entry').value.trim();
+      m.icon = document.getElementById('mf-icon').value.trim();
+      m.permissions = Array.from(document.querySelectorAll('.perm-item input:checked')).map(i => i.value);
+    },
+    show(){
+      document.getElementById('code-editor-container').classList.remove('active');
+      document.getElementById('ide-preview').classList.remove('active');
+      document.getElementById('manifest-editor').classList.add('active');
+    }
+  };
+
+  const Diagnostics = {
+    errors: [], warnings: [], infos: [],
+    
+    reset() { this.errors=[]; this.warnings=[]; this.infos=[]; clearDiag(); },
+    addError(msg, file, line, col) { this.errors.push({msg,file,line,col}); const loc=line?` (línea ${line}${col?':'+col:''})`:''; logDiag(`Error: ${msg}${loc}`, 'error', file); },
+    addWarning(msg, file, line) { this.warnings.push({msg,file,line}); const loc=line?` (línea ${line})`:''; logDiag(`Advertencia: ${msg}${loc}`, 'warn', file); },
+    addInfo(msg, file) { this.infos.push({msg,file}); logDiag(msg, 'info', file); },
+
+    validateJavaScript(code, filePath) {
+      const lines = code.split('\n');
+      const stack = [];
+      const pairs = { '(': ')', '{': '}', '[': ']' };
+      const closers = { ')': '(', '}': '{', ']': '[' };
+
+      for (let i=0; i<lines.length; i++) {
+        let line = lines[i], inSingle=false, inDouble=false, inTemplate=false, inBlock=false, inLine=false, escaped=false;
+        if (stack.length>0 && stack[stack.length-1].inBlock) inBlock=true;
+        for (let j=0; j<line.length; j++) {
+          const c=line[j], next=line[j+1];
+          if (escaped){escaped=false;continue;}
+          if (c==='\\'){escaped=true;continue;}
+          if (inLine) break;
+          if (inBlock) { if(c==='*'&&next==='/'){inBlock=false;j++;} continue; }
+          if (inSingle){ if(c==="'")inSingle=false; continue; }
+          if (inDouble){ if(c==='"')inDouble=false; continue; }
+          if (inTemplate){ if(c==='`')inTemplate=false; continue; }
+          if (c==='/'&&next==='/'){inLine=true;break;}
+          if (c==='/'&&next==='*'){inBlock=true;j++;continue;}
+          if (c==='"'){inDouble=true;continue;}
+          if (c==="'"){inSingle=true;continue;}
+          if (c==='`'){inTemplate=true;continue;}
+          if (pairs[c]) stack.push({char:c,line:i+1,col:j+1,inBlock:false});
+          else if (closers[c]) {
+            if (stack.length===0) this.addError(`'${c}' de cierre sin apertura`, filePath, i+1, j+1);
+            else { const t=stack.pop(); if(pairs[t.char]!==c) this.addError(`'${c}' no coincide con '${t.char}' abierto en línea ${t.line}`, filePath, i+1, j+1); }
+          }
+        }
+        if (inBlock && stack.length>0) stack[stack.length-1].inBlock=true;
+      }
+      while (stack.length>0) { const u=stack.pop(); if(!u.inBlock) this.addError(`'${u.char}' sin cerrar`, filePath, u.line, u.col); }
+
+      try { new Function(code); } catch (e) {
+        const lm=e.message.match(/line (\d+)/i), cm=e.message.match(/column (\d+)/i);
+        this.addError(`Sintaxis JS: ${e.message}`, filePath, lm?parseInt(lm[1]):null, cm?parseInt(cm[1]):null);
+      }
+
+      for (let i=0; i<lines.length; i++) {
+        const t=lines[i].trim();
+        if (t.startsWith('//')||t.startsWith('/*')||t.startsWith('*')) continue;
+        if (/\bawait\b/.test(t)) { const c=lines.slice(Math.max(0,i-20),i).join('\n'); if(!/async\s+(function|\(|\w)/.test(c)&&!/async\s+function/.test(c)) this.addWarning("'await' posiblemente fuera de async", filePath, i+1); }
+        if (/[^=!<>]==[^=]/.test(t)) this.addWarning("Uso de '==' considera '==='", filePath, i+1);
+        if (/\bvar\s+/.test(t)) this.addWarning("Uso de 'var' considera 'let'/'const'", filePath, i+1);
+        if (/\bdebugger\b/.test(t)) this.addWarning("Statement 'debugger'", filePath, i+1);
+        if (/\beval\s*\(/.test(t)) this.addWarning("Uso de 'eval' inseguro", filePath, i+1);
+      }
+    },
+
+    validateJSON(code, filePath) {
+      try { JSON.parse(code); return true; } catch (e) {
+        const pm=e.message.match(/position (\d+)/i); let l=null,c=null;
+        if (pm) { const p=parseInt(pm[1]); const b=code.substring(0,p); l=b.split('\n').length; c=p-b.lastIndexOf('\n'); }
+        this.addError(`JSON inválido: ${e.message}`, filePath, l, c); return false;
+      }
+    },
+
+    validateHTML(code, filePath) {
+      const doc = new DOMParser().parseFromString(code, 'text/html');
+      if (doc.querySelectorAll('parsererror').length>0) this.addError(`HTML malformado`, filePath);
+      const voidE=['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr'];
+      const tags=code.match(/<\/?([a-zA-Z][a-zA-Z0-9]*)[^>]*>/g)||[];
+      const open=[];
+      for (const tm of tags) {
+        const isC=tm.startsWith('</'); const nm=tm.replace(/<\/?/,'').match(/^[a-zA-Z][a-zA-Z0-9]*/)[0].toLowerCase();
+        const isS=tm.endsWith('/>')||voidE.includes(nm);
+        if (isC) { const idx=open.lastIndexOf(nm); if(idx===-1) this.addError(`'</${nm}>' sin apertura`, filePath); else open.splice(idx,1); }
+        else if (!isS) open.push(nm);
+      }
+      while (open.length>0) this.addWarning(`'<${open.pop()}>' no cerrada`, filePath);
+    },
+
+    validateCSS(code, filePath) {
+      let d=0,inS=false,sC=null; const ls=code.split('\n');
+      for (let i=0; i<ls.length; i++) {
+        for (let j=0; j<ls[i].length; j++) {
+          const c=ls[i][j];
+          if (inS){ if(c===sC)inS=false; continue; }
+          if (c==='"'||c==="'"){inS=true;sC=c;continue;}
+          if (c==='{')d++;
+          if (c==='}'){d--; if(d<0){this.addError("Llave '}' sin apertura",filePath,i+1);d=0;}}
+        }
+      }
+      if (d>0) this.addError(`${d} llave(s) '{' sin cerrar`, filePath);
+    },
+
+    validateManifest(m, rootPath) {
+      const p=`${rootPath}/manifest.json`;
+      if (!m.id) this.addError('Falta "id"', p);
+      else if (!/^[a-z0-9-]+$/.test(m.id)) this.addError(`ID inválido: '${m.id}'`, p);
+      if (!m.name) this.addError('Falta "name"', p);
+      if (!m.version) this.addError('Falta "version"', p);
+      else if (!/^\d+\.\d+\.\d+$/.test(m.version)) this.addWarning(`Versión no semver: '${m.version}'`, p);
+      if (!m.entry) this.addError('Falta "entry"', p);
+    },
+
+    async validate() {
+      this.reset(); const m=ProjectManager.manifest;
+      if (!m) { this.addError('No hay manifiesto'); return false; }
+      this.validateManifest(m, ProjectManager.root);
+      try { await WOS.fs.read(`${ProjectManager.root}/${m.entry}`); this.addInfo('✔ Entry válido', `${ProjectManager.root}/${m.entry}`); } 
+      catch { this.addError(`No se encuentra entry: '${m.entry}'`, `${ProjectManager.root}/${m.entry}`); }
+      
+      const allFiles=[];
+      await this.validateDirectory(ProjectManager.root, allFiles);
+      
+      const stDiag = document.getElementById('st-diag');
+      if(stDiag) stDiag.innerHTML = `<span style="color:var(--red)">✖ ${this.errors.length}</span> <span style="color:var(--amber)">▲ ${this.warnings.length}</span>`;
+      if (this.errors.length===0) { this.addInfo(`✔ Validación exitosa — ${this.warnings.length} advertencia(s)`); return true; }
+      else { this.addError(`✖ ${this.errors.length} error(es), ${this.warnings.length} advertencia(s)`); return false; }
+    },
+
+    async validateDirectory(path, allFiles) {
+      try { const items=await WOS.fs.readdir(path); for (const item of items) { const fp=`${path}/${item.name}`.replace(/\/+/g,'/'); if(item.type==='dir') await this.validateDirectory(fp,allFiles); else { allFiles.push(fp); await this.validateFile(fp,item); } } } 
+      catch(e) { this.addError(`No se pudo leer: ${path}`, path); }
+    },
+
+    async validateFile(fullPath, item) {
+      const ext=item.name.split('.').pop().toLowerCase();
+      try { const content=await WOS.fs.read(fullPath);
+        if (ext==='js'||ext==='mjs') this.validateJavaScript(content, fullPath);
+        else if (ext==='json') this.validateJSON(content, fullPath);
+        else if (ext==='html'||ext==='htm') this.validateHTML(content, fullPath);
+        else if (ext==='css') this.validateCSS(content, fullPath);
+      } catch {}
+    }
+  };
+
+  /* ═══ HERRAMIENTAS DEL PROYECTO (Extracción de funciones del IDE) ═══ */
+const ProjectTools = {
+    _debugTempPath: null,
+    runCommand(cmd) {
+      if(!ProjectManager.manifest){ WOS.toast('No hay proyecto', 'warn'); return; }
+      switchBottomTab('terminal-ide');
+      IDETerminal.runCommand(cmd);
+    },
+    async runDebug() {
+      this.runCommand('ide.run');
+    },
+
+    async cleanupDebug() { if(this._debugTempPath){ try{await WOS.fs.remove(this._debugTempPath,{recursive:true}); logConsole(`Debug limpiado: ${this._debugTempPath}`, 'info');}catch{} this._debugTempPath=null; } },
+    async copyProjectToTemp(s,d) { const items=await WOS.fs.readdir(s); for(const i of items){ if(i.name.endsWith('.hpkg'))continue; if(i.type==='dir'){ await WOS.fs.mkdir(`${d}/${i.name}`); await this.copyProjectToTemp(i.id,`${d}/${i.name}`); } else { const b=await WOS.fs.isBinary(i.id); if(b){ const bl=await WOS.fs.readBlob(i.id); const m=await WOS.fs.getMime(i.id); await WOS.fs.writeBinary(`${d}/${i.name}`,bl,m); } else { const c=await WOS.fs.read(i.id); await WOS.fs.write(`${d}/${i.name}`,c); } } } },
+    async rebuildManifest() { if(!ProjectManager.manifest){WOS.toast('No hay proyecto','warn');return;} ManifestEditor.save(); await WOS.fs.write(`${ProjectManager.root}/manifest.json`, JSON.stringify(ProjectManager.manifest,null,2)); WOS.toast('manifest.json reconstruido','ok'); await ProjectManager.loadManifest(); this.updateHierarchy(); },
+    async clearBuildCache() { try{ const t=await WOS.fs.readdir('/temp').catch(()=>[]); let c=0; for(const i of t){ if(i.name.startsWith('ide_debug_')){ await WOS.fs.remove(i.id,{recursive:true}).catch(()=>{}); c++; } } WOS.toast(`Cache limpiado: ${c} elem.`, 'ok'); } catch(e){ WOS.toast(`Error: ${e.message}`, 'error'); } },
+    
+    updateHierarchy() {
+      const panel=document.getElementById('hierarchy-panel'); if(!panel)return;
+      if(!ProjectManager.root){ panel.innerHTML='<div style="padding:10px;color:var(--g-dim);font-size:0.7rem">Sin proyecto</div>'; return; }
+      panel.innerHTML=''; this.buildHierarchyNode(ProjectManager.root, panel, 0);
+    },
+    async buildHierarchyNode(path, cont, depth) { try{ const items=await WOS.fs.readdir(path); for(const i of items){ const n=document.createElement('div'); n.className='hierarchy-node'; n.style.paddingLeft=`${8+depth*12}px`; const isD=i.type==='dir'; const ic=isD?Icons.folder:this.getFileIcon(i.name); const ex=i.name.split('.').pop().toUpperCase(); n.innerHTML=`<span class="h-icon">${ic}</span><span class="h-label">${escapeHtml(i.name)}</span>${!isD?`<span class="h-type">${ex}</span>`:''}`; n.addEventListener('click',()=>{ if(!isD)Editor.openTab(i.id); }); cont.appendChild(n); if(isD) await this.buildHierarchyNode(i.id, cont, depth+1); } }catch{} },
+    getFileIcon(n) { const e=n.split('.').pop().toLowerCase(); if(['html','htm'].includes(e))return Icons.fileHtml; if(['js','mjs'].includes(e))return Icons.fileJs; if(e==='css')return Icons.fileCss; if(e==='json')return Icons.fileJson; if(['png','jpg','jpeg','gif','svg','webp'].includes(e))return Icons.fileImage; return Icons.file; },
+    updateDebugInfo() { const p=document.getElementById('debug-manifest-info'); if(!p)return; if(!ProjectManager.manifest){p.innerHTML='Sin proyecto';return;} const m=ProjectManager.manifest; p.innerHTML=`<div style="margin-bottom:6px"><span style="color:var(--g)">ID:</span> ${escapeHtml(m.id)}</div><div style="margin-bottom:6px"><span style="color:var(--g)">Name:</span> ${escapeHtml(m.name)}</div><div style="margin-bottom:6px"><span style="color:var(--g)">Ver:</span> ${escapeHtml(m.version)}</div><div style="margin-bottom:6px"><span style="color:var(--g)">Entry:</span> ${escapeHtml(m.entry)}</div><div style="margin-bottom:6px"><span style="color:var(--g)">Tabs:</span> ${Editor.tabs.length} abierta(s)</div>`; }
+  };
+
+  /* ═══ SERVIDOR LOCAL TEMPORAL ═══ */
+  const LocalServer = {
+    port: 8080,
+    url: 'http://localhost:8080/',
+    tempPath: null,
+    servedHtml: null,
+    async start() {
+      this.stop();
+      logConsole('Iniciando servidor local...', 'info');
+      this.tempPath = `/temp/ide_debug_${Date.now()}`;
+      try {
+        await WOS.fs.mkdir(this.tempPath);
+        await ProjectTools.copyProjectToTemp(ProjectManager.root, this.tempPath);
+        const m = ProjectManager.manifest;
+        let html = await WOS.fs.read(`${this.tempPath}/${m.entry}`);
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        
+        const links = doc.querySelectorAll('link[rel="stylesheet"][href]');
+        for(const link of links){
+          const href = link.getAttribute('href');
+          if(!/^(https?:)?\/\//i.test(href) && !href.startsWith('data:')){
+             const content = await WOS.fs.read(`${this.tempPath}/${href.replace(/^\.\//, '').replace(/^\//, '')}`).catch(()=>'');
+             const blob = new Blob([content], {type: 'text/css'});
+             link.setAttribute('href', URL.createObjectURL(blob));
+          }
+        }
+        const scripts = doc.querySelectorAll('script[src]');
+        for(const script of scripts){
+          const src = script.getAttribute('src');
+          if(!/^(https?:)?\/\//i.test(src) && !src.startsWith('data:')){
+             const content = await WOS.fs.read(`${this.tempPath}/${src.replace(/^\.\//, '').replace(/^\//, '')}`).catch(()=>'');
+             const blob = new Blob([content], {type: 'application/javascript'});
+             script.setAttribute('src', URL.createObjectURL(blob));
+          }
+        }
+        const imgs = doc.querySelectorAll('img[src]');
+        for(const img of imgs){
+          const src = img.getAttribute('src');
+          if(!/^(https?:)?\/\//i.test(src) && !src.startsWith('data:')){
+            const path = `${this.tempPath}/${src.replace(/^\.\//, '').replace(/^\//, '')}`;
+            if(await WOS.fs.isBinary(path)) {
+               const dataUrl = await WOS.fs.readDataURL(path);
+               img.setAttribute('src', dataUrl);
+            }
+          }
+        }
+        
+        const shim = doc.createElement('script');
+        shim.textContent = `
+          const sl=(l,a)=>window.parent.postMessage({type:'ide:console',level:l,args:a.map(a=>String(a))},'*');
+          console.log=(...a)=>{sl('info',a);};
+          console.warn=(...a)=>{sl('warn',a);};
+          console.error=(...a)=>{sl('error',a);};
+          window.onerror=(m,s,l,c)=>sl('error',[\`Error: \${m} at \${l}:\${c}\`]);
+          window.addEventListener('beforeunload',()=>window.parent.postMessage({type:'ide:serverClosed'},'*'));
+        `;
+        doc.head.insertBefore(shim, doc.head.firstChild);
+        
+        this.servedHtml = '<!DOCTYPE html>' + doc.documentElement.outerHTML;
+        
+        Editor.openLocalhostTab(this.servedHtml);
+        logConsole(`Servidor local iniciado en ${this.url}`, 'success');
+        return {exitCode: 0};
+      } catch(e) {
+        logConsole(`Error al iniciar servidor: ${e.message}`, 'error');
+        this.stop();
+        return {exitCode: 1};
+      }
+    },
+    stop() {
+      if(this.tempPath) {
+        WOS.fs.remove(this.tempPath, {recursive: true}).catch(()=>{});
+        this.tempPath = null;
+        logConsole('Servidor local detenido y directorio temporal eliminado.', 'info');
+      }
+      this.servedHtml = null;
+      Editor.clearLocalhostTab();
+    }
+  };
+
+  /* ═══ TERMINAL DEL IDE (Embebida vía API y Bridge Global) ═══ */
+const IDETerminal = {
+    iframe: null,
+    proc: null,
+    initialized: false,
+    ready: false,
+    _pending: [],
+    _readyTimeout: null,
+
+    init() {
+      this.iframe = document.getElementById('ide-terminal-frame');
+      window.addEventListener('message', (e) => {
+        console.debug('[DEBUG-IDE] mensaje recibido en IDE:', e.data, '| viene del iframe de la terminal:', e.source === this.iframe?.contentWindow);
+        if (e.data && e.data.type === 'ide:terminalReady') {
+          console.debug('[DEBUG-IDE] ide:terminalReady recibido, pid:', e.data.pid);
+          this._markReady();
+        }
+      });
+    },
+
+    _markReady() {
+      if (this.ready) return;
+      this.ready = true;
+      if (this._readyTimeout) { clearTimeout(this._readyTimeout); this._readyTimeout = null; }
+      this._flushPending();
+    },
+
+    async show() {
+      if (this.initialized) return;
+      const K = window.parent.Kernel;
+      if (!K) { console.warn('[IDETerminal] show(): Kernel no disponible todavía'); return; }
+      this.initialized = true;
+      this.proc = K.procs.spawn('ide-terminal', { title: 'IDE Terminal', icon: Icons.terminal, parentPid: window.__APP_PID ?? null });
+
+      let entryPath = 'apps/terminal.html';
+      try {
+        const app = await K.apps.get('terminal');
+        console.debug('[DEBUG-IDE] K.apps.get("terminal") ->', app);
+        if (app && app.entry) entryPath = app.entry;
+      } catch (e) { console.error('[DEBUG-IDE] K.apps.get("terminal") lanzó excepción, usando fallback:', e); }
+
+      const shellBase = window.parent.location.href;
+      const resolvedUrl = new URL(entryPath, shellBase);
+      resolvedUrl.searchParams.set('pid', this.proc.pid);
+      resolvedUrl.searchParams.set('embed', '1');
+      resolvedUrl.searchParams.set('_ts', Date.now());
+      console.debug('[DEBUG-IDE] entryPath final:', entryPath, '| shellBase:', shellBase, '| URL resuelta:', resolvedUrl.toString());
+
+      if (this.iframe) {
+        this.iframe.onload = () => console.debug('[DEBUG-IDE] iframe terminal onload disparado, src:', this.iframe.src);
+        this.iframe.onerror = () => { console.error('[DEBUG-IDE] iframe terminal onerror, url:', resolvedUrl.href); logConsole('Terminal: fallo al cargar ' + resolvedUrl.href, 'error'); };
+        this.iframe.src = resolvedUrl.toString();
+      }
+
+      // Red de seguridad: si "ready" nunca llega (iframe que no cargó,
+      // postMessage bloqueado, etc.), no dejamos los comandos encolados
+      // para siempre — a los 3s asumimos que está listo y forzamos el flush.
+      this._readyTimeout = setTimeout(() => {
+        if (!this.ready) {
+          console.warn('[IDETerminal] no llegó "ide:terminalReady" tras 3s — forzando flush');
+          this._markReady();
+        }
+      }, 3000);
+    },
+
+    runCommand(cmd) {
+      if (!this.ready) {
+        console.debug('[IDETerminal] comando en cola (terminal no lista aún):', cmd);
+        this._pending.push(cmd);
+        this.show();
+        return;
+      }
+      this._send(cmd);
+    },
+
+    _send(cmd) {
+      if (!this.iframe || !this.iframe.contentWindow) { console.warn('[DEBUG-IDE] sin iframe/contentWindow para enviar:', cmd); return; }
+      console.debug('[DEBUG-IDE] enviando ide:exec | cmd:', cmd, '| this.ready:', this.ready);
+      this.iframe.contentWindow.postMessage({ type: 'ide:exec', cmd }, '*');
+    },
+
+    _flushPending() {
+      while (this._pending.length) this._send(this._pending.shift());
+    },
+
+    // Registra las extensiones en el puente global para que la terminal real las use
+    registerInIDEBridge() {
+      const bridge = window.IDEBridge;
+      console.debug('[DEBUG-IDE] registerInIDEBridge() llamado. ¿bridge existe?:', !!bridge);
+      if (!bridge) { console.warn('[DEBUG-IDE] registerInIDEBridge(): abortando, no hay bridge.'); return; }
+      
+      const commands = [
+        { name: 'ide.build', description: 'Compilar proyecto actual', async execute(ctx) { await Packager.build(false); return {exitCode:0}; } },
+        { name: 'ide.install', description: 'Compilar e instalar', async execute(ctx) { await Packager.build(true); return {exitCode:0}; } },
+        { name: 'ide.validate', description: 'Validar proyecto', async execute(ctx) { const v=await Diagnostics.validate(); return {exitCode:v?0:1}; } },
+        { name: 'ide.manifest', description: 'Reconstruir manifest.json', async execute(ctx) { await ProjectTools.rebuildManifest(); return {exitCode:0}; } },
+        { name: 'ide.run', description: 'Iniciar servidor local y debug', async execute(ctx) { 
+            const res = await LocalServer.start(); 
+            if(res.exitCode !== 0) return res;
+            ctx.print(`Servidor local en ejecución en ${LocalServer.url}. Presiona Ctrl+C para detener...`, 'nt-info');
+            return new Promise(resolve => {
+              const handler = (e) => {
+                if (e.key === 'c' && e.ctrlKey) {
+                  e.preventDefault();
+                  ctx.cmdInput.removeEventListener('keydown', handler);
+                  LocalServer.stop();
+                  resolve({exitCode: 0});
+                }
+              };
+              ctx.cmdInput.addEventListener('keydown', handler);
+            });
+        } },
+        { name: 'ide.stop', description: 'Detener servidor local', async execute(ctx) { LocalServer.stop(); return {exitCode:0}; } },
+        { name: 'ide.format', description: 'Formatear archivo actual', execute(ctx) { Editor.formatDocument(); return {exitCode:0}; } },
+        { name: 'ide.save', description: 'Guardar todo', async execute(ctx) { await ProjectManager.saveAll(); return {exitCode:0}; } },
+        { name: 'ide.clean', description: 'Limpiar cache', async execute(ctx) { await ProjectTools.clearBuildCache(); return {exitCode:0}; } }
+      ];
+      
+      bridge.clearCommands();
+      commands.forEach(cmd => {
+        try { bridge.registerCommand(cmd); }
+        catch (e) { console.error(`[DEBUG-IDE] Falló registerCommand('${cmd.name}'):`, e); }
+      });
+      console.debug('[DEBUG-IDE] Comandos tras registro:', bridge.listCommands ? bridge.listCommands().map(c => c.name) : '(bridge sin listCommands)');
+    }
+  };
+
+  /* ═══ MENUBAR (Requisito 5) ═══ */
+  const MenuBar = {
+    _openMenu: null,
+    init() {
+      document.querySelectorAll('.menu-item').forEach(item => {
+        const label=item.querySelector('.menu-label');
+        label.addEventListener('click',(e)=>{e.stopPropagation();this.toggleMenu(item);});
+        item.addEventListener('mouseenter',()=>{ if(this._openMenu&&this._openMenu!==item){this.closeMenu(this._openMenu);this.openMenu(item);} });
+      });
+      document.querySelectorAll('.menu-action').forEach(a => { a.addEventListener('click',(e)=>{e.stopPropagation();if(a.classList.contains('disabled'))return;this.closeAll();this.executeAction(a.dataset.action);}); });
+      document.addEventListener('click',()=>this.closeAll());
+      document.addEventListener('keydown',(e)=>{ if(e.key==='Escape')this.closeAll(); });
+      this.updateViewMenu();
+    },
+    toggleMenu(i){ if(this._openMenu===i)this.closeMenu(i); else { if(this._openMenu)this.closeMenu(this._openMenu); this.openMenu(i);} },
+    openMenu(i){ i.classList.add('active'); this._openMenu=i; if(i.dataset.menu==='ver')this.updateViewMenu(); },
+    closeMenu(i){ i.classList.remove('active'); if(this._openMenu===i)this._openMenu=null; },
+    closeAll(){ if(this._openMenu)this.closeMenu(this._openMenu); },
+executeAction(a) {
+      const map={ 'new':()=>createNewProject(), 'open':()=>openProject(), 'save':()=>ProjectManager.saveAll(), 'saveas':()=>saveProjectAs(), 'load':()=>openProject(), 'build':()=>ProjectTools.runCommand('ide.build'), 'install':()=>ProjectTools.runCommand('ide.install'),
+        'undo':()=>Editor.undo(), 'redo':()=>Editor.redo(), 'cut':()=>Editor.cut(), 'copy':()=>Editor.copy(), 'paste':()=>Editor.paste(), 'find':()=>Editor.find(), 'replace':()=>Editor.replace(),
+        'select-all':()=>Editor.selectAll(), 'dup-up':()=>Editor.duplicateLineUp(), 'dup-down':()=>Editor.duplicateLineDown(), 'expand':()=>Editor.expandSelection(),
+        'view-sidebar':()=>this.togglePanel('sidebar'), 'view-diag':()=>this.togglePanel('diag'), 'view-log':()=>this.togglePanel('log'), 'view-console':()=>this.togglePanel('console'), 'view-output':()=>this.togglePanel('output'), 'view-terminal':()=>this.togglePanel('terminal'),
+        'run-debug':()=>ProjectTools.runDebug(), 'compile':()=>ProjectTools.runCommand('ide.build'),
+        'format':()=>Editor.formatDocument(), 'clean-spaces':()=>Editor.cleanTrailingWhitespace(), 'validate':()=>ProjectTools.runCommand('ide.validate'), 'rebuild-manifest':()=>ProjectTools.runCommand('ide.manifest'), 'clear-cache':()=>ProjectTools.runCommand('ide.clean'),
+        'help':()=>openHelpWindow() };
+      if(map[a])map[a]();
+    },
+_st:{sidebar:true,diag:true,log:true,console:true,output:true,terminal:true},
+    togglePanel(p) {
+      this._st[p]=!this._st[p]; const v=this._st[p];
+      if(p==='sidebar'){ const sb=document.getElementById('ide-sidebar'), sr=document.getElementById('sidebar-resizer'); sb.style.display=v?'flex':'none'; if(sr)sr.style.display=v?'block':'none'; }
+      else { const tm={'diag':'diag-list','log':'console-ide','console':'console-preview','output':'output-panel','terminal':'terminal-ide'}; const t=document.querySelector(`.bottom-tab[data-target="${tm[p]}"]`); if(t){ t.style.display=v?'block':'none'; if(!v&&t.classList.contains('active')){ t.classList.remove('active'); document.getElementById(tm[p]).classList.remove('active'); const fv=document.querySelector('.bottom-tab:not([style*="none"])'); if(fv)fv.click(); } } }
+      this.updateViewMenu();
+    },
+    updateViewMenu() { const m={'view-toggle-sidebar':'sidebar','view-toggle-diag':'diag','view-toggle-log':'log','view-toggle-console':'console','view-toggle-output':'output','view-toggle-terminal':'terminal'}; Object.entries(m).forEach(([id,p])=>{ const e=document.getElementById(id); if(!e)return; const v=this._st[p]; e.classList.toggle('checked',v); e.classList.toggle('unchecked',!v); }); }
+  };
+
+  /* ═══ HELP WINDOW (Requisito 5 - Ayuda) ═══ */
+  let helpWindowPid = null;
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'ide:helpWindowOpened') {
+      helpWindowPid = e.data.pid;
+    }
+  });
+
+  function openHelpWindow() {
+    const htmlParts = [
+      '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><style>',
+      '* { box-sizing: border-box; margin: 0; padding: 0; scrollbar-width: thin; scrollbar-color: rgba(0,180,90,0.45) rgba(0,20,10,0.35); }',
+      '::-webkit-scrollbar { width: 6px; height: 6px; }',
+      '::-webkit-scrollbar-track { background: rgba(0,20,10,0.35); }',
+      '::-webkit-scrollbar-thumb { background: rgba(0,180,90,0.3); border-radius: 3px; }',
+      '::-webkit-scrollbar-thumb:hover { background: rgba(0,255,136,0.5); }',
+      'body { font-family: "Share Tech Mono", monospace; background: #020c06; color: #00ff88; padding: 24px; line-height: 1.7; max-width: 900px; margin: 0 auto; user-select: none; overflow-x: hidden; }',
+      'h1 { color: #00d4ff; border-bottom: 1px solid rgba(0,255,136,0.2); padding-bottom: 12px; margin-top: 40px; font-family: "Orbitron", monospace; letter-spacing: 0.05em; }',
+      'h1:first-child { margin-top: 0; }',
+      'h2 { color: #00ff88; margin-top: 36px; border-left: 3px solid #00ff88; padding-left: 10px; font-family: "Orbitron", monospace; font-size: 1.1rem; }',
+      'h3 { color: #ffcc44; margin-bottom: 4px; margin-top: 24px; font-size: 1rem; }',
+      'h4 { color: #00d4ff; margin-top: 16px; margin-bottom: 6px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; text-shadow: 0 0 6px rgba(0,212,255,0.3); }',
+      'p { color: rgba(0,255,136,0.75); }',
+      'blockquote { border-left: 3px solid #00d4ff; padding-left: 12px; color: #aaa; font-style: italic; margin: 10px 0; }',
+      'code { background: rgba(0,255,136,0.08); padding: 2px 7px; border-radius: 3px; color: #00d4ff; font-size: 0.9em; }',
+      'pre { background: rgba(0,0,0,0.5); padding: 14px; border-radius: 6px; border: 1px solid rgba(0,255,136,0.12); overflow-x: auto; color: #aaa; margin-bottom: 12px; }',
+      'pre code { background: none; padding: 0; color: #aaa; }',
+      'table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.85rem; }',
+      'th, td { border: 1px solid rgba(0,255,136,0.2); padding: 8px; text-align: left; }',
+      'th { background: rgba(0,255,136,0.05); color: #00ff88; }',
+      'ul { margin-left: 20px; color: rgba(0,255,136,0.75); }',
+      'hr { border-color: rgba(0,255,136,0.1); margin: 40px 0; border-top: 1px solid rgba(0,255,136,0.1); border-bottom: none; border-left: none; border-right: none; }',
+      '.method { background: rgba(0,255,136,0.02); border-radius: 8px; padding: 16px; margin-bottom: 24px; border: 1px solid rgba(0,255,136,0.05); }',
+      '</style></head><body>',
+      '<script>document.addEventListener("contextmenu", function(e) { e.preventDefault(); });<\/script>',
+      '<h1>WOS.shell</h1>',
+      '<blockquote>Interacción con el entorno gráfico (Shell) y utilidades del sistema.</blockquote>',
+      '<h2>📌 ¿Qué hace?</h2><p>Permite a las aplicaciones comunicarse con la interfaz de usuario principal del sistema (Shell): mostrar notificaciones, abrir diálogo nativos, lanzar otras aplicaciones y controlar la propia ventana de la app que hace la llamada.</p>',
+      '<h2>🎯 ¿Cuándo usarla?</h2><ul><li>✅ Cuando necesitas pedir confirmación o entrada de texto al usuario sin crear tu propio HTML.</li><li>✅ Para mostrar alertas rápidas (toasts) en la esquina de la pantalla.</li><li>✅ Para abrir otra aplicación (ej. abrir el Explorador de Archivos).</li><li>❌ No la uses para manipular archivos (usa <code>WOS.fs</code> en su lugar).</li></ul>',
+      '<h2>🔒 Permisos necesarios</h2><table><tr><th>Permiso</th><th>Obligatorio</th></tr><tr><td>Ninguno</td><td>No</td></tr></table>',
+      '<div class="method"><h3>WOS.launch()</h3><h4>¿Qué hace?</h4><p>Abre otra aplicación instalada en el sistema, pasándole opciones de arranque.</p><h4>Sintaxis</h4><pre><code>WOS.launch(appId, opts)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>appId</td><td>String</td><td>Sí</td><td>El ID único de la aplicación a abrir.</td></tr><tr><td>opts</td><td>Object</td><td>No</td><td>Opciones de inicio (ej. <code>{ filePath: "/ruta", startPath: "/carpeta" }</code>).</td></tr></table><h4>Ejemplo</h4><pre><code>await WOS.launch("files", { startPath: "/home/documentos" });</code></pre></div>',
+      '<div class="method"><h3>WOS.toast()</h3><h4>¿Qué hace?</h4><p>Muestra una notificación flotante temporal (toast) en la pantalla.</p><h4>Sintaxis</h4><pre><code>WOS.toast(message, type, title)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>message</td><td>String</td><td>Sí</td><td>Texto del cuerpo de la notificación.</td></tr><tr><td>type</td><td>String</td><td>No</td><td>Tipo de alerta: <code>"ok"</code>, <code>"warn"</code>, <code>"error"</code>, <code>"info"</code>.</td></tr><tr><td>title</td><td>String</td><td>No</td><td>Título destacado de la notificación.</td></tr></table><h4>Ejemplo</h4><pre><code>WOS.toast("Guardado exitosamente", "ok", "Mi App");</code></pre></div>',
+      '<div class="method"><h3>WOS.confirm()</h3><h4>¿Qué hace?</h4><p>Abre un diálogo modal nativo del sistema pidiendo al usuario que acepte o cancele una acción.</p><h4>Sintaxis</h4><pre><code>WOS.confirm(message, opts)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>message</td><td>String</td><td>Sí</td><td>Mensaje a mostrar.</td></tr><tr><td>opts</td><td>Object</td><td>No</td><td>Opciones de título e icono.</td></tr></table><h4>Devuelve</h4><table><tr><th>Tipo</th><th>Descripción</th></tr><tr><td>Promise&lt;Boolean&gt;</td><td><code>true</code> si el usuario pulsa "SÍ", <code>false</code> si pulsa "NO".</td></tr></table><h4>Ejemplo</h4><pre><code>const ok = await WOS.confirm("¿Eliminar archivo?");<br>if (ok) { /* eliminar */ }</code></pre></div>',
+      '<div class="method"><h3>WOS.closeWindow()</h3><h4>¿Qué hace?</h4><p>Cierra la ventana asociada a un PID (Process ID) específico.</p><h4>Sintaxis</h4><pre><code>WOS.closeWindow(pid)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>pid</td><td>Number</td><td>No</td><td>ID del proceso de la ventana a cerrar.</td></tr></table><h4>Ejemplo</h4><pre><code>WOS.closeWindow(window.__APP_PID);</code></pre></div>',
+      '<h2>💡 Buenas prácticas</h2><ul><li>Usa <code>WOS.toast</code> para feedback rápido, no para mostrar datos críticos.</li><li>Siempre maneja los <code>Promises</code> de <code>WOS.confirm</code> y <code>WOS.prompt</code>.</li></ul>',
+      '<h2>📄 Resumen</h2><table><tr><th>Quiero...</th><th>Uso...</th></tr><tr><td>Abrir otra app</td><td><code>WOS.launch()</code></td></tr><tr><td>Mostrar alerta rápida</td><td><code>WOS.toast()</code></td></tr><tr><td>Pedir confirmación</td><td><code>WOS.confirm()</code></td></tr><tr><td>Cerrar mi ventana</td><td><code>WOS.closeWindow()</code></td></tr></table>',
+      '<hr>',
+      '<h1>WOS.fs</h1>',
+      '<blockquote>Sistema de Archivos Virtual (VFS) de HUEBOS.</blockquote>',
+      '<h2>📌 ¿Qué hace?</h2><p>Permite leer, escribir, mover, eliminar y consultar archivos y directorios dentro del sistema de archivos virtual seguro de HUEBOS.</p>',
+      '<h2>🎯 ¿Cuándo usarla?</h2><ul><li>✅ Guardar configuraciones o estados de la app en local.</li><li>✅ Leer archivos del usuario (documentos, imágenes).</li><li>✅ Crear estructuras de carpetas para tu app.</li><li>❌ No la uses para guardar secretos en texto plano sin ofuscar.</li></ul>',
+      '<h2>🔒 Permisos necesarios</h2><table><tr><th>Permiso</th><th>Obligatorio</th></tr><tr><td>fs.read</td><td>Sí (para lectura)</td></tr><tr><td>fs.write</td><td>Sí (para escritura/movimiento)</td></tr><tr><td>fs.delete</td><td>Sí (para eliminar)</td></tr></table>',
+      '<div class="method"><h3>WOS.fs.read()</h3><h4>¿Qué hace?</h4><p>Lee el contenido de un archivo de texto.</p><h4>Sintaxis</h4><pre><code>WOS.fs.read(path)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>path</td><td>String</td><td>Sí</td><td>Ruta absoluta del archivo.</td></tr></table><h4>Devuelve</h4><table><tr><th>Tipo</th><th>Descripción</th></tr><tr><td>Promise&lt;String&gt;</td><td>El contenido de texto del archivo.</td></tr></table><h4>Ejemplo</h4><pre><code>const configText = await WOS.fs.read("/home/config.json");</code></pre></div>',
+      '<div class="method"><h3>WOS.fs.write()</h3><h4>¿Qué hace?</h4><p>Escribe contenido de texto en un archivo. Si no existe, lo crea.</p><h4>Sintaxis</h4><pre><code>WOS.fs.write(path, content)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>path</td><td>String</td><td>Sí</td><td>Ruta absoluta del archivo.</td></tr><tr><td>content</td><td>String</td><td>Sí</td><td>Texto a escribir.</td></tr></table><h4>Ejemplo</h4><pre><code>await WOS.fs.write("/home/nota.txt", "Hola mundo");</code></pre></div>',
+      '<div class="method"><h3>WOS.fs.readdir()</h3><h4>¿Qué hace?</h4><p>Lista el contenido (archivos y subcarpetas) de un directorio.</p><h4>Sintaxis</h4><pre><code>WOS.fs.readdir(path)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>path</td><td>String</td><td>Sí</td><td>Ruta absoluta del directorio.</td></tr></table><h4>Devuelve</h4><table><tr><th>Tipo</th><th>Descripción</th></tr><tr><td>Promise&lt;Array&gt;</td><td>Arreglo de objetos <code>{ id, name, type, size }</code>.</td></tr></table><h4>Ejemplo</h4><pre><code>const items = await WOS.fs.readdir("/home");</code></pre></div>',
+      '<div class="method"><h3>WOS.fs.remove()</h3><h4>¿Qué hace?</h4><p>Elimina un archivo o directorio (de forma recursiva si se indica).</p><h4>Sintaxis</h4><pre><code>WOS.fs.remove(path, opts)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>path</td><td>String</td><td>Sí</td><td>Ruta a eliminar.</td></tr><tr><td>opts</td><td>Object</td><td>No</td><td>Opciones, ej: <code>{ recursive: true }</code>.</td></tr></table><h4>Ejemplo</h4><pre><code>await WOS.fs.remove("/temp/basura.log");</code></pre></div>',
+      '<h2>📄 Resumen</h2><table><tr><th>Quiero...</th><th>Uso...</th></tr><tr><td>Leer texto</td><td><code>WOS.fs.read()</code></td></tr><tr><td>Guardar texto</td><td><code>WOS.fs.write()</code></td></tr><tr><td>Ver carpeta</td><td><code>WOS.fs.readdir()</code></td></tr><tr><td>Borrar archivo</td><td><code>WOS.fs.remove()</code></td></tr></table>',
+      '<hr>',
+      '<h1>WOS.notifications</h1>',
+      '<blockquote>Centro de notificaciones del sistema.</blockquote>',
+      '<h2>📌 ¿Qué hace?</h2><p>Envía y gestiona notificaciones persistentes que aparecen en el panel del sistema y en el centro de notificaciones de HUEBOS.</p>',
+      '<h2>🎯 ¿Cuándo usarla?</h2><ul><li>✅ Avisar al usuario de un mensaje nuevo, descarga completada o alerta del sistema.</li><li>✅ Dejar registros visuales permanentes en el panel (a diferencia del <code>toast</code>).</li><li>❌ No la uses para feedback inmediato de un botón (usa <code>toast</code>).</li></ul>',
+      '<h2>🔒 Permisos necesarios</h2><table><tr><th>Permiso</th><th>Obligatorio</th></tr><tr><td>notifications.send</td><td>Sí</td></tr></table>',
+      '<div class="method"><h3>WOS.notifications.push()</h3><h4>¿Qué hace?</h4><p>Envía una notificación al sistema.</p><h4>Sintaxis</h4><pre><code>WOS.notifications.push(opts)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>opts</td><td>Object</td><td>Sí</td><td>Objeto con <code>{ title, body, icon }</code>.</td></tr></table><h4>Ejemplo</h4><pre><code>await WOS.notifications.push({ title: "Descarga lista", body: "El archivo se guardó en /home.", icon: "📥" });</code></pre></div>',
+      '<div class="method"><h3>WOS.notifications.list()</h3><h4>¿Qué hace?</h4><p>Lista las notificaciones existentes en el centro.</p><h4>Sintaxis</h4><pre><code>WOS.notifications.list(opts)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>opts</td><td>Object</td><td>No</td><td>Opciones de filtrado, ej: <code>{ limit: 20 }</code>.</td></tr></table><h4>Devuelve</h4><table><tr><th>Tipo</th><th>Descripción</th></tr><tr><td>Promise&lt;Array&gt;</td><td>Arreglo de notificaciones.</td></tr></table><h4>Ejemplo</h4><pre><code>const notifs = await WOS.notifications.list({ limit: 10 });</code></pre></div>',
+      '<h2>📄 Resumen</h2><table><tr><th>Quiero...</th><th>Uso...</th></tr><tr><td>Enviar alerta persistente</td><td><code>WOS.notifications.push()</code></td></tr><tr><td>Ver historial</td><td><code>WOS.notifications.list()</code></td></tr></table>',
+      '<hr>',
+      '<h1>WOS.windows</h1>',
+      '<blockquote>Control del Window Manager (Gestor de ventanas).</blockquote>',
+      '<h2>📌 ¿Qué hace?</h2><p>Permite consultar y manipular las ventanas de todas las aplicaciones abiertas en el escritorio de HUEBOS.</p>',
+      '<h2>🎯 ¿Cuándo usarla?</h2><ul><li>✅ Crear una barra de tareas personalizada.</li><li>✅ Comprobar si tu app ya está abierta y enfocarla.</li><li>❌ No abuses manipulando ventanas de apps críticas del sistema.</li></ul>',
+      '<h2>🔒 Permisos necesarios</h2><table><tr><th>Permiso</th><th>Obligatorio</th></tr><tr><td>Ninguno (consulta básica)</td><td>No</td></tr><tr><td>proc.kill (para close)</td><td>Sí</td></tr></table>',
+      '<div class="method"><h3>WOS.windows.list()</h3><h4>¿Qué hace?</h4><p>Lista todas las ventanas actualmente abiertas en el escritorio.</p><h4>Sintaxis</h4><pre><code>WOS.windows.list()</code></pre><h4>Devuelve</h4><table><tr><th>Tipo</th><th>Descripción</th></tr><tr><td>Promise&lt;Array&gt;</td><td>Arreglo de objetos <code>{ pid, appId, title, minimized, focused }</code>.</td></tr></table><h4>Ejemplo</h4><pre><code>const ventanas = await WOS.windows.list();<br>const miApp = ventanas.find(v => v.appId === "mi-app");<br>if (miApp) { WOS.windows.focus(miApp.pid); }</code></pre></div>',
+      '<div class="method"><h3>WOS.windows.focus()</h3><h4>¿Qué hace?</h4><p>Trae al frente y da foco a la ventana del PID especificado.</p><h4>Sintaxis</h4><pre><code>WOS.windows.focus(pid)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>pid</td><td>Number</td><td>Sí</td><td>ID del proceso de la ventana.</td></tr></table><h4>Ejemplo</h4><pre><code>await WOS.windows.focus(102);</code></pre></div>',
+      '<h2>📄 Resumen</h2><table><tr><th>Quiero...</th><th>Uso...</th></tr><tr><td>Ver ventanas abiertas</td><td><code>WOS.windows.list()</code></td></tr><tr><td>Enfocar ventana</td><td><code>WOS.windows.focus()</code></td></tr></table>',
+      '<hr>',
+      '<h1>WOS.prefs</h1>',
+      '<blockquote>Almacenamiento de preferencias y configuraciones persistentes.</blockquote>',
+      '<h2>📌 ¿Qué hace?</h2><p>Guarda y recupera pares clave-valor de manera persistente en la base de datos del sistema, separada por aplicación.</p>',
+      '<h2>🎯 ¿Cuándo usarla?</h2><ul><li>✅ Guardar el tema seleccionado por el usuario (claro/oscuro).</li><li>✅ Recordar el último directorio abierto.</li><li>❌ No guardar archivos binarios o texto largo (usa <code>WOS.fs</code>).</li></ul>',
+      '<h2>🔒 Permisos necesarios</h2><table><tr><th>Permiso</th><th>Obligatorio</th></tr><tr><td>Ninguno</td><td>No</td></tr></table>',
+      '<div class="method"><h3>WOS.prefs.get()</h3><h4>¿Qué hace?</h4><p>Obtiene el valor de una preferencia.</p><h4>Sintaxis</h4><pre><code>WOS.prefs.get(key, defaultValue)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>key</td><td>String</td><td>Sí</td><td>Nombre de la preferencia.</td></tr><tr><td>defaultValue</td><td>Any</td><td>No</td><td>Valor a devolver si no existe.</td></tr></table><h4>Ejemplo</h4><pre><code>const tema = await WOS.prefs.get("app.tema", "oscuro");</code></pre></div>',
+      '<div class="method"><h3>WOS.prefs.set()</h3><h4>¿Qué hace?</h4><p>Guarda o actualiza una preferencia.</p><h4>Sintaxis</h4><pre><code>WOS.prefs.set(key, value)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>key</td><td>String</td><td>Sí</td><td>Nombre de la preferencia.</td></tr><tr><td>value</td><td>Any</td><td>Sí</td><td>Valor a guardar (String, Number, Object).</td></tr></table><h4>Ejemplo</h4><pre><code>await WOS.prefs.set("app.ultimaVez", Date.now());</code></pre></div>',
+      '<h2>💡 Buenas prácticas</h2><ul><li>Usa nombres de claves con prefijo de namespace (ej. <code>ui.color</code>).</li><li>No guardes objetos extremadamente grandes en preferencias, degrada el rendimiento.</li></ul>',
+      '<h2>📄 Resumen</h2><table><tr><th>Quiero...</th><th>Uso...</th></tr><tr><td>Leer config</td><td><code>WOS.prefs.get()</code></td></tr><tr><td>Guardar config</td><td><code>WOS.prefs.set()</code></td></tr></table>',
+      '</body></html>'
+    ];
+    const helpContent = htmlParts.join('\n');
+    // Enviar al shell para que abra la ventana correctamente
+    window.parent.postMessage({ type: 'ide:openHelp', content: helpContent, title: 'Ayuda HUEBOS', parentPid: window.__APP_PID }, '*');
+  }
+
+  function blobToBase64(blob) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  const Packager = {
+    async build(install = false){
+      if(!await Diagnostics.validate()) return;
+      const pkg = { huebos_package: 1, manifest: ProjectManager.manifest, files: {}, files_binary: {} };
+      try {
+        await this.traverseAndPack(ProjectManager.root, '', pkg);
+      } catch (e) {
+        logConsole(`Build abortado: ${e.message}`, 'error');
+        WOS.toast(`Error: ${e.message}`, 'error');
+        return;
+      }
+      const outPath = `${ProjectManager.root}/${ProjectManager.manifest.id}.hpkg`;
+      await WOS.fs.write(outPath, JSON.stringify(pkg, null, 2));
+      WOS.toast('Build exitoso: ' + outPath, 'ok');
+      
+      if(install) {
+        if(Kernel.installer) {
+          logConsole('Instalando paquete...', 'info');
+          await Kernel.installer.install(outPath);
+        } else {
+          WOS.toast('Instalador no disponible en este Kernel.', 'warn');
+        }
+      }
+    },
+    async traverseAndPack(rootPath, relPath, pkg){
+      const items = await WOS.fs.readdir(`${rootPath}/${relPath}`.replace(/\/$/, ''));
+      for(const item of items){
+        const rel = `${relPath}/${item.name}`.replace(/^\//, '');
+        if(item.type === 'dir') await this.traverseAndPack(rootPath, rel, pkg);
+        else if(!item.name.endsWith('.hpkg')){
+          if(await WOS.fs.isBinary(item.id)) {
+            const blob = await WOS.fs.readBlob(item.id);
+            const b64 = await blobToBase64(blob);
+            pkg.files_binary[rel] = b64;
+          } else {
+            const content = await WOS.fs.read(item.id);
+            if (item.name.endsWith('.js')) {
+              try { new Function(content); } 
+              catch (e) { throw new Error(`Syntax error en ${rel}.`); }
+            }
+            pkg.files[rel] = content;
+          }
+        }
+      }
+    }
+  };
+
+  async function launchPicker() {
+    const pickerId = 'picker_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const PICKER_FILE = `/temp/ide_picker_${pickerId}.txt`;
+    
+    // Limpiamos por si acaso ya existía usando WOS (IPC)
+    try { 
+      const exists = await WOS.fs.exists(PICKER_FILE);
+      if (exists) await WOS.fs.remove(PICKER_FILE);
+    } catch(e) {}
+    
+    WOS.launch('files', { startPath: '/', pickerMode: '1', pickerTarget: PICKER_FILE });
+    
+    return new Promise((resolve) => {
+      let resolved = false;
+      const stop = () => {
+        clearInterval(interval);
+        clearTimeout(timeout);
+        try { WOS.fs.remove(PICKER_FILE); } catch(e) {}
+      };
+      const interval = setInterval(async () => {
+        try {
+          if (resolved) return;
+          // Usamos WOS.fs.read. Si no existe, el Kernel lanza error y entra al catch.
+          const content = await WOS.fs.read(PICKER_FILE);
+          if (content && content.length > 0) {
+            resolved = true;
+            stop();
+            resolve(content.trim());
+          }
+        } catch(e) {
+          // El archivo aún no existe o no tiene contenido. El ciclo continuará.
+        }
+      }, 300);
+      const timeout = setTimeout(() => { 
+        if(!resolved) { resolved = true; stop(); resolve(null); } 
+      }, 120000);
+    });
+  }
+
+  async function copyRecursive(src, dest) {
+    const items = await WOS.fs.readdir(src);
+    await WOS.fs.mkdir(dest);
+    for (const item of items) {
+      if (item.type === 'dir') await copyRecursive(item.id, `${dest}/${item.name}`);
+      else {
+        const isBinary = await WOS.fs.isBinary(item.id);
+        if (isBinary) {
+          const blob = await WOS.fs.readBlob(item.id);
+          const mime = await WOS.fs.getMime(item.id);
+          await WOS.fs.writeBinary(`${dest}/${item.name}`, blob, mime);
+        } else {
+          const content = await WOS.fs.read(item.id);
+          await WOS.fs.write(`${dest}/${item.name}`, content);
+        }
+      }
+    }
+  }
+
+  // Context Menu Logic
+  function showTreeContextMenu(x, y, node) {
+    const menu = document.getElementById('ctx-menu');
+    const isDir = node.isDir;
+    const clip = Kernel?.clipboard.get();
+    const hasClip = clip && clip.paths.length > 0;
+    
+    menu.innerHTML = `
+      <div class="ctx-item" data-action="newfile">${Icons.newFile} Nuevo Archivo</div>
+      <div class="ctx-item" data-action="newdir">${Icons.newFolder} Nueva Carpeta</div>
+      <div class="ctx-sep"></div>
+      <div class="ctx-item" data-action="copy">${Icons.copy} Copiar</div>
+      <div class="ctx-item" data-action="cut">${Icons.cut} Cortar</div>
+      <div class="ctx-item" data-action="paste" style="${hasClip ? '' : 'opacity:0.4;pointer-events:none;'}">${Icons.paste} Pegar</div>
+      <div class="ctx-sep"></div>
+      <div class="ctx-item" data-action="rename">${Icons.rename} Renombrar</div>
+      <div class="ctx-item" data-action="delete" style="color:var(--red);">${Icons.trash} Eliminar</div>
+    `;
+    
+    // Hide new file/folder if right-clicking a file (only allow on dirs)
+    if(!isDir) {
+      menu.querySelector('[data-action="newfile"]').style.display = 'none';
+      menu.querySelector('[data-action="newdir"]').style.display = 'none';
+    }
+    
+    menu.querySelectorAll('.ctx-item').forEach(item => {
+      item.addEventListener('click', async () => {
+        menu.style.display = 'none';
+        const action = item.dataset.action;
+        if(action === 'newfile') await FileExplorer.createNode('file');
+        else if(action === 'newdir') await FileExplorer.createNode('dir');
+        else if(action === 'rename') await FileExplorer.renameNode();
+        else if(action === 'delete') await FileExplorer.deleteNode();
+        else if(action === 'paste') await FileExplorer.clipboardAction('paste');
+        else if(action) await FileExplorer.clipboardAction(action);
+      });
+    });
+    
+menu.style.display = 'block';
+    menu.style.left = '0px';
+    menu.style.top = '0px';
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    const maxX = window.innerWidth - mw - 6;
+    const maxY = window.innerHeight - mh - 6;
+    menu.style.left = Math.max(4, Math.min(x, maxX)) + 'px';
+    menu.style.top = Math.max(4, Math.min(y, maxY)) + 'px';
+  }
+  
+  function showEditorContextMenu(x, y, hasSelection) {
+    const menu = document.getElementById('ctx-menu');
+    menu.innerHTML = hasSelection ? `
+      <div class="ctx-item" data-action="ed-cut">${Icons.cut} Cortar</div>
+      <div class="ctx-item" data-action="ed-copy">${Icons.copy} Copiar</div>
+      <div class="ctx-item" data-action="ed-paste">${Icons.paste} Pegar</div>
+    ` : `
+      <div class="ctx-item" data-action="ed-paste">${Icons.paste} Pegar</div>
+      <div class="ctx-sep"></div>
+      <div class="ctx-item" data-action="ed-selectall">${Icons.selectAll} Seleccionar todo</div>
+      <div class="ctx-item" data-action="ed-find">${Icons.find} Encontrar</div>
+      <div class="ctx-item" data-action="ed-replace">${Icons.replace} Reemplazar</div>
+      <div class="ctx-sep"></div>
+      <div class="ctx-item" data-action="ed-format">${Icons.clean} Formatear documento</div>
+    `;
+    const map = { 'ed-cut':()=>Editor.cut(), 'ed-copy':()=>Editor.copy(), 'ed-paste':()=>Editor.paste(), 'ed-selectall':()=>Editor.selectAll(), 'ed-find':()=>Editor.find(), 'ed-replace':()=>Editor.replace(), 'ed-format':()=>Editor.formatDocument() };
+    menu.querySelectorAll('.ctx-item').forEach(item => {
+      item.addEventListener('click', () => { menu.style.display = 'none'; const fn = map[item.dataset.action]; if(fn) fn(); });
+    });
+    menu.style.display = 'block';
+    menu.style.left = '0px'; menu.style.top = '0px';
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    const maxX = window.innerWidth - mw - 6, maxY = window.innerHeight - mh - 6;
+    menu.style.left = Math.max(4, Math.min(x, maxX)) + 'px';
+    menu.style.top = Math.max(4, Math.min(y, maxY)) + 'px';
+  }
+
+  function showEmptyAreaContextMenu(x, y) {
+    if(!ProjectManager.root) return;
+    const menu = document.getElementById('ctx-menu');
+    const clip = Kernel?.clipboard.get();
+    const hasClip = clip && clip.paths.length > 0;
+    FileExplorer.selectedPath = ProjectManager.root;
+    menu.innerHTML = `
+      <div class="ctx-item" data-action="newfile">${Icons.newFile} Nuevo Archivo</div>
+      <div class="ctx-item" data-action="newdir">${Icons.newFolder} Nueva Carpeta</div>
+      <div class="ctx-sep"></div>
+      <div class="ctx-item" data-action="paste" style="${hasClip ? '' : 'opacity:0.4;pointer-events:none;'}">${Icons.paste} Pegar</div>
+    `;
+    menu.querySelectorAll('.ctx-item').forEach(item => {
+      item.addEventListener('click', async () => {
+        menu.style.display = 'none';
+        const action = item.dataset.action;
+        if(action === 'newfile') await FileExplorer.createNode('file');
+        else if(action === 'newdir') await FileExplorer.createNode('dir');
+        else if(action === 'paste') await FileExplorer.clipboardAction('paste');
+      });
+    });
+    menu.style.display = 'block';
+    menu.style.left = '0px'; menu.style.top = '0px';
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    const maxX = window.innerWidth - mw - 6, maxY = window.innerHeight - mh - 6;
+    menu.style.left = Math.max(4, Math.min(x, maxX)) + 'px';
+    menu.style.top = Math.max(4, Math.min(y, maxY)) + 'px';
+  }
+
+  document.getElementById('ide-tree').addEventListener('contextmenu', (e) => {
+    if(e.target.closest('.tree-item')) return;
+    e.preventDefault();
+    document.querySelectorAll('.tree-item').forEach(t => t.classList.remove('selected'));
+    showEmptyAreaContextMenu(e.clientX, e.clientY);
+  });
+  
+  document.addEventListener('click', () => { document.getElementById('ctx-menu').style.display = 'none'; });
+
+  document.getElementById('ide-project-name').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('recent-dropdown').classList.toggle('show');
+  });
+  document.addEventListener('click', () => { document.getElementById('recent-dropdown').classList.remove('show'); });
+
+// Redimensionar el panel inferior arrastrando el borde
+  (function initBottomResizer(){
+    const resizer = document.getElementById('bottom-resizer');
+    const ide = document.getElementById('ide');
+    let dragging = false;
+    resizer.addEventListener('mousedown', (e) => {
+      dragging = true;
+      resizer.classList.add('dragging');
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if(!dragging) return;
+      const rect = ide.getBoundingClientRect();
+      const h = Math.min(rect.height - 200, Math.max(80, rect.bottom - e.clientY - 24));
+      ide.style.gridTemplateRows = `54px 1fr 5px ${h}px 24px`;
+    });
+    document.addEventListener('mouseup', () => {
+      dragging = false;
+      resizer.classList.remove('dragging');
+    });
+  })();
+
+  // Redimensionar el sidebar arrastrando su borde (antes no existía este handler)
+  (function initSidebarResizer(){
+    const resizer = document.getElementById('sidebar-resizer');
+    const sidebar = document.getElementById('ide-sidebar');
+    let dragging = false;
+    resizer.addEventListener('mousedown', (e) => {
+      dragging = true;
+      resizer.classList.add('dragging');
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if(!dragging) return;
+      const rect = document.getElementById('ide-body').getBoundingClientRect();
+      const w = Math.min(500, Math.max(140, e.clientX - rect.left));
+      sidebar.style.width = w + 'px';
+    });
+    document.addEventListener('mouseup', () => {
+      dragging = false;
+      resizer.classList.remove('dragging');
+      document.body.style.userSelect = '';
+    });
+  })();
+
+function renderRecentDropdown() {
+    const dropdown = document.getElementById('menu-recent-list');
+    const headerDropdown = document.getElementById('recent-dropdown');
+    Prefs.get('ide.recentProjects', []).then(recent => {
+      const empty = recent.length === 0;
+      const rowsHtml = empty
+        ? '<div class="menu-action disabled" style="opacity:0.5">Sin proyectos recientes</div>'
+        : recent.map(p => `<div class="menu-action recent-item" data-path="${escapeHtml(p)}">${escapeHtml(p)}</div>`).join('');
+
+      if(dropdown){
+        dropdown.innerHTML = rowsHtml;
+        dropdown.querySelectorAll('.recent-item').forEach(item => {
+          item.addEventListener('click', (e) => { e.stopPropagation(); MenuBar.closeAll(); ProjectManager.open(item.dataset.path); });
+        });
+      }
+      if(headerDropdown){
+        headerDropdown.innerHTML = empty
+          ? '<div class="recent-item" style="opacity:0.5;cursor:default;">Sin proyectos recientes</div>'
+          : recent.map(p => `<div class="recent-item" data-path="${escapeHtml(p)}">${escapeHtml(p)}</div>`).join('');
+        headerDropdown.querySelectorAll('.recent-item[data-path]').forEach(item => {
+          item.addEventListener('click', (e) => { e.stopPropagation(); headerDropdown.classList.remove('show'); ProjectManager.open(item.dataset.path); });
+        });
+      }
+    });
+  }
+  
+
+  // Funciones de proyecto para llamar directamente desde el menú
+  async function createNewProject() {
+    const name = await WOS.prompt('Nombre del nuevo proyecto:', { title: 'Nuevo Proyecto', defaultValue: 'mi-app' });
+    if (!name) return;
+    const parentDir = await launchPicker();
+    if (!parentDir) return;
+    const projPath = `${parentDir}/${name}`.replace(/\/+/g, '/');
+    await WOS.fs.mkdir(projPath);
+    await WOS.fs.write(`${projPath}/manifest.json`, JSON.stringify({id:name, name:name, version:"1.0.0", icon:"🚀", entry:"index.html", singleton:false, permissions:[]}, null, 2));
+        await WOS.fs.write(`${projPath}/index.html`, '<!DOCTYPE html>\n<html>\n<head>\n<script src="./lib/wos-client.js"><\/script>\n<link rel="stylesheet" href="./style.css">\n</head>\n<body>\n<h1>Nueva App</h1>\n<script src="./app.js"><\/script>\n</body>\n</html>');
+    await WOS.fs.write(`${projPath}/style.css`, 'body { font-family: monospace; background: #000; color: #0f0; }');
+    await WOS.fs.write(`${projPath}/app.js`, 'console.log("App iniciada");');
+    await ProjectManager.open(projPath);
+  }
+
+  async function openProject() {
+    const path = await launchPicker();
+    if (path) await ProjectManager.open(path);
+  }
+
+  async function saveProjectAs() {
+    if (!ProjectManager.root) return;
+    const newName = await WOS.prompt('Guardar como (nueva carpeta):', { defaultValue: ProjectManager.manifest?.id || 'copia' });
+    if (!newName) return;
+    const destDir = await launchPicker();
+    if (!destDir) return;
+    const newPath = `${destDir}/${newName}`.replace(/\/+/g, '/');
+    await copyRecursive(ProjectManager.root, newPath);
+    await ProjectManager.open(newPath);
+  }
+
+  document.getElementById('ide-tree').addEventListener('dblclick', (e) => { if(e.target.textContent.includes('manifest.json')) ManifestEditor.show(); });
+
+  document.querySelectorAll('.bottom-tab').forEach(tab => { tab.addEventListener('click', () => { if(tab.style.display==='none')return; switchBottomTab(tab.dataset.target); }); });
+  document.getElementById('diag-list').addEventListener('click', (e) => { const i=e.target.closest('.diag-item', '.diag-icon{display:inline-block;width:14px;text-align:center;margin-right:2px;}'); if(i&&i.dataset.filePath)Editor.openTab(i.dataset.filePath); });
+
+  ['diag-list','console-ide','console-preview','output-panel'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('contextmenu', (e) => e.preventDefault());
+  });
+  document.getElementById('st-diag').addEventListener('click', () => {
+    const diagTab = document.querySelector('.bottom-tab[data-target="diag-list"]');
+    if(diagTab && diagTab.style.display === 'none') MenuBar.togglePanel('diag');
+    switchBottomTab('diag-list');
+  });
+
+  window.addEventListener('message', (e) => {
+    if (e.data&&e.data.type==='ide:console') logConsole(e.data.args.join(' '), e.data.level, 'preview');
+    if (e.data&&e.data.type==='ide:debugClosed') ProjectTools.cleanupDebug();
+  });
+
+  function switchBottomTab(targetId){
+    document.querySelectorAll('.bottom-tab').forEach(t => t.classList.toggle('active', t.dataset.target === targetId));
+    document.querySelectorAll('#diag-list, #console-ide, #console-preview, #output-panel, #terminal-ide').forEach(p => p.classList.toggle('active', p.id === targetId));
+    if (targetId === 'terminal-ide') {
+      IDETerminal.show();
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    const tag=e.target.tagName, isInput=tag==='INPUT'||tag==='TEXTAREA';
+    if (e.ctrlKey||e.metaKey) {
+      if (e.key==='s'){e.preventDefault(); ProjectManager.saveAll();}
+      else if (e.key==='b'){e.preventDefault(); ProjectTools.runCommand('ide.build');}
+      else if (e.key==='w'){e.preventDefault(); if(Editor.activeTab)Editor.closeTab(Editor.activeTab.path);}
+      else if (e.key==='n'){e.preventDefault(); createNewProject();}
+      else if (e.key==='o'){e.preventDefault(); openProject();}
+      else if (e.key==='f'&&!isInput){e.preventDefault(); Editor.find();}
+      else if (e.key==='h'&&!isInput){e.preventDefault(); Editor.replace();}
+      else if (e.key==='a'&&!isInput){e.preventDefault(); Editor.selectAll();}
+      else if (e.key==='z'){e.preventDefault(); Editor.undo();}
+      else if (e.key==='y'){e.preventDefault(); Editor.redo();}
+    }
+    if (e.key==='F5'){e.preventDefault(); ProjectTools.runDebug();}
+    if (e.key==='F1'){e.preventDefault(); openHelpWindow();}
+    if (e.altKey&&e.shiftKey&&e.key==='→'){e.preventDefault(); Editor.expandSelection();}
+    if (e.altKey&&e.key==='ArrowUp'){e.preventDefault(); Editor.duplicateLineUp();}
+    if (e.altKey&&e.key==='ArrowDown'){e.preventDefault(); Editor.duplicateLineDown();}
+    if (e.altKey&&e.shiftKey&&e.key==='F'){e.preventDefault(); Editor.formatDocument();}
+    if (e.key==='F3'){e.preventDefault(); Editor.findNext();}
+  });
+
+  if (Editor.cm) Editor.cm.on('cursorActivity', () => { Editor._expandLevel = 0; });
+
+  async function boot(){
+    if(!WOS){ alert('WOS no disponible'); return; }
+    Editor.init();
+    MenuBar.init();
+    IDETerminal.init();
+    
+// Proxy de Kernel, __wos e IDEBridge: la terminal embebida está anidada DOS
+    // niveles bajo el shell (shell → iframe IDE → iframe terminal), así que su
+    // propio window.parent apunta al IDE, no al shell. Exponemos acá lo mismo
+    // que la terminal espera encontrar con un solo salto de window.parent.
+    window.Kernel = Kernel;
+    window.__wos = window.parent.__wos;
+    // Proveer un puente local si no existe en el shell
+    const __parentBridgeExisted = !!window.parent.IDEBridge;
+    window.IDEBridge = window.parent.IDEBridge || {
+      _commands: new Map(),
+      _instanceId: 'ide-local-' + Math.random().toString(36).slice(2, 8),
+      registerCommand(spec) { this._commands.set(spec.name.toLowerCase(), spec); console.debug(`[DEBUG-IDE] (bridge local) registerCommand('${spec.name}')`); },
+      unregisterCommand(name) { this._commands.delete(String(name).toLowerCase()); },
+      getCommand(name) { const f = this._commands.get(String(name).toLowerCase()) || null; console.debug(`[DEBUG-IDE] (bridge local) getCommand('${name}') -> ${!!f}`); return f; },
+      listCommands() { return Array.from(this._commands.values()); },
+      clearCommands() { this._commands.clear(); }
+    };
+    console.debug(`[DEBUG-IDE] window.IDEBridge asignado | ¿venía del shell (window.parent.IDEBridge)?: ${__parentBridgeExisted} | instanceId: ${window.IDEBridge._instanceId || '(bridge del shell, sin _instanceId local)'}`);
+
+    // Ahora sí: window.IDEBridge ya existe, así que esto puede registrar
+    // ide.build/ide.run/etc. de verdad en vez de cortar en el `if(!bridge)`.
+    IDETerminal.registerInIDEBridge();
+    console.debug('[DEBUG-IDE] IDETerminal.registerInIDEBridge() completado. Comandos registrados:', window.IDEBridge.listCommands().map(c => c.name));
+    
+    renderRecentDropdown();
+    logConsole('HUEBOS IDE v2.2 iniciado.', 'info');
+    logConsole('Menús clásicos activados. Terminal interna lista.', 'info');
+    logConsole('Esperando conexión con IDEBridge...', 'info');
+
+    const origOpen = ProjectManager.open.bind(ProjectManager);
+    ProjectManager.open = async function(path) { await origOpen(path); ProjectTools.updateHierarchy(); ProjectTools.updateDebugInfo(); };
+    const origSaveAll = ProjectManager.saveAll.bind(ProjectManager);
+    ProjectManager.saveAll = async function() { await origSaveAll(); ProjectTools.updateDebugInfo(); };
+    window.addEventListener('beforeunload', () => {
+      ProjectTools.cleanupDebug();
+      if(window.parent.IDEBridge) window.parent.IDEBridge.clearCommands();
+      
+      // Cerrar la instancia de la terminal embebida
+      if (IDETerminal.proc && window.parent.__wos) {
+        try { window.parent.__wos.closeWindow(IDETerminal.proc.pid); } catch(e) {}
+      }
+      if (IDETerminal.iframe) {
+        IDETerminal.iframe.src = 'about:blank';
+      }
+      
+      // Cerrar la ventana de ayuda
+      if (helpWindowPid && window. parent.__wos) {
+        try { window.parent.__wos.closeWindow(helpWindowPid); } catch(e) {}
+      }
+    });
+  }
+  document.getElementById('explorer-header').innerHTML = Icons.explorer + ' Explorador';
+
+  document.getElementById('ide-title-icon').innerHTML = Icons.ide + ' IDE';
+
+  boot();
+})();
+</script>
+</body>
+</html>

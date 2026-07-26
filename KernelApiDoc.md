@@ -1,6 +1,6 @@
 # HUEBOS — Kernel API Documentation
 
-> **Versión del Kernel:** `0.4.0` (UEFI Firmware)
+> **Versión del Kernel:** `0.5.1` (UEFI Firmware)
 > **Versión de DB:** `3` (IndexedDB `huebos_db`)
 > **Scope:** Todas las APIs expuestas en `window.Kernel` y cómo usarlas desde apps, el shell o diagnóstico.
 
@@ -65,7 +65,7 @@ waitForKernel(k => {
 
 | Propiedad | Tipo | Descripción |
 |---|---|---|
-| `Kernel.version` | `string` | `"0.4.0"` — versión del Kernel. **Fuente de verdad** para mostrar versiones. |
+| `Kernel.version` | `string` | `"0.5.1"` — versión del Kernel. **Fuente de verdad** para mostrar versiones. |
 | `Kernel.isReady` | `boolean` (getter) | `true` si la DB ya está abierta y el boot completó el paso `db`. |
 | `Kernel.safeMode` | `boolean` (getter) | `true` si el boot actual fue en modo seguro (F8). |
 | `Kernel.uptime` | `number` (getter) | Milisegundos desde que empezó el boot. |
@@ -1235,5 +1235,3 @@ const expanded = await Kernel.env.expand('Abrir con $EDITOR');
 ```
 
 ---
-
-> **Última actualización:** Kernel v0.4.0 — UEFI + Env + Users + Safe Mode

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Importador de Archivos</title>
+<script type="application/json" id="wos-manifest">
+{
+  "id": "imports",
+  "name": "Importador",
+  "version": "1.1.0",
+  "icon": "./apps/public/imports.svg",
+  "category": "utility",
+  "singleton": true,
+  "winWidth": 580,
+  "winHeight": 460,
+  "description": "Importa archivos externos al sistema de archivos de HUEBOS.",
+  "author": "HUEBOS NT"
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --g:#00ff88; --g-dim:#00bb66; --cyan:#00d4ff; --amber:#ffcc44; --red:#ff4466;
+    --bg:#020c06; --panel:rgba(0,20,10,0.45); --glass:rgba(4,20,12,0.55);
+    --border:rgba(0,255,136,0.16); --border-hot:rgba(0,255,136,0.4);
+    --mono:'Share Tech Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width:100%; height:100%; background:var(--bg); color:var(--g); font-family:var(--mono); overflow:hidden; user-select:none; }
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;background:repeating-linear-gradient(0deg,rgba(0,255,136,0.015) 0px,rgba(0,255,136,0.015) 1px,transparent 1px,transparent 3px);mix-blend-mode:overlay;}
+
+  svg { display:block; }
+
+  .app-shell { display:flex; flex-direction:column; width:100%; height:100%; background:var(--glass); backdrop-filter:blur(16px); position:relative; z-index:2; }
+
+  header {
+    padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px;
+    background:linear-gradient(180deg, rgba(0,255,136,0.05), rgba(0,20,10,0.35));
+  }
+  .header-icon { width:20px; height:20px; color:var(--g); filter:drop-shadow(0 0 6px rgba(0,255,136,0.4)); }
+  header h1 { font-size:0.82rem; letter-spacing:0.16em; text-transform:uppercase; text-shadow:0 0 8px rgba(0,255,136,0.35); }
+  .header-sub { margin-left:auto; font-size:0.6rem; color:var(--g-dim); letter-spacing:0.1em; opacity:0.7; }
+
+  .main-content { flex:1; display:flex; flex-direction:column; padding:16px; gap:14px; overflow:hidden; }
+
+  .dropzone {
+    height:150px; border:2px dashed rgba(0,255,136,0.28); border-radius:10px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    cursor:pointer; transition:border-color 0.18s, background 0.18s, transform 0.18s;
+    background:rgba(0,255,136,0.015);
+  }
+  .dropzone:hover { border-color:var(--g-dim); background:rgba(0,255,136,0.05); }
+  .dropzone.dragover { border-color:var(--g); background:rgba(0,255,136,0.1); transform:scale(0.99); }
+  .dz-icon-wrap { width:46px; height:46px; display:flex; align-items:center; justify-content:center; }
+  .dz-icon { width:40px; height:40px; color:var(--g); animation:float 3s ease-in-out infinite; }
+  .dropzone.dragover .dz-icon { color:var(--cyan); animation:none; }
+  @keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
+  .dz-text { font-size:0.78rem; letter-spacing:0.12em; }
+  .dz-subtext { font-size:0.62rem; color:var(--g-dim); letter-spacing:0.04em; }
+  input[type="file"] { display:none; }
+
+  .list-container { flex:1; border:1px solid var(--border); border-radius:8px; background:rgba(0,8,4,0.55); display:flex; flex-direction:column; overflow:hidden; }
+  .list-header {
+    padding:8px 12px; font-size:0.65rem; color:var(--cyan); letter-spacing:0.12em; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; background:rgba(0,212,255,0.03);
+  }
+  .list-body { flex:1; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:5px; }
+  .list-body::-webkit-scrollbar { width:5px; }
+  .list-body::-webkit-scrollbar-thumb { background:rgba(0,180,90,0.3); border-radius:3px; }
+
+  .file-item {
+    display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px;
+    background:rgba(0,255,136,0.03); border:1px solid transparent; transition:border-color 0.2s;
+  }
+  .file-item:hover { border-color:var(--border); }
+
+  .fi-icon-badge {
+    width:28px; height:28px; flex-shrink:0; border-radius:6px; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,255,136,0.06); border:1px solid var(--border);
+  }
+  .fi-icon-badge svg { width:15px; height:15px; color:var(--g-dim); }
+
+  .fi-info { flex:1; overflow:hidden; }
+  .fi-name { font-size:0.74rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--g); }
+  .fi-meta { font-size:0.6rem; color:var(--g-dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .fi-status {
+    flex-shrink:0; display:flex; align-items:center; gap:5px; font-size:0.62rem; letter-spacing:0.08em;
+    padding:4px 9px; border-radius:20px; background:rgba(0,0,0,0.3); white-space:nowrap;
+  }
+  .fi-status svg { width:11px; height:11px; }
+  .fi-status.pending { color:var(--amber); }
+  .fi-status.processing { color:var(--cyan); }
+  .fi-status.done { color:var(--g); }
+  .fi-status.error { color:var(--red); }
+
+  .spinner-ring {
+    width:11px; height:11px; border:2px solid rgba(0,212,255,0.2); border-top-color:var(--cyan);
+    border-radius:50%; animation:spin 0.8s linear infinite; flex-shrink:0;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .empty-state { text-align:center; padding:34px 20px; color:var(--g-dim); font-size:0.68rem; opacity:0.55; line-height:1.7; }
+  .empty-state svg { width:26px; height:26px; margin:0 auto 10px; color:var(--g-dim); opacity:0.5; }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v11" />
+        <path d="M7.5 10.5 12 15l4.5-4.5" />
+        <path d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" />
+      </svg>
+      <h1>Importador HUEBOS</h1>
+      <span class="header-sub" id="headerCounter"></span>
+    </header>
+    <div class="main-content">
+      <div class="dropzone" id="dropzone">
+        <div class="dz-icon-wrap">
+          <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v11" />
+            <path d="M7 10.5 12 15.5l5-5" />
+            <path d="M4.5 16v2.2A2.3 2.3 0 0 0 6.8 20.5h10.4a2.3 2.3 0 0 0 2.3-2.3V16" />
+          </svg>
+        </div>
+        <div class="dz-text">ARRASTRAR ARCHIVOS AQUÍ</div>
+        <div class="dz-subtext">o haz clic para seleccionar</div>
+      </div>
+      <input type="file" id="fileInput" multiple>
+      <div class="list-container">
+        <div class="list-header"><span>COLA DE IMPORTACIÓN</span><span id="counter">0 archivos</span></div>
+        <div class="list-body" id="listBody">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+              <path d="M6.5 2.5h7l4 4v14a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z" />
+              <path d="M13.5 2.5V7h4" />
+            </svg>
+            No hay archivos en cola.<br>Importa imágenes, videos, audios o documentos.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    const Icons = {
+      generic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M6.5 2.5h7l4 4v14a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z"/><path d="M13.5 2.5V7h4"/></svg>',
+      image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="8.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/><path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.1 0L4 19"/></svg>',
+      video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="2.5" y="5.5" width="14" height="13" rx="1.5"/><path d="M16.5 10l5-3v10l-5-3z"/></svg>',
+      audio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 14v-4M8 17v-10M12 19v-14M16 17v-10M20 14v-4"/></svg>',
+      archive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3.5" y="7" width="17" height="13.5" rx="1.5"/><path d="M3.5 7V5a1.5 1.5 0 0 1 1.5-1.5h14A1.5 1.5 0 0 1 20.5 5v2"/><line x1="12" y1="11" x2="12" y2="13.5"/></svg>',
+      pending: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+      done: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.2 12.3l2.6 2.6 5-5.4"/></svg>',
+      error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><line x1="9.2" y1="9.2" x2="14.8" y2="14.8"/><line x1="14.8" y1="9.2" x2="9.2" y2="14.8"/></svg>'
+    };
+
+    function iconForFile(name) {
+      const ext = name.split('.').pop().toLowerCase();
+      if (['png','jpg','jpeg','gif','webp','svg','bmp'].includes(ext)) return Icons.image;
+      if (['mp4','mov','webm','mkv','avi'].includes(ext)) return Icons.video;
+      if (['mp3','wav','ogg','flac','m4a'].includes(ext)) return Icons.audio;
+      if (['zip','rar','7z','tar','gz'].includes(ext)) return Icons.archive;
+      return Icons.generic;
+    }
+
+    function waitForWOS(cb) { if (window.WOS && window.WOS.fs) cb(); else setTimeout(() => waitForWOS(cb), 100); }
+
+    waitForWOS(() => {
+      const dropzone = document.getElementById('dropzone');
+      const fileInput = document.getElementById('fileInput');
+      const listBody = document.getElementById('listBody');
+      const counter = document.getElementById('counter');
+      const headerCounter = document.getElementById('headerCounter');
+      let queueCount = 0;
+
+      function updateCounter() {
+        counter.textContent = `${queueCount} archivo(s)`;
+        headerCounter.textContent = queueCount > 0 ? `${queueCount} EN COLA` : '';
+      }
+
+      function addFileToUI(file) {
+        const empty = listBody.querySelector('.empty-state');
+        if (empty) empty.remove();
+        queueCount++; updateCounter();
+
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.innerHTML = `
+          <div class="fi-icon-badge">${iconForFile(file.name)}</div>
+          <div class="fi-info">
+            <div class="fi-name">${file.name}</div>
+            <div class="fi-meta">${(file.size / 1024).toFixed(2)} KB · Pendiente</div>
+          </div>
+          <div class="fi-status pending">${Icons.pending} ESPERANDO</div>`;
+        listBody.prepend(item);
+
+        const statusEl = item.querySelector('.fi-status');
+        const metaEl = item.querySelector('.fi-meta');
+
+        setTimeout(async () => {
+          statusEl.className = 'fi-status processing';
+          statusEl.innerHTML = `<span class="spinner-ring"></span> IMPORTANDO`;
+
+          try {
+            const result = await WOS.import.ingest(file);
+            statusEl.className = 'fi-status done';
+            statusEl.innerHTML = `${Icons.done} COMPLETADO`;
+            metaEl.textContent = `${(file.size / 1024).toFixed(2)} KB → ${result.path}`;
+            WOS.toast(`Importado: ${file.name}`, 'ok', 'IMPORTADOR');
+          } catch (err) {
+            statusEl.className = 'fi-status error';
+            statusEl.innerHTML = `${Icons.error} ERROR`;
+            metaEl.textContent = err.message || 'Falló la importación';
+            WOS.toast(`Error: ${err.message}`, 'error');
+          } finally {
+            queueCount--; updateCounter();
+          }
+        }, 100 + Math.random() * 200);
+      }
+
+      dropzone.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', (e) => {
+        Array.from(e.target.files).forEach(addFileToUI);
+        fileInput.value = '';
+      });
+
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); });
+      });
+      ['dragenter', 'dragover'].forEach(eventName => dropzone.addEventListener(eventName, () => dropzone.classList.add('dragover')));
+      ['dragleave', 'drop'].forEach(eventName => dropzone.addEventListener(eventName, () => dropzone.classList.remove('dragover')));
+
+      dropzone.addEventListener('drop', (e) => {
+        Array.from(e.dataTransfer.files).forEach(addFileToUI);
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+Date : 2026-07-21 18:19:28
+Directory : c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web
+Total : 7 files,  823 codes, 2 comments, 88 blanks, all 913 lines
+
+Languages
++------------+------------+------------+------------+------------+------------+
+| language   | files      | code       | comment    | blank      | total      |
++------------+------------+------------+------------+------------+------------+
+| HTML       |          5 |        778 |          1 |         79 |        858 |
+| JavaScript |          1 |         44 |          1 |          9 |         54 |
+| JSON       |          1 |          1 |          0 |          0 |          1 |
++------------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                    | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                       |          7 |        823 |          2 |         88 |        913 |
+| . (Files)                                                                               |          2 |         42 |          0 |          9 |         51 |
+| Modulos                                                                                 |          2 |         45 |          1 |          9 |         55 |
+| Modulos\Servicios                                                                       |          2 |         45 |          1 |          9 |         55 |
+| apps                                                                                    |          3 |        736 |          1 |         70 |        807 |
++-----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| filename                                                                                | language   | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\Servicios\ide-bridge.js | JavaScript |         44 |          1 |          9 |         54 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\Servicios\index.json    | JSON       |          1 |          0 |          0 |          1 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\IDE.html                   | HTML       |        595 |          0 |         57 |        652 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\config.html                | HTML       |         72 |          1 |          7 |         80 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\terminal.html              | HTML       |         69 |          0 |          6 |         75 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\index.html                      | HTML       |         27 |          0 |          5 |         32 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\shell.html                      | HTML       |         15 |          0 |          4 |         19 |
+| Total                                                                                   |            |        823 |          2 |         88 |        913 |
++-----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+

@@ -6,7 +6,7 @@
   ═══════════════════════════════════════════════════ */
   const DB_NAME    = 'huebos_db';
   const DB_VERSION = 4;
-  const KERNEL_VERSION = '0.5.1'; // v0.5.0: Permisos + Notificaciones + Portapapeles + Servicios reales
+  const KERNEL_VERSION = '0.5.2'; // v0.5.2: Permisos + Notificaciones + Portapapeles + Servicios reales
   const STORES = {
     FS           : 'fs',
     PREFS        : 'prefs',
@@ -34,7 +34,7 @@
   ];
 
   /* ═══════════════════════════════════════════════════
-     MIGRATION SYSTEM                          [Alpha 1.0]
+     MIGRATION SYSTEM                          [Release 1.0.0]
   ═══════════════════════════════════════════════════ */
   const MIGRATIONS = {
 
@@ -204,6 +204,8 @@ if (!blockedNotified) {
       });
     },
 
+    // sabias que el Kernel no es un framework?
+
     get(store, id) {
       return new Promise((resolve, reject) => {
         const tx  = _db.transaction(store, 'readonly');
@@ -251,6 +253,10 @@ if (!blockedNotified) {
 
     clear(store) {
       return new Promise((resolve, reject) => {
+        if (!_db) {
+          console.warn(`[Kernel:db] Intento de limpiar '${store}' pero la conexión está cerrada.`);
+          return resolve(); // Resolvemos para que la UI no se congele
+        }
         const tx  = _db.transaction(store, 'readwrite');
         const req = tx.objectStore(store).clear();
         req.onsuccess = () => resolve();
@@ -275,7 +281,17 @@ if (!blockedNotified) {
       if (!p) p = '/';
       if (p !== '/' && p.endsWith('/')) p = p.slice(0, -1);
 
-      const parts = p.split('/').filter(Boolean);
+      // Colapsar segmentos "." y ".." incluso en rutas absolutas
+      const rawParts = p.split('/').filter(Boolean);
+      const parts = [];
+      for (const seg of rawParts) {
+        if (seg === '.') continue;
+        if (seg === '..') {
+          if (parts.length) parts.pop();
+          continue;
+        }
+        parts.push(seg);
+      }
       if (!parts.length) return '/';
 
       const reserved = {
@@ -529,8 +545,11 @@ _dirname(path) {
 
     /* Crea un archivo vacío si no existe, o actualiza su mtime si ya existe.
        Equivalente a `touch` de Unix. No sobrescribe contenido. */
-    async touch(path, opts = {}) {
+async touch(path, opts = {}) {
       path = this._normalize(path);
+      if (this._isSystemProtectedPath(path) && !opts.allowProtected) {
+        throw new Error(`FS.touch: '${path}' está protegido por el kernel`);
+      }
       const existing = await DB.get(STORES.FS, path);
       const now = Date.now();
       if (existing) {
@@ -605,73 +624,86 @@ _dirname(path) {
       console.debug(`[Kernel:fs] remove ${target}`);
     },
 
-async move(src, dst) {
-      const source = this._normalizeTargetPath(src, { kind: 'dir' });
-      let target = this._normalizeTargetPath(dst, { kind: 'dir' });
-      if (this._isSystemProtectedPath(source) || this._isSystemProtectedPath(target)) {
-        throw new Error(`FS.move: '${source}' o '${target}' está protegido por el kernel`);
+  async move(src, dst) {
+    const source = this._normalizeTargetPath(src, { kind: 'dir' });
+    let target = this._normalizeTargetPath(dst, { kind: 'dir' });
+    if (this._isSystemProtectedPath(source) || this._isSystemProtectedPath(target)) {
+      throw new Error(`FS.move: '${source}' o '${target}' está protegido por el kernel`);
+    }
+    const node = await DB.get(STORES.FS, source);
+    if (!node) throw new Error(`FS.move: '${source}' no existe`);
+    if (this._isProtectedNode(node)) throw new Error(`FS.move: '${source}' está protegido`);
+
+    // Convención estilo "mv": si el destino es una carpeta existente, mover DENTRO de ella
+    const destAsIs = await DB.get(STORES.FS, target);
+    if (destAsIs && destAsIs.type === 'dir') {
+      target = this._normalize(`${target}/${this._basename(source)}`);
+    }
+
+    if (target === source) return node; // mismo origen y destino: no-op
+
+    // No permitir mover una carpeta dentro de sí misma o de un descendiente suyo
+    if (node.type === 'dir' && target.startsWith(source + '/')) {
+      throw new Error(`FS.move: no se puede mover '${source}' dentro de sí misma`);
+    }
+
+    // El destino final no puede chocar con un nodo existente de OTRO tipo
+    const finalTarget = await DB.get(STORES.FS, target);
+    if (finalTarget && finalTarget.type !== node.type) {
+      throw new Error(`FS.move: ya existe '${target}' y es de tipo distinto (${finalTarget.type})`);
+    }
+
+    // El directorio padre del destino debe existir de verdad
+    const targetParent = this._dirname(target);
+    if (targetParent) {
+      const parentNode = await DB.get(STORES.FS, targetParent);
+      if (!parentNode || parentNode.type !== 'dir') {
+        throw new Error(`FS.move: el directorio destino '${targetParent}' no existe`);
       }
-      const node = await DB.get(STORES.FS, source);
-      if (!node) throw new Error(`FS.move: '${source}' no existe`);
-      if (this._isProtectedNode(node)) throw new Error(`FS.move: '${source}' está protegido`);
+    }
 
-      // Convención estilo "mv": si el destino es una carpeta existente, mover DENTRO de ella
-      const destAsIs = await DB.get(STORES.FS, target);
-      if (destAsIs && destAsIs.type === 'dir') {
-        target = this._normalize(`${target}/${this._basename(source)}`);
-      }
-
-      if (target === source) return node; // mismo origen y destino: no-op
-
-      // No permitir mover una carpeta dentro de sí misma o de un descendiente suyo
-      if (node.type === 'dir' && target.startsWith(source + '/')) {
-        throw new Error(`FS.move: no se puede mover '${source}' dentro de sí misma`);
-      }
-
-      // El destino final no puede chocar con un nodo existente de OTRO tipo
-      // (evita que un archivo reemplace una carpeta, o viceversa, dejando huérfanos)
-      const finalTarget = await DB.get(STORES.FS, target);
-      if (finalTarget && finalTarget.type !== node.type) {
-        throw new Error(`FS.move: ya existe '${target}' y es de tipo distinto (${finalTarget.type})`);
-      }
-
-      // El directorio padre del destino debe existir de verdad, no se crea solo
-      const targetParent = this._dirname(target);
-      if (targetParent) {
-        const parentNode = await DB.get(STORES.FS, targetParent);
-        if (!parentNode || parentNode.type !== 'dir') {
-          throw new Error(`FS.move: el directorio destino '${targetParent}' no existe`);
-        }
-      }
-
-      if (node.type === 'dir') {
-        const all = await DB.list(STORES.FS);
-        const affected = all.filter(n => n.id === source || n.id.startsWith(source + '/'));
-        for (const n of affected) {
-          const newId = target + n.id.slice(source.length);
-          await DB.delete(STORES.FS, n.id);
-          await DB.put(STORES.FS, {
-            ...n,
-            id     : newId,
-            name   : newId === target ? this._basename(target) : n.name,
-            parent : this._dirname(newId),
-            mtime  : Date.now(),
-          });
-        }
-      } else {
-        await DB.delete(STORES.FS, source);
+    if (node.type === 'dir') {
+      const all = await DB.list(STORES.FS);
+      const affected = all.filter(n => n.id === source || n.id.startsWith(source + '/'));
+      for (const n of affected) {
+        const newId = target + n.id.slice(source.length);
+        await DB.delete(STORES.FS, n.id);
         await DB.put(STORES.FS, {
-          ...node,
-          id     : target,
-          name   : this._basename(target),
-          parent : this._dirname(target),
+          ...n,
+          id     : newId,
+          name   : newId === target ? this._basename(target) : n.name,
+          parent : this._dirname(newId),
           mtime  : Date.now(),
         });
       }
+    } else {
+      await DB.delete(STORES.FS, source);
+      await DB.put(STORES.FS, {
+        ...node,
+        id     : target,
+        name   : this._basename(target),
+        parent : this._dirname(target),
+        mtime  : Date.now(),
+      });
 
-      EventBus.emit('fs:move', { src: source, dst: target });
-      console.debug(`[Kernel:fs] move ${source} → ${target}`);
-    },
+      // === FIX CRÍTICO: MOVER EL BLOB BINARIO SI EXISTE ===
+      if (node.encoding === 'binary') {
+        const blobRecord = await DB.get(STORES.BINARY_BLOBS, source);
+        if (blobRecord) {
+          await DB.delete(STORES.BINARY_BLOBS, source); // Borrar de la ruta vieja
+          await DB.put(STORES.BINARY_BLOBS, { 
+            id: target, 
+            data: blobRecord.data, 
+            mtime: Date.now() 
+          }); // Guardar en la ruta nueva
+        }
+      }
+      // ====================================================
+    }
+
+    EventBus.emit('fs:move', { src: source, dst: target });
+    console.debug(`[Kernel:fs] move ${source} → ${target}`);
+  },
 
     async exists(path) {
       return (await DB.get(STORES.FS, this._normalize(path))) !== null;
@@ -821,6 +853,15 @@ async move(src, dst) {
       }
 
       const ext = ExtensionManager.getExtension(normalized);
+
+      // ── Delegar al Servicio de Instalación si es un .hpkg ──
+      if (ext === '.hpkg' && Kernel.installer) {
+        const installed = await Kernel.installer.install(normalized);
+        return { ok: installed, appId: 'installer', extension: ext };
+      }
+
+      // amo esta cosa, no solo pq es grande, si no pq tmb, es algo que me mato la cabeza, te amo kernel mio :3
+
       const resolved = ExtensionManager.resolve(ext) || ExtensionManager.resolve(ext.replace('.', ''));
       const appId = node.meta?.appId || resolved?.handler || opts.appId || null;
       if (!appId) {
@@ -834,13 +875,13 @@ async move(src, dst) {
         return { ok: false, reason: 'APP_NOT_FOUND', appId, extension: ext };
       }
 
-  const isSysExec = !!(node.meta?.systemApp && node.meta?.source === 'system-executable');
-  EventBus.emit('shell:launch', isSysExec
-    ? { appId }
-    : { appId, filePath: normalized, startPath: FS._dirname(normalized) }
-  );
-  return { ok: true, appId, extension: ext };
-},
+      const isSysExec = !!(node.meta?.systemApp && node.meta?.source === 'system-executable');
+      EventBus.emit('shell:launch', isSysExec
+        ? { appId }
+        : { appId, filePath: normalized, startPath: FS._dirname(normalized) }
+      );
+      return { ok: true, appId, extension: ext };
+    },
   };
 
   /* ═══════════════════════════════════════════════════
@@ -869,7 +910,7 @@ async move(src, dst) {
   };
 
   /* ═══════════════════════════════════════════════════
-     VARIABLES DE ENTORNO  (v0.4.0 — Env)
+     VARIABLES DE ENTORNO  (v0.5.2 — Env)
      Persistidas en prefs con prefijo "env.".
   ═══════════════════════════════════════════════════ */
   const Env = {
@@ -917,8 +958,66 @@ async move(src, dst) {
     },
   };
 
+ const Security = (() => {
+    // Sal fija por instalación (persistida en localStorage). Así, aunque la
+    // IndexedDB sea exportada/compartida, los hashes no son reutilizables en
+    // otra instancia sin la misma sal.
+    const _installSalt = (() => {
+      let s = null;
+      try { s = localStorage.getItem('huebos_salt'); } catch (_) {}
+      if (!s) {
+        const arr = new Uint8Array(16);
+        crypto.getRandomValues(arr);
+        s = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+        try { localStorage.setItem('huebos_salt', s); } catch (_) {}
+      }
+      return s;
+    })();
+
+    async function _legacyHash(plain) {
+      const enc = new TextEncoder().encode(plain);
+      const digest = await crypto.subtle.digest('SHA-256', enc);
+      return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function hashPassword(plain) {
+      if (!plain) return '';
+      const enc = new TextEncoder().encode(_installSalt + ':' + plain);
+      const digest = await crypto.subtle.digest('SHA-256', enc);
+      return 'sha256$' + Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function looksHashed(v) {
+      if (typeof v !== 'string') return false;
+      // nuevo formato salado: sha256$<64 hex>
+      if (/^sha256\$[0-9a-f]{64}$/.test(v)) return true;
+      // legacy sin sal: 64 hex puros
+      return /^[0-9a-f]{64}$/.test(v);
+    }
+
+    /** Compara un plain contra cualquier formato almacenado (legacy o salado).
+     *  Devuelve {match, needsMigration}. */
+    async function verifyPassword(plain, stored) {
+      if (!stored) return { match: !plain, needsMigration: false };
+      // plain-text legacy (no hasheado)
+      if (!looksHashed(stored)) {
+        return { match: stored === plain, needsMigration: true };
+      }
+      // sha-256 sin sal (legacy)
+      if (/^[0-9a-f]{64}$/.test(stored)) {
+        const legacy = await _legacyHash(plain);
+        return { match: legacy === stored, needsMigration: true };
+      }
+      // formato salado actual
+      const newHash = await hashPassword(plain);
+      return { match: newHash === stored, needsMigration: false };
+    }
+
+    return { hashPassword, looksHashed, verifyPassword };
+  })();
+
   /* ═══════════════════════════════════════════════════
-     GESTIÓN DE USUARIOS  (v0.4.0 — Users)
+     GESTIÓN DE USUARIOS  (v0.5.2 — Users)
      Multiusuario simple: un usuario activo, datos en prefs.
   ═══════════════════════════════════════════════════ */
   const Users = {
@@ -949,13 +1048,13 @@ async move(src, dst) {
       return users.find(u => u.id === id) || null;
     },
 
-    async create(id, name, opts = {}) {
+async create(id, name, opts = {}) {
       const users = await this._loadUsers();
       if (users.find(u => u.id === id)) throw new Error(`Users.create: '${id}' ya existe`);
       const user = {
         id,
         name: name || id,
-        password: opts.password || '',
+        password: opts.password ? await Security.hashPassword(opts.password) : '',
         avatar: opts.avatar || '👤',
         role: opts.role || 'user',
         createdAt: Date.now(),
@@ -980,8 +1079,13 @@ async move(src, dst) {
       /* Validar contra user.password (users.list) y security.password (prefs) */
       const secPwd = await Prefs.get('security.password', '');
       const effectivePwd = user.password || secPwd;
-      if (effectivePwd && effectivePwd !== password) {
-        throw new Error('Users.login: contraseña incorrecta');
+      if (effectivePwd) {
+        const { match, needsMigration } = await Security.verifyPassword(password || '', effectivePwd);
+        if (!match) throw new Error('Users.login: contraseña incorrecta');
+        if (needsMigration) {
+          // Era hash legacy o plain-text: re-hashear con sal de instalación
+          await this.setPassword(password || '');
+        }
       }
       this._current = { id: user.id, name: user.name, avatar: user.avatar, role: user.role };
       await Prefs.set('users.current', this._current);
@@ -1009,9 +1113,10 @@ async move(src, dst) {
       const list = await this._loadUsers();
       const idx = list.findIndex(u => u.id === cur.id);
       if (idx < 0) throw new Error(`Users.setPassword: usuario '${cur.id}' no encontrado`);
-      list[idx].password = newPassword || '';
+      const hashed = newPassword ? await Security.hashPassword(newPassword) : '';
+      list[idx].password = hashed;
       await Prefs.set('users.list', list);
-      await Prefs.set('security.password', newPassword || '');
+      await Prefs.set('security.password', hashed);
       EventBus.emit('users:passwordChanged', { id: cur.id });
       return true;
     },
@@ -1226,25 +1331,67 @@ async move(src, dst) {
       _state = { op: null, paths: [] };
       EventBus.emit('clipboard:change', { ..._state });
     }
+    async function _copyRecursive(srcPath, destPath) {
+      const stat = await FS.stat(srcPath);
+      if (!stat) throw new Error('Origen no encontrado');
+      if (stat.type === 'dir') {
+        await FS.mkdir(destPath);
+        const children = await FS.readdir(srcPath);
+        for (const child of children) {
+          await _copyRecursive(child.id, destPath + '/' + child.name);
+        }
+        return;
+      }
+      if (stat.type === 'shortcut') {
+        await FS.createShortcut(destPath, {
+          appId: stat.meta?.appId,
+          name: stat.name,
+          icon: stat.icon,
+          entry: stat.meta?.entry ?? null,
+          metadata: { ...(stat.meta || {}) },
+        });
+        return;
+      }
+      if (await FS.isBinary(srcPath)) {
+        const blob = await FS.readBlob(srcPath);
+        const mime = await FS.getMime(srcPath);
+        await FS.writeBinary(destPath, blob, mime);
+      } else {
+        await FS.write(destPath, await FS.read(srcPath));
+      }
+    }
+
+    async function _uniqueName(dirPath, name) {
+      if (!(await FS.exists(dirPath + '/' + name))) return name;
+      const dot = name.lastIndexOf('.');
+      const base = dot > 0 ? name.slice(0, dot) : name;
+      const ext  = dot > 0 ? name.slice(dot) : '';
+      let n = 2, candidate;
+      do { candidate = `${base} (${n})${ext}`; n++; }
+      while (await FS.exists(dirPath + '/' + candidate));
+      return candidate;
+    }
+
     async function paste(destDir) {
       if (!_state.paths.length) return { count: 0 };
       let count = 0;
       for (const src of _state.paths) {
-        const dst = FS.normalize(`${destDir}/${FS.basename(src)}`);
+        const srcDir = FS.dirname(src);
+        const name   = FS.basename(src);
         try {
           if (_state.op === 'copy') {
-            if (await FS.exists(dst)) continue;
-            const node = await FS.stat(src);
-            if (!node || node.type === 'dir') continue; // copia recursiva de carpetas: fuera de alcance por ahora
-            if (node.encoding === 'binary') {
-              const blob = await FS.readBlob(src);
-              await FS.writeBinary(dst, blob, node.mime || 'application/octet-stream');
-            } else {
-              await FS.write(dst, await FS.read(src));
+            let targetName = name;
+            if (srcDir === destDir || await FS.exists(destDir + '/' + targetName)) {
+              targetName = await _uniqueName(destDir, name);
             }
+            await _copyRecursive(src, destDir + '/' + targetName);
           } else if (_state.op === 'cut') {
-            if (await FS.exists(dst)) continue;
-            await FS.move(src, dst);
+            if (srcDir === destDir) continue;
+            let targetName = name;
+            if (await FS.exists(destDir + '/' + targetName)) {
+              targetName = await _uniqueName(destDir, targetName);
+            }
+            await FS.move(src, destDir + '/' + targetName);
           }
           count++;
         } catch (err) {
@@ -1494,10 +1641,32 @@ const ModuleLoader = (() => {
       try { code = await FS.read(path); }
       catch (err) { console.error(`[Kernel:modules] no se pudo leer ${path}:`, err); return null; }
 
-      let def;
+            let def;
       try {
-        const factory = new Function('Kernel', `"use strict";\n${code}\n;return (typeof ${kindDef.entryFn} === 'function') ? ${kindDef.entryFn}(Kernel) : null;`);
-        def = factory(global.Kernel);
+        // Usamos un Blob URL para evadir el CSP (default-src 'self')
+        const resultVar = `__huebos_mod_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+        const wrappedCode = `"use strict";\n${code}\n;window.${resultVar} = (typeof ${kindDef.entryFn} === 'function') ? ${kindDef.entryFn}(window.Kernel) : null;`;
+        
+        const blob = new Blob([wrappedCode], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        
+        def = await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = url;
+          script.onload = () => {
+            URL.revokeObjectURL(url);
+            const result = window[resultVar];
+            try { delete window[resultVar]; } catch(e) { window[resultVar] = undefined; }
+            script.remove();
+            resolve(result);
+          };
+          script.onerror = () => {
+            URL.revokeObjectURL(url);
+            script.remove();
+            reject(new Error(`Error al ejecutar el script: ${path}`));
+          };
+          document.body.appendChild(script);
+        });
       } catch (err) {
         console.error(`[Kernel:modules] error al cargar ${path}:`, err);
         CrashReporter.report(`ModuleLoader: fallo al cargar ${path}`, err, { path, kind: kindDef.kind });
@@ -1579,7 +1748,7 @@ const ModuleLoader = (() => {
     return { bootAll, syncKindFromReal, startKind, loadOne, list, stop, restart };
   })();
   /* ═══════════════════════════════════════════════════
-     WATCHDOG                                  [Alpha 1.0]
+     WATCHDOG                                  [Release 1.0.0]
   ═══════════════════════════════════════════════════ */
   const Watchdog = (() => {
     const SS_KEY = 'wos_boot_state';
@@ -1625,7 +1794,7 @@ const ModuleLoader = (() => {
   })();
 
   /* ═══════════════════════════════════════════════════
-     CRASH REPORTER                            [Alpha 1.0]
+     CRASH REPORTER                            [Release 1.0.0]
   ═══════════════════════════════════════════════════ */
   const CrashReporter = (() => {
     const MAX_CRASHES   = 20;
@@ -1737,7 +1906,7 @@ const ModuleLoader = (() => {
   })();
 
   /* ═══════════════════════════════════════════════════
-     SESSION TRACKER                           [Alpha 1.0]
+     SESSION TRACKER                           [Release 1.0.0]
   ═══════════════════════════════════════════════════ */
 let _bootStartedAt = Date.now();
   let _safeModeThisBoot = false;
@@ -1784,6 +1953,7 @@ async function _backupBeforeWipe() {
   try {
     const fsRecords = await DB.list(STORES.FS);
     const blobRecords = await DB.list(STORES.BINARY_BLOBS);
+    const prefRecords = await DB.list(STORES.PREFS);
 
     const binaryBlobs = [];
     for (const rec of blobRecords) {
@@ -1795,11 +1965,22 @@ async function _backupBeforeWipe() {
       }
     }
 
+    // Redactar credenciales: el archivo se descarga al disco del usuario,
+    // no hace falta que cargue con contraseñas, ni siquiera hasheadas.
+    const redactedPrefs = prefRecords.map(rec => {
+      if (rec.id === 'security.password') return { ...rec, value: '[redacted]' };
+      if (rec.id === 'users.list' && Array.isArray(rec.value)) {
+        return { ...rec, value: rec.value.map(u => ({ ...u, password: u.password ? '[redacted]' : '' })) };
+      }
+      return rec;
+    });
+
     const snapshot = {
       exportedAt: new Date().toISOString(),
       reason: 'fs.hierarchyVersion mismatch — backup automático antes de limpiar',
       fs: fsRecords,
       binaryBlobs,
+      prefs: redactedPrefs,
     };
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1810,9 +1991,11 @@ async function _backupBeforeWipe() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    console.warn(`[Kernel:fs] backup descargado antes de reinicializar (${fsRecords.length} nodos, ${binaryBlobs.length} binarios)`);
+    console.warn(`[Kernel:fs] backup descargado antes de reinicializar (${fsRecords.length} nodos, ${binaryBlobs.length} binarios, ${prefRecords.length} prefs)`);
+    return { fsCount: fsRecords.length, blobCount: binaryBlobs.length, prefCount: prefRecords.length };
   } catch (err) {
     console.error('[Kernel:fs] no se pudo generar el backup antes de reinicializar:', err);
+    return { fsCount: 0, blobCount: 0, prefCount: 0, failed: true };
   }
 }
 
@@ -1828,7 +2011,7 @@ async function _ensureFsHierarchy() {
 
   // Actualización real de jerarquía: respaldar y reconstruir
   console.warn('[Kernel:fs] jerarquía de FS modificada, generando backup y reinicializando IndexedDB');
-  await _backupBeforeWipe();
+  const backupInfo = await _backupBeforeWipe();
   await DB.clear(STORES.FS);
   await DB.clear(STORES.PREFS);
   await DB.clear(STORES.APPS_META);
@@ -1836,6 +2019,7 @@ async function _ensureFsHierarchy() {
   await DB.clear(STORES.BINARY_BLOBS);
   await Prefs.set('fs.hierarchyVersion', FS_HIERARCHY_VERSION);
   await Prefs.set('boot.firstRun', true);
+  await Prefs.set('boot.migrationBackupNotice', { ts: Date.now(), ...backupInfo });
   console.info('[Kernel:fs] DB reinicializada por cambio de jerarquía (backup generado)');
 }
 
@@ -1898,7 +2082,7 @@ await ensureFile('/system/index.sys', '<!-- sistema index -->', true, { protecte
       await FS.write('/home/docs/readme.txt', [
         '╔══════════════════════════════════════════╗',
         '║         H U E B O S  —  v0.3.0          ║',
-        '║              Alpha 2.0                   ║',
+        '║              Release 1.0.0               ║',
         '╚══════════════════════════════════════════╝',
         '',
         'Bienvenido a HUEBOS.',
@@ -1921,7 +2105,7 @@ await ensureFile('/system/index.sys', '<!-- sistema index -->', true, { protecte
         `  ${SYSTEM_DIR} → sistema protegido`,
         `  ${TEMP_DIR} → archivos temporales`,
         '',
-        'Kernel version : 0.4.0 (UEFI Firmware)',
+        'Kernel version : 0.5.2 (UEFI Firmware)',
         `Boot time      : ${new Date().toISOString()}`,
       ].join('\n'));
       console.info('[Kernel:boot] FS inicial creado');
@@ -2052,22 +2236,27 @@ await ensureFile('/system/index.sys', '<!-- sistema index -->', true, { protecte
     try {
       const registeredApps = await Apps.list();
       const preferredEditor = registeredApps.some(app => app.id === 'text-editor') ? 'text-editor' : 'editor';
+      const mediaApp = registeredApps.some(app => app.id === 'multimedia') ? 'multimedia' : 'files';
+      
       const textExtensions = ['.txt', '.md', '.js', '.ts', '.html', '.css', '.json', '.csv', '.log', '.sh', '.py', '.xml', '.yaml', '.yml', '.ini', '.cfg', '.conf', '.env'];
       const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
-      const mediaExtensions = ['.mp3', '.mp4', '.wav', '.ogg'];
+      const mediaExtensions = ['.mp3', '.mp4', '.wav', '.ogg', '.webm', '.mov'];
       const archiveExtensions = ['.zip', '.tar', '.gz', '.7z'];
       const docExtensions = ['.pdf'];
 
       for (const ext of textExtensions) AppBinding.registerExtension(ext, preferredEditor, 'text/plain');
-      for (const ext of imageExtensions) AppBinding.registerExtension(ext, preferredEditor, 'image/*');
-      for (const ext of mediaExtensions) AppBinding.registerExtension(ext, preferredEditor, 'audio/*');
+      
+      // CORRECCIÓN: Las imágenes y multimedia van a la app Multimedia
+      for (const ext of imageExtensions) AppBinding.registerExtension(ext, mediaApp, 'image/*');
+      for (const ext of mediaExtensions) AppBinding.registerExtension(ext, mediaApp, 'video/*');
+      
       for (const ext of archiveExtensions) AppBinding.registerExtension(ext, 'files', 'application/zip');
       for (const ext of docExtensions) AppBinding.registerExtension(ext, 'files', 'application/pdf');
 
       if (!AppBinding._fieldBindings.has('editor')) {
         AppBinding.bindFileField('editor', preferredEditor);
       }
-      console.info(`[Kernel:extensions] ${textExtensions.length + imageExtensions.length + mediaExtensions.length + archiveExtensions.length + docExtensions.length} extensiones registradas`);
+      console.info(`[Kernel:extensions] Asociaciones de archivos registradas correctamente`);
     } catch (err) {
       console.warn('[Kernel:extensions] No se pudieron registrar extensiones:', err);
     }
@@ -2320,7 +2509,7 @@ Watchdog.clearAll();
      API PÚBLICA  — global.Kernel
   ═══════════════════════════════════════════════════ */
 
- const Icons = {
+const Icons = {
     detect(icon) {
       const raw = String(icon ?? '').trim();
       if (!raw) return 'text';
@@ -2331,6 +2520,47 @@ Watchdog.clearAll();
       return 'text';
     },
 
+    _sanitizeSvg(svg) {
+      try {
+        const doc = new DOMParser().parseFromString(String(svg), 'image/svg+xml');
+        if (!doc || !doc.documentElement) return '';
+        const walker = doc.createTreeWalker(doc.documentElement, NodeFilter.SHOW_ELEMENT);
+        const toRemove = [];
+        let node;
+        while ((node = walker.nextNode())) {
+          const tag = node.tagName.toLowerCase();
+          // Elementos peligrosos: eliminar completamente
+          if (tag === 'script' || tag === 'foreignobject' || tag === 'use' && (node.getAttribute('href') || '').startsWith('data:')) {
+            toRemove.push(node);
+            continue;
+          }
+          // Atributos on* y javascript: en href/xlink:href
+          [...node.attributes].forEach(attr => {
+            const name  = attr.name.toLowerCase();
+            const value = String(attr.value).trim().toLowerCase();
+            if (name.startsWith('on')) {
+              node.removeAttribute(attr.name);
+            } else if ((name === 'href' || name === 'xlink:href') &&
+                       (value.startsWith('javascript:') || value.startsWith('data:text/html'))) {
+              node.setAttribute(attr.name, '#');
+            }
+          });
+          
+          /* Eliminar colores hardcoded en el SVG para que hereden el tema dinámico del shell */
+          if (tag !== 'image') {
+            node.removeAttribute('fill');
+            node.removeAttribute('stroke');
+            node.removeAttribute('color');
+          }
+        }
+        toRemove.forEach(n => n.remove());
+        return new XMLSerializer().serializeToString(doc.documentElement);
+      } catch (_) {
+        // Si el SVG no parsea, nos negamos a renderizarlo crudo
+        return '';
+      }
+    },
+
     render(icon, opts = {}) {
       const fallback = opts.fallback ?? '▪';
       const size = opts.size ?? null;
@@ -2339,17 +2569,56 @@ Watchdog.clearAll();
       const type = this.detect(raw);
       const sizeAttr = size ? ` style="width:${size}px;height:${size}px;"` : '';
       if (type === 'svg') {
-        return size ? raw.replace(/^<svg/i, `<svg${sizeAttr}`) : raw;
+        const clean = this._sanitizeSvg(raw);
+        return size ? clean.replace(/^<svg/i, `<svg${sizeAttr}`) : clean;
       }
       if (type === 'url') {
         const safeSrc = raw.replace(/"/g, '&quot;');
+        // Icono de un solo color+máscara (./apps/public/*.svg): se recolorea
+        // con CSS mask en vez de <img>, así hereda var(--g) igual que los SVG inline.
+        if (/\.svg(\?.*)?$/i.test(raw)) {
+          const sizeStyle = size ? `width:${size}px;height:${size}px;` : '';
+          return `<span class="icon-mask" style="${sizeStyle}-webkit-mask-image:url('${safeSrc}');mask-image:url('${safeSrc}');" role="img" aria-label=""></span>`;
+        }
         return `<img class="icon-img" src="${safeSrc}"${sizeAttr} alt="" draggable="false" />`;
       }
       return raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     },
   };
 
-const BUILD_ID = `${KERNEL_VERSION}+db${DB_VERSION}+fs${FS_HIERARCHY_VERSION}`;
+const BUILD_ID = `${KERNEL_VERSION}+db${DB_VERSION}+fs${FS_HIERARCHY_VERSION}`
+
+  /* ═══════════════════════════════════════════════════
+     WINDOWS MANAGER STUB  (v0.5.2)
+     El shell inyecta el driver real mediante registerDriver
+  ═══════════════════════════════════════════════════ */
+  const Windows = {
+    _driver: null,
+    registerDriver(driver) { 
+      this._driver = driver; 
+      EventBus.emit('windows:driverRegistered', {});
+    },
+    list() { return this._driver ? this._driver.list() : []; },
+    getState(pid) { return this._driver ? this._driver.getState(pid) : null; },
+    focus(pid) { return this._driver ? this._driver.focus(pid) : false; },
+    minimize(pid) { return this._driver ? this._driver.minimize(pid) : false; },
+    close(pid) { return this._driver ? this._driver.close(pid) : false; },
+  };
+
+  /* Stubs para que el IPC no crashee si las apps los llaman */
+  const SystemRegistry = {
+    _reg: new Map(),
+    register(key, val) { this._reg.set(key, val); EventBus.emit('registry:register', { key }); },
+    get(key) { return this._reg.get(key); },
+    list() { return [...this._reg.entries()]; },
+    unregister(key) { this._reg.delete(key); }
+  };
+
+  const Scheduler = {
+    _tasks: new Map(),
+    addTask(id, fn, interval) { this._tasks.set(id, setInterval(fn, interval)); EventBus.emit('scheduler:taskAdded', { id }); },
+    removeTask(id) { clearInterval(this._tasks.get(id)); this._tasks.delete(id); EventBus.emit('scheduler:taskRemoved', { id }); }
+  };
 
   const Kernel = {
   version : KERNEL_VERSION,
@@ -2376,9 +2645,13 @@ extensions  : ExtensionManager,
     bindings    : AppBinding,
     icons       : Icons,
     permissions : Permissions,
+    security    : Security,
     notifications: Notifications,
     clipboard   : Clipboard,
     modules     : ModuleLoader,
+    windows       : Windows,
+    systemRegistry: SystemRegistry,
+    scheduler     : Scheduler,
 
     STORES,
 

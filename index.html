@@ -332,7 +332,7 @@
 <span class="dim">║</span>   <span class="line">╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚══════╝</span>  <span class="dim">║</span>
 <span class="dim">╚═══════════════════════════════════════════════════════╝</span></pre>
 
-    <div id="version">KERNEL v0.4.0 · UEFI FIRMWARE · INIT</div>
+    <div id="version">KERNEL v0.5.2 · UEFI FIRMWARE · INIT</div>
 
     <!-- Log de arranque -->
     <div id="boot-log"></div>
@@ -362,7 +362,7 @@
 
   <!-- Kernel -->
 
-  <!-- Kernel Alpha 1.0 — cargado como módulo externo -->
+  <!-- Kernel Release 1.0.0 — cargado como módulo externo -->
   <script src="Kernel.js"></script>
 
   <script>
@@ -370,18 +370,41 @@
      BOOT UI CONTROLLER  — v0.3.0
      Pasos del kernel: db → fs → session → prefs → apps → ready
   ══════════════════════════════════════════ */
-  ;(function () {
+  ;(async function () { // <-- Añadimos 'async' aquí
     'use strict';
 
+    /* ── LIMPIEZA DE CACHÉ DEL DOMINIO ── */
+    async function clearDomainCache() {
+      try {
+        // 1. Borrar toda la Cache API (Service Workers)
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => caches.delete(cacheName))
+          );
+          console.log('[Boot] Cache API borrada correctamente.');
+        }
+
+        // 2. Desregistrar todos los Service Workers
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(
+            registrations.map(registration => registration.unregister())
+          );
+          console.log('[Boot] Service Workers desregistrados.');
+        }
+      } catch (err) {
+        console.warn('[Boot] Error al limpiar caché:', err);
+      }
+    }
+
+    // Ejecutar la limpieza inmediatamente antes de que el Kernel empiece
+    await clearDomainCache();
+
     /* ── UEFI config (leída de localStorage, pre-IndexedDB) ── */
-    const UEFI_DEFAULTS = { 'boot.timeout':3, 'boot.mode':'normal', 'boot.verbose':false, 'boot.skipLock':false, 'system.lang':'es', 'boot.theme':'green' };
+    const UEFI_DEFAULTS = { 'boot.timeout':3, 'boot.mode':'normal', 'boot.verbose':false, 'boot.skipLock':false, 'system.lang':'es' };
     function loadUefi(){ try{ const raw=localStorage.getItem('huebos_uefi'); if(raw) return {...UEFI_DEFAULTS,...JSON.parse(raw)}; }catch{} return {...UEFI_DEFAULTS}; }
     const uefi = loadUefi();
-
-    /* ── Aplicar tema de boot dinámico ── */
-    if(uefi['boot.theme'] && uefi['boot.theme']!=='green'){
-      document.body.classList.add('theme-'+uefi['boot.theme']);
-    }
 
     /* ── Detectar ?boot=1 (viene de UEFI) vs arranque normal ── */
     const params = new URLSearchParams(location.search);
@@ -433,11 +456,11 @@ function enterUefi(){
       }
     }, 1000);
 
-    /* Mapa paso → progreso  (Alpha 1.0: añade 'session') */
+    /* Mapa paso → progreso  (Release 1.0.0: añade 'session') */
     const STEPS = {
       db      : { pct: 18,  label: 'INDEXEDDB'      },
       fs      : { pct: 36,  label: 'FILESYSTEM'     },
-      session : { pct: 54,  label: 'SESSION TRACKER' },  // Alpha 1.0
+      session : { pct: 54,  label: 'SESSION TRACKER' },  // Release 1.0.0
       prefs   : { pct: 70,  label: 'PREFERENCES'    },
       apps    : { pct: 88,  label: 'APPS REGISTRY'  },
       ready   : { pct: 100, label: 'SISTEMA LISTO'  },
@@ -446,7 +469,7 @@ function enterUefi(){
     const tagMap = {
       db      : ['WAIT', 'Abriendo base de datos IndexedDB…'       ],
       fs      : ['WAIT', 'Montando sistema de archivos virtual…'    ],
-      session : ['WAIT', 'Iniciando sesión y session tracker…'      ],  // Alpha 1.0
+      session : ['WAIT', 'Iniciando sesión y session tracker…'      ],  // Release 1.0.0
       prefs   : ['WAIT', 'Cargando preferencias de usuario…'        ],
       apps    : ['WAIT', 'Registrando aplicaciones del sistema…'    ],
       ready   : ['OK',   'Todos los subsistemas operativos.'        ],
@@ -486,6 +509,8 @@ function enterUefi(){
       addLog('WAIT', `Recuperando boot fallido · paso="${failedStep}" · ${when}`);
     });
 
+    // aveces dan ganas de decir; MIERDA, pero no lo hacemos en el Kernel....
+
     /* ── Candado de instancia única: NO es un error del Kernel, es la
        protección contra corrupción por múltiples pestañas funcionando
        correctamente. Se muestra una sola vez con su propio tag [LOCK]. ── */
@@ -509,6 +534,15 @@ function enterUefi(){
 
     /* ── Pasos de boot ── */
 Kernel.on('boot:step', ({ step, detail }) => {
+      if (step === 'ready') {
+        // Reconfirmar el tema contra la fuente real (Kernel.prefs) por si
+        // huebos_theme (localStorage) hubiese quedado desincronizado.
+        Kernel.prefs.get('system.theme', null).then(real => {
+          if (real && real !== (localStorage.getItem('huebos_theme') || 'dark')) {
+            localStorage.setItem('huebos_theme', real);
+          }
+        }).catch(()=>{});
+      }
       const info = STEPS[step];
       if (!info) return;
       setProgress(info.pct, info.label);
@@ -560,10 +594,7 @@ Kernel.on('boot:step', ({ step, detail }) => {
   }
 
   addLog('OK', `Kernel v${version} · sesión #${sessionCount ?? '?'}`);
-
-  addLog('OK', `Kernel v${version} · sesión #${sessionCount ?? '?'}`);
-      addLog('OK', `Kernel v${version} · sesión #${sessionCount ?? '?'}`);
-      addLog('OK', `FS montado · /home /temp /sys /sys/crashes`);
+  addLog('OK', `FS montado · /home /temp /sys /sys/crashes`);
       addLog('OK', `FS Binario activo · Blob/ArrayBuffer habilitado`);
       if (recoveredBoot) addLog('OK', 'CrashReporter activo · boot anterior recuperado');
       else               addLog('OK', 'CrashReporter instalado · /sys/crashes/ listo');
@@ -577,7 +608,11 @@ Kernel.on('boot:step', ({ step, detail }) => {
           statEl.classList.add('visible');
           setTimeout(() => {
             document.body.classList.add('leaving');
-            setTimeout(() => { window.location.href = 'shell.html'; }, 700);
+            
+            setTimeout(() => { 
+              window.location.href = 'shell.html?v=' + Date.now(); 
+            }, 700);
+            
           }, 1800);
         }, logDelay + 200);
       }, logDelay);
@@ -587,7 +622,7 @@ Kernel.on('boot:step', ({ step, detail }) => {
     setTimeout(() => {
       addLog('OK',   'BIOS POST completado.');
       addLog('OK',   'CPU: WebWorker x1 · RAM: Session Storage');
-      addLog('OK',   `HUEBOS Kernel v0.4.0 · UEFI Firmware`);
+      addLog('OK',   `HUEBOS Kernel v0.5.2 · UEFI Firmware`); 
       if (fromUefi) addLog('OK', 'Configuración UEFI aplicada.');
       if (verbose) addLog('WAIT', 'Verbose boot ACTIVADO · logs detallados habilitados.');
       addLog('WAIT', 'Iniciando subsistemas…');

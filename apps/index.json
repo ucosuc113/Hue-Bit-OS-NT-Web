@@ -4,6 +4,9 @@
     "editor.html",
     "config.html",
     "terminal.html",
+    "IDE.html",
+    "Multimedia.html",
+    "Imports.html",
     "task-manager.html"
   ]
 }

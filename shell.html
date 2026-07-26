@@ -2,7 +2,63 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script>
+/* Aplicar tema instantáneamente desde localStorage para evitar parpadeo */
+(function () {
+  try {
+    const theme = localStorage.getItem('huebos_theme') || 'dark';
+    const themeColor = localStorage.getItem('huebos_theme_color') || '#00ff88';
+    
+    function parseRgb(hex) {
+      const raw = String(hex).replace('#','');
+      const full = raw.length===3?raw.split('').map(c=>c+c).join(''):raw.padEnd(6,'0').slice(0,6);
+      const n = parseInt(full,16);
+      return [(n>>16)&255, (n>>8)&255, n&255];
+    }
+    function darken([r,g,b], factor) {
+      return `#${[r,g,b].map(c=>Math.max(0,Math.floor(c*factor)).toString(16).padStart(2,'0')).join('')}`;
+    }
+    function rgbStr([r,g,b]) { return `${r},${g},${b}`; }
+    
+    const palettes = {
+      dark:  { g:'#00ff88', gRgb:'0,255,136', gDim:'#00bb66', gDimRgb:'0,187,102', gFaint:'#002e18', gDark:'#000f08', amber:'#ffcc44', red:'#ff4466', cyan:'#00d4ff', cyanRgb:'0,212,255', bg:'#020c06', glass:'rgba(4,20,12,0.60)', border:'rgba(0,255,136,0.16)' },
+      amber: { g:'#ffbf47', gRgb:'255,191,71', gDim:'#c98a18', gDimRgb:'201,138,24', gFaint:'#3a2300', gDark:'#1e0e00', amber:'#ffd36b', red:'#ff6868', cyan:'#ffd36b', cyanRgb:'255,211,107', bg:'#0a0500', glass:'rgba(22,12,2,0.72)', border:'rgba(255,191,71,0.22)' },
+      blue:  { g:'#6ee7ff', gRgb:'110,231,255', gDim:'#2ea9d6', gDimRgb:'46,169,214', gFaint:'#061824', gDark:'#030c18', amber:'#7de3ff', red:'#ff6b6b', cyan:'#00ccff', cyanRgb:'0,204,255', bg:'#020912', glass:'rgba(3,10,28,0.68)', border:'rgba(110,231,255,0.18)' }
+    };
+    
+    let p;
+    if (palettes[theme]) {
+      p = palettes[theme];
+    } else {
+      const base = parseRgb(themeColor);
+      const dim = darken(base, 0.6);
+      const faint = darken(base, 0.15);
+      const dark = darken(base, 0.08);
+      const darkRgb = rgbStr(parseRgb(dark));
+      const baseRgb = rgbStr(base);
+      p = {
+        g: themeColor, gRgb: baseRgb,
+        gDim: dim, gDimRgb: rgbStr(parseRgb(dim)),
+        gFaint: faint, gDark: dark,
+        amber: '#ffcc44', red: '#ff4466',
+        cyan: '#00d4ff', cyanRgb: '0,212,255',
+        bg: dark, glass: `rgba(${darkRgb},0.70)`, border: `rgba(${baseRgb},0.20)`
+      };
+    }
+    
+    const r = document.documentElement.style;
+    r.setProperty('--g', p.g); r.setProperty('--g-rgb', p.gRgb);
+    r.setProperty('--g-dim', p.gDim); r.setProperty('--g-dim-rgb', p.gDimRgb);
+    r.setProperty('--g-faint', p.gFaint);
+    r.setProperty('--g-dark', p.gDark); r.setProperty('--amber', p.amber);
+    r.setProperty('--red', p.red); r.setProperty('--cyan', p.cyan);
+    r.setProperty('--cyan-rgb', p.cyanRgb);
+    r.setProperty('--bg', p.bg); r.setProperty('--glass', p.glass);
+    r.setProperty('--border', p.border);
+  } catch (e) {}
+})();
+</script>
 <script>
 (function () {
   try {
@@ -34,13 +90,16 @@
 </script>
   <title>HUEBOS · Shell</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&family=Orbitron:wght@400;700;900&family=Crimson+Pro:wght@200;300&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
       /* Cyberhacker + aero glass: green terminal core with cold signal accents */
       --g          : #00ff88;
+      --g-rgb      : 0, 255, 136; /* Añadido para soportar rgba dinámico */
+      --cyan-rgb   : 0, 212, 255;
+      --g-dim-rgb  : 0, 187, 102;
       --g-dim      : #00bb66;
       --g-faint    : #002e18;
       --g-dark     : #000f08;
@@ -63,10 +122,10 @@
       --border-c   : rgba(0,212,255,0.22);
 
       /* Glows */
-      --glow       : 0 0 14px #00ff8888, 0 0 40px #00ff8822;
-      --glow-sm    : 0 0 8px #00ff8866;
-      --glow-cyan  : 0 0 10px #00d4ffaa;
-      --glow-v     : 0 0 12px #7b4fffaa;
+      --glow       : 0 0 14px rgba(var(--g-rgb),0.53), 0 0 40px rgba(var(--g-rgb),0.13);
+      --glow-sm    : 0 0 8px rgba(var(--g-rgb),0.4);
+      --glow-cyan  : 0 0 10px rgba(var(--cyan-rgb),0.67);
+      --glow-v     : 0 0 12px rgba(123,79,255,0.67);
 
       /* Aero glass shine layer */
       --aero-shine : linear-gradient(
@@ -233,15 +292,15 @@
     /* ── Desktop icons ── */
     #desktop-icons {
       position: absolute; top: 18px; left: 18px;
-      display: flex; flex-direction: column;
-      gap: 6px; align-items: center;
+      bottom: 18px;
+      display: flex; flex-direction: column; flex-wrap: wrap;
+      gap: 6px; align-items: center; align-content: flex-start;
     }
+    /* Modo cuadrícula: mismas posiciones absolutas que manual, solo que "ancladas" */
     #desktop-icons.grid-layout {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-      grid-auto-rows: minmax(96px, auto);
-      width: min(550px, calc(100vw - 40px));
-      align-items: start; justify-items: center;
+      display: block;
+      width: 0; height: 0;
+      top: 0; left: 0;
     }
     /* Modo de organización manual: posiciones absolutas libres */
     #desktop-icons.manual-layout {
@@ -263,11 +322,17 @@
       animation: iconFloat 3.6s ease-in-out infinite;
       user-select: none; -webkit-user-select: none;
     }
-    /* En layout manual, cada icono se posiciona con left/top inline */
-    #desktop-icons.manual-layout .desktop-icon {
+    /* En layout manual/cuadrícula, cada icono se posiciona con left/top inline */
+    #desktop-icons.manual-layout .desktop-icon,
+    #desktop-icons.grid-layout .desktop-icon {
       position: absolute;
-      animation: none; /* sin float en modo manual para no interferir con el drag */
+      animation: none; /* sin float para no interferir con el drag */
+      width: 108px; /* = ICON_SIZE_DIMENSIONS.md.w */
     }
+    #desktop-icons[data-icon-size="sm"].manual-layout .desktop-icon,
+    #desktop-icons[data-icon-size="sm"].grid-layout .desktop-icon { width: 82px; }
+    #desktop-icons[data-icon-size="lg"].manual-layout .desktop-icon,
+    #desktop-icons[data-icon-size="lg"].grid-layout .desktop-icon { width: 132px; }
     .desktop-icon .icon-wrap {
       width: 48px; height: 48px;
       display: grid; place-items: center;
@@ -451,6 +516,19 @@
     #desktop-icons[data-icon-size="lg"] .desktop-icon .icon { font-size: 2.8rem; }
     #desktop-icons[data-icon-size="lg"] .desktop-icon .label { font-size: 0.68rem; max-width: 140px; }
 
+    /* Icono con máscara CSS: un solo color sólido, se recolorea con el tema */
+    .icon-mask {
+      display:inline-block;
+      width:1em; height:1em;
+      background-color: var(--g);
+      -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+      -webkit-mask-position:center; mask-position:center;
+      -webkit-mask-size:contain; mask-size:contain;
+      vertical-align:middle;
+      transition: background-color 0.2s;
+      flex-shrink:0;
+    }
+
     /* Iconos SVG/imagen: escalan con el font-size del contenedor (em) */
     .icon svg, .icon .icon-img,
     .sa-icon svg, .sa-icon .icon-img,
@@ -459,6 +537,12 @@
     .ctx-icon svg, .ctx-icon .icon-img {
       width: 1em; height: 1em; object-fit: contain;
       display: inline-block; vertical-align: middle;
+    }
+    /* Forzar el color del tema en todos los elementos SVG (paths, circles, etc.) */
+    .icon svg *, .sa-icon svg *, .tb-icon svg *, .win-icon svg *, .ctx-icon svg *,
+    .notif-btn svg *, .sys-indicator svg *, .lock-card svg *, .lock-bottom-btn svg * {
+      fill: var(--g) !important;
+      stroke: var(--g) !important;
     }
 
     /* ── Renombrado in-line ── */
@@ -803,6 +887,7 @@
 
     #taskbar-apps {
       flex:1; display:flex; gap:4px;
+      height:100%;
       overflow-x:auto; overflow-y:hidden;
       align-items:center; padding:0 10px;
     }
@@ -867,6 +952,20 @@
     .tb-app.focused .tb-signal { opacity:1; }
     .tb-app.minimized { opacity:0.46; transform:translateY(3px) scale(0.96); }
     .tb-app.minimized::after { background:rgba(0,255,136,0.3); }
+    .tb-app-placeholder {
+      border-radius:8px;
+      border:1px dashed rgba(0,255,136,0.28);
+      background:rgba(0,255,136,0.05);
+      flex-shrink:0;
+    }
+    .tb-app-ghost {
+      position:fixed; z-index:9999;
+      pointer-events:none;
+      opacity:0.92;
+      box-shadow:0 10px 32px rgba(0,0,0,0.55), var(--glow-sm);
+      transform:scale(1.04);
+      transition:none !important;
+    }
     .tb-app.tb-enter {
       animation: tbBootIn 0.42s cubic-bezier(0.18,1.35,0.32,1) both;
     }
@@ -1414,117 +1513,270 @@
     }
     .wm-window.focus-ripple { animation:focusRipple 0.4s ease-out, holoGlowPulse 4s ease-in-out infinite 0.4s; }
 
-    /* ══ LOCK SCREEN (estilo Windows) ══ */
+    /* ══ LOCK SCREEN (HueBit aurora style) ══ */
     .lock-screen {
       position:fixed; inset:0; z-index:99999;
       display:flex; flex-direction:column; align-items:center; justify-content:center;
-      background:#0a0a12;
+      background:#0b0e13;
       overflow:hidden;
+      font-family: var(--mono);
+      transition: opacity 0.5s cubic-bezier(.4,0,.2,1);
     }
     .lock-screen.hidden { display:none; }
+    .lock-screen.unlocking { opacity:0; pointer-events:none; }
     .lock-screen.animate-in { animation:lockFadeIn 0.4s ease-out; }
     @keyframes lockFadeIn { from{opacity:0} to{opacity:1} }
-    /* Ocultar escritorio hasta que se desbloquee la lock screen */
     body.locked #bg-canvas,
     body.locked #hacker-svg-layer,
     body.locked #desktop,
     body.locked #wm-layer,
     body.locked #taskbar,
     body.locked #start-menu { visibility:hidden !important; }
-    .lock-blur {
-      position:absolute; inset:0;
+
+    .lock-aurora {
+      position:absolute; inset:-60%; width:220%; height:220%;
       background:
-        radial-gradient(ellipse 80% 60% at 50% 30%, rgba(0,120,215,0.15) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 50% at 30% 80%, rgba(120,0,215,0.10) 0%, transparent 60%);
+        radial-gradient(ellipse 40% 36% at 20% 26%, rgba(var(--g-rgb),0.10) 0%, transparent 60%),
+        radial-gradient(ellipse 36% 46% at 82% 66%, rgba(var(--cyan-rgb),0.08) 0%, transparent 58%),
+        radial-gradient(ellipse 32% 44% at 58% 12%, rgba(123,79,255,0.06) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 30% at 50% 92%, rgba(var(--g-rgb),0.07) 0%, transparent 62%);
+      animation: auroraShift 24s ease-in-out infinite alternate;
       pointer-events:none;
     }
-    .lock-clock {
-      position:absolute; top:8%; left:50%; transform:translateX(-50%);
-      text-align:center; z-index:1;
+    @keyframes auroraShift {
+      0%   { transform: translate(0,0)      rotate(0deg)   scale(1);     }
+      25%  { transform: translate(-2%,3%)   rotate(.6deg)  scale(1.015); }
+      50%  { transform: translate(3%,-2%)   rotate(-.4deg) scale(.99);   }
+      75%  { transform: translate(-1.5%,1%) rotate(.5deg)  scale(1.01);  }
+      100% { transform: translate(2%,-1.5%) rotate(-.3deg) scale(1.005); }
     }
+    .lock-grain {
+      position:absolute; inset:0; opacity:.04; pointer-events:none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size:160px 160px;
+    }
+
+    .lock-content {
+      position:relative; z-index:1;
+      display:flex; flex-direction:column; align-items:center;
+    }
+
+    .lock-clock-wrap {
+      display:flex; flex-direction:column; align-items:center;
+      margin-bottom:0;
+      transition: margin-bottom .6s cubic-bezier(.16,1,.3,1);
+    }
+    .lock-clock-wrap.login-mode { margin-bottom:28px; }
+
     .lock-time {
-      font-size:6rem; font-weight:300; letter-spacing:2px; line-height:1;
-      color:#fff; text-shadow:0 2px 20px rgba(0,0,0,0.5);
-      font-variant-numeric:tabular-nums;
-      font-family:'Segoe UI','Helvetica Neue',system-ui,sans-serif;
+      font-family: var(--display);
+      font-size:clamp(64px,13vw,120px);
+      font-weight:700; letter-spacing:0.06em; line-height:.95;
+      color: var(--g); text-align:center;
+      text-shadow: 0 0 22px rgba(var(--g-rgb),0.35), 0 0 60px rgba(var(--cyan-rgb),0.12);
+      transition: font-size .58s cubic-bezier(.16,1,.3,1),
+                  letter-spacing .58s cubic-bezier(.16,1,.3,1),
+                  color .4s ease;
+      animation: lockFadeUp .9s cubic-bezier(.16,1,.3,1) both, neonFlicker 8s ease-in-out infinite;
     }
+    .lock-clock-wrap.login-mode .lock-time {
+      font-size:42px; letter-spacing:0.04em; color: var(--g-dim);
+    }
+
     .lock-date {
-      font-size:1.5rem; font-weight:400; color:rgba(255,255,255,0.85);
-      letter-spacing:1px; margin-top:8px;
-      font-family:'Segoe UI','Helvetica Neue',system-ui,sans-serif;
+      font-family: var(--mono); font-weight:400;
+      color: var(--g-dim);
+      letter-spacing:.22em; text-transform:uppercase;
+      text-align:center; font-size:0.72rem; margin-top:16px;
+      transition: font-size .58s cubic-bezier(.16,1,.3,1),
+                  margin-top .58s cubic-bezier(.16,1,.3,1),
+                  letter-spacing .5s ease, color .4s ease;
+      animation: lockFadeUp .9s cubic-bezier(.16,1,.3,1) .08s both;
     }
-    .lock-panel {
-      position:relative; z-index:2;
-      display:flex; flex-direction:column; align-items:center; gap:16px;
-      padding:0;
-      background:transparent; border:none; border-radius:0;
-      box-shadow:none; min-width:300px;
+    .lock-clock-wrap.login-mode .lock-date {
+      font-size:0.56rem; margin-top:6px; letter-spacing:.16em; opacity:0.6;
     }
-    .lock-avatar {
-      font-size:4rem; width:128px; height:128px;
+    @keyframes lockFadeUp {
+      from { opacity:0; transform:translateY(16px); }
+      to   { opacity:1; transform:translateY(0);    }
+    }
+
+    .lock-cta {
+      display:flex; flex-direction:column; align-items:center; gap:10px;
+      margin-top:40px; white-space:nowrap; pointer-events:auto;
+      opacity:0; animation:lockCtaFade .9s ease .4s forwards;
+      transition:opacity .25s ease; cursor:pointer;
+    }
+    .lock-cta.hidden { opacity:0 !important; pointer-events:none; }
+    @keyframes lockCtaFade { from{opacity:0} to{opacity:1} }
+    .lock-cta-arrow {
+      width:30px; height:30px;
+      border:1.5px solid rgba(var(--g-rgb),0.30); border-radius:50%;
+      background: rgba(var(--g-rgb),0.05);
       display:flex; align-items:center; justify-content:center;
-      border-radius:50%;
-      background:linear-gradient(135deg, rgba(0,120,215,0.25), rgba(0,150,255,0.15));
-      border:3px solid rgba(255,255,255,0.25);
-      box-shadow:0 8px 32px rgba(0,0,0,0.3), inset 0 2px 8px rgba(255,255,255,0.1);
-      backdrop-filter:blur(10px);
+      color: var(--g);
+      box-shadow: 0 0 12px rgba(var(--g-rgb),0.12);
+      animation: ctaBounce 2.4s ease-in-out infinite;
+    }
+    @keyframes ctaBounce {
+      0%,100% { transform:translateY(0);    opacity:.7; }
+      50%      { transform:translateY(-6px); opacity:1;  }
+    }
+    .lock-cta-label {
+      font-family: var(--mono); font-size:0.62rem; font-weight:400;
+      color: var(--g-dim); letter-spacing:.2em; text-transform:uppercase;
+      text-shadow: 0 0 10px rgba(var(--g-rgb),0.2);
+    }
+
+    .lock-card {
+      opacity:0; transform:translateY(32px) scale(.97); pointer-events:none;
+      transition: opacity .52s cubic-bezier(.16,1,.3,1),
+                  transform .52s cubic-bezier(.16,1,.3,1);
+      background: var(--glass-menu);
+      border:1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding:28px 28px 22px;
+      display:flex; flex-direction:column; align-items:center; gap:14px;
+      width:300px; position:relative; overflow:hidden;
+      backdrop-filter:blur(38px) saturate(1.6);
+      -webkit-backdrop-filter:blur(38px) saturate(1.6);
+      box-shadow: 0 -6px 80px rgba(0,0,0,0.92),
+                  0 0 55px rgba(var(--g-rgb),0.06),
+                  inset 0 1px 0 rgba(255,255,255,0.07);
+    }
+    .lock-card::before {
+      content:'';
+      position:absolute; top:0; left:0; right:0; height:60px;
+      background: var(--aero-shine); pointer-events:none;
+    }
+    .lock-card::after {
+      content:'';
+      position:absolute; top:0; left:12%; right:12%; height:1px;
+      background: linear-gradient(90deg, transparent, rgba(var(--g-rgb),0.5) 30%, rgba(var(--cyan-rgb),0.35) 70%, transparent);
+    }
+    .lock-card.visible { opacity:1; transform:translateY(0) scale(1); pointer-events:all; }
+
+    .lock-avatar {
+      width:58px; height:58px; border-radius:50%;
+      position:relative; z-index:1;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.08), transparent 48%),
+        radial-gradient(circle at 50% 18%, rgba(var(--g-rgb),0.18), rgba(0,0,0,0.2) 68%);
+      border:1px solid rgba(var(--g-rgb),0.30);
+      display:flex; align-items:center; justify-content:center;
+      box-shadow: inset 0 0 20px rgba(var(--g-rgb),0.08), 0 0 14px rgba(var(--g-rgb),0.14);
+      flex-shrink:0; overflow:hidden; font-size:1.6rem; color: var(--g);
     }
     .lock-username {
-      font-size:1.75rem; color:#fff; font-weight:500; letter-spacing:0.5px;
-      font-family:'Segoe UI','Helvetica Neue',system-ui,sans-serif;
+      font-family: var(--display); font-size:0.85rem; font-weight:700;
+      color: var(--g); letter-spacing:.14em; text-transform:uppercase;
+      text-shadow: 0 0 12px rgba(var(--g-rgb),0.4);
+      position:relative; z-index:1;
     }
-    .lock-input-wrap {
-      display:flex; align-items:center; gap:8px;
-      width:280px;
+    .lock-divider { width:100%; height:1px; background: var(--border); position:relative; z-index:1; }
+
+    .lock-input-wrap { width:100%; position:relative; display:flex; align-items:center; z-index:1; }
+    .lock-input-wrap input {
+      width:100%;
+      background: rgba(var(--g-rgb),0.05);
+      border:1px solid var(--border);
+      border-radius:9px; padding:11px 42px 11px 14px;
+      color: var(--g);
+      font-size:0.78rem; font-family: var(--mono); font-weight:400;
+      outline:none; caret-color: var(--g);
+      text-align:center; letter-spacing:.12em;
+      transition:border-color .25s, background .25s, box-shadow .25s;
     }
-    .lock-input {
-      flex:1; padding:12px 16px;
-      background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.25);
-      border-radius:6px 0 0 6px; color:#fff; font-size:1rem;
-      text-align:left; outline:none; transition:all 0.2s;
-      font-family:'Segoe UI','Helvetica Neue',system-ui,sans-serif;
-      backdrop-filter:blur(10px);
+    .lock-input-wrap input:focus {
+      border-color: rgba(var(--g-rgb),0.44);
+      background: rgba(var(--g-rgb),0.08);
+      box-shadow: var(--glow-sm), inset 0 0 20px rgba(var(--g-rgb),0.03);
     }
-    .lock-input:focus { border-color:rgba(0,120,215,0.8); box-shadow:0 0 0 3px rgba(0,120,215,0.25); background:rgba(255,255,255,0.12); }
-    .lock-input::placeholder { color:rgba(255,255,255,0.4); }
+    .lock-input-wrap input::placeholder { color: rgba(var(--g-dim-rgb),0.5); letter-spacing:.04em; font-size:0.72rem; }
+    .lock-input-wrap input.lock-error {
+      animation:lockShake 0.4s ease;
+      border-color: rgba(255,68,102,0.6) !important;
+      box-shadow: 0 0 0 3px rgba(255,68,102,0.14) !important;
+    }
+    @keyframes lockShake {
+      0%,100% { transform:translateX(0);    }
+      20%      { transform:translateX(-7px); }
+      40%      { transform:translateX(6px);  }
+      60%      { transform:translateX(-4px); }
+      80%      { transform:translateX(3px);  }
+    }
     .lock-submit {
-      padding:12px 18px;
-      background:rgba(0,120,215,0.7); border:1px solid rgba(0,120,215,0.9);
-      border-radius:0 6px 6px 0; color:#fff; font-size:1rem; cursor:pointer;
-      transition:background 0.2s; font-family:'Segoe UI',sans-serif;
+      position:absolute; right:8px;
+      width:27px; height:27px; border-radius:7px;
+      background: rgba(var(--g-rgb),0.10);
+      border:1px solid rgba(var(--g-rgb),0.30);
+      cursor:pointer; color: var(--g); font-size:0.85rem;
+      display:flex; align-items:center; justify-content:center;
+      transition:all .2s; flex-shrink:0;
     }
-    .lock-submit:hover { background:rgba(0,140,235,0.85); }
+    .lock-submit:hover { background: rgba(var(--g-rgb),0.20); box-shadow: var(--glow-sm); transform:scale(1.07); }
     .lock-submit:active { transform:scale(0.96); }
-    .lock-btn {
-      padding:10px 28px;
-      background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.25);
-      border-radius:6px; color:#fff; font-size:0.9rem; cursor:pointer;
-      transition:all 0.2s; letter-spacing:0.5px;
-      font-family:'Segoe UI','Helvetica Neue',system-ui,sans-serif;
-      backdrop-filter:blur(10px);
+
+    .lock-hint-btn {
+      width:100%; box-sizing:border-box; text-align:center;
+      font-family: var(--mono); font-size:0.68rem; font-weight:400;
+      color: var(--g-dim); letter-spacing:.06em; cursor:pointer;
+      padding:11px 14px; border-radius:9px;
+      background: rgba(var(--g-rgb),0.05);
+      border:1px solid rgba(var(--g-rgb),0.20);
+      transition: all 0.2s;
     }
-    .lock-btn:hover { background:rgba(255,255,255,0.15); }
-    .lock-btn:active { transform:scale(0.97); }
-    .lock-hint { font-size:0.8rem; color:rgba(255,255,255,0.6); font-family:'Segoe UI',sans-serif; }
+    .lock-hint-btn:hover,
+    .lock-hint-btn:focus-visible {
+      background: rgba(var(--g-rgb),0.13);
+      border-color: rgba(var(--g-rgb),0.44);
+      color: var(--g);
+      box-shadow: var(--glow-sm);
+      outline: none;
+    }
+    .lock-hint-btn:active { transform:scale(0.98); }
+
+    .lock-hint {
+      font-family: var(--mono); font-size:0.66rem; font-weight:400;
+      color: var(--red); min-height:14px; text-align:center;
+      letter-spacing:0.04em; position:relative; z-index:1;
+    }
+
     .lock-safe-badge {
-      margin-top:6px; padding:4px 12px; font-size:0.75rem; letter-spacing:2px;
-      color:var(--amber,#ffcc44); border:1px solid rgba(255,204,68,0.3);
+      margin-top:2px; padding:4px 12px; font-size:0.62rem; letter-spacing:.2em;
+      color: var(--amber); border:1px solid rgba(255,204,68,0.3);
       border-radius:6px; background:rgba(255,204,68,0.08);
+      font-family: var(--mono); position:relative; z-index:1;
     }
+
+    .lock-back {
+      font-family: var(--mono); font-size:0.62rem; font-weight:400;
+      color: var(--g-dim); cursor:pointer;
+      letter-spacing:.16em; text-transform:uppercase;
+      margin-top:10px; padding:4px 0;
+      background:none; border:none;
+      opacity:0; transition:opacity .45s ease .15s, color .2s;
+    }
+    .lock-back.visible { opacity:1; }
+    .lock-back:hover { color: var(--g); text-shadow: var(--glow-sm); }
+
     .lock-bottom {
       position:absolute; bottom:24px; right:32px; z-index:2;
       display:flex; gap:12px; align-items:center;
     }
     .lock-bottom-btn {
       display:flex; flex-direction:column; align-items:center; gap:4px;
-      padding:10px 14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15);
-      border-radius:6px; color:rgba(255,255,255,0.85); cursor:pointer; font-size:0.75rem;
-      transition:background 0.2s; font-family:'Segoe UI',sans-serif; backdrop-filter:blur(10px);
+      padding:10px 14px; background: rgba(var(--g-rgb),0.05);
+      border:1px solid var(--border);
+      border-radius:8px; color: var(--g-dim); cursor:pointer; font-size:0.62rem;
+      letter-spacing:0.06em; transition:all 0.2s; font-family: var(--mono);
+      backdrop-filter:blur(10px);
     }
-    .lock-bottom-btn:hover { background:rgba(255,255,255,0.12); }
-    .lock-bottom-btn .lock-bottom-icon { font-size:1.4rem; }
-    .lock-error { animation:lockShake 0.4s ease; border-color:var(--red,#ff4466) !important; }
-    @keyframes lockShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+    .lock-bottom-btn:hover {
+      background: rgba(var(--g-rgb),0.12); border-color: rgba(var(--g-rgb),0.36);
+      color: var(--g); box-shadow: var(--glow-sm);
+    }
+    .lock-bottom-btn .lock-bottom-icon { font-size:1.2rem; }
 
     /* ══ BOOT FADE OVERLAY (oculta el flash de carga del lock screen) ══ */
     #boot-fade-overlay {
@@ -1540,45 +1792,55 @@
     .lock-confirm-overlay {
       position:fixed; inset:0; z-index:100000;
       display:flex; align-items:center; justify-content:center;
-      background:rgba(0,0,0,0.6); backdrop-filter:blur(8px);
+      background:rgba(0,4,2,0.72); backdrop-filter:blur(10px);
       opacity:0; transition:opacity 0.25s ease;
     }
     .lock-confirm-overlay.show { opacity:1; }
     .lock-confirm-box {
       min-width:340px; max-width:420px;
-      padding:28px 32px 24px;
-      background:rgba(20,20,30,0.95);
-      border:1px solid rgba(255,255,255,0.15);
-      border-radius:12px;
-      box-shadow:0 16px 48px rgba(0,0,0,0.5);
+      padding:28px 30px 22px;
+      background: var(--glass-menu);
+      border:1px solid rgba(0,255,136,0.18);
+      border-radius: var(--r-lg);
+      box-shadow:0 20px 60px rgba(0,0,0,0.85), 0 0 40px rgba(0,255,136,0.06), inset 0 1px 0 rgba(255,255,255,0.06);
+      backdrop-filter:blur(34px) saturate(1.6);
       transform:scale(0.92); transition:transform 0.25s ease;
-      font-family:'Segoe UI','Helvetica Neue',system-ui,sans-serif;
+      font-family: var(--mono);
+      position:relative; overflow:hidden;
+    }
+    .lock-confirm-box::before {
+      content:''; position:absolute; top:0; left:12%; right:12%; height:1px;
+      background:linear-gradient(90deg, transparent, rgba(var(--g-rgb),0.5) 30%, rgba(var(--cyan-rgb),0.35) 70%, transparent);
     }
     .lock-confirm-overlay.show .lock-confirm-box { transform:scale(1); }
     .lock-confirm-icon {
-      font-size:2.5rem; text-align:center; margin-bottom:12px;
+      font-size:2.2rem; text-align:center; margin-bottom:12px;
+      color: var(--amber); filter:drop-shadow(0 0 10px rgba(255,204,68,0.35));
     }
     .lock-confirm-title {
-      font-size:1.1rem; font-weight:600; color:#fff; text-align:center; margin-bottom:8px;
+      font-family: var(--display); font-size:0.95rem; font-weight:700; letter-spacing:0.1em;
+      color: var(--g); text-align:center; margin-bottom:10px;
+      text-shadow: var(--glow-sm);
     }
     .lock-confirm-msg {
-      font-size:0.85rem; color:rgba(255,255,255,0.65); text-align:center; line-height:1.6; margin-bottom:24px;
+      font-size:0.72rem; color: var(--g-dim); text-align:center; line-height:1.7; margin-bottom:22px;
+      letter-spacing:0.02em;
     }
     .lock-confirm-btns {
-      display:flex; gap:12px; justify-content:center;
+      display:flex; gap:10px; justify-content:center;
     }
     .lock-confirm-btn {
-      padding:10px 28px; border-radius:6px; font-size:0.85rem; cursor:pointer;
-      border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.08);
-      color:rgba(255,255,255,0.85); transition:all 0.2s; letter-spacing:0.5px;
-      font-family:'Segoe UI',sans-serif;
+      padding:9px 24px; border-radius:8px; font-size:0.68rem; cursor:pointer;
+      border:1px solid rgba(0,255,136,0.24); background:rgba(0,255,136,0.06);
+      color: var(--g-dim); transition:all 0.2s; letter-spacing:0.08em;
+      font-family: var(--mono);
     }
-    .lock-confirm-btn:hover { background:rgba(255,255,255,0.15); }
+    .lock-confirm-btn:hover { background:rgba(0,255,136,0.14); border-color:rgba(0,255,136,0.4); color:var(--g); }
     .lock-confirm-btn:active { transform:scale(0.96); }
     .lock-confirm-btn.danger {
-      background:rgba(255,68,102,0.7); border-color:rgba(255,68,102,0.9); color:#fff;
+      background:rgba(255,68,102,0.12); border-color:rgba(255,68,102,0.4); color:#ffb3c0;
     }
-    .lock-confirm-btn.danger:hover { background:rgba(255,68,102,0.85); }
+    .lock-confirm-btn.danger:hover { background:rgba(255,68,102,0.22); border-color:rgba(255,68,102,0.65); color:#fff; box-shadow:0 0 14px rgba(255,68,102,0.25); }
 
     .notif-btn{
       position:relative; width:38px; height:38px; margin:0 4px;
@@ -1622,36 +1884,180 @@
     .notif-item-msg{font-size:0.64rem;color:var(--g-dim);line-height:1.5;}
     .notif-item-time{font-size:0.56rem;color:rgba(0,212,255,0.4);margin-top:4px;letter-spacing:0.05em;}
     .notif-empty{padding:34px 14px;text-align:center;color:var(--g-dim);font-size:0.68rem;letter-spacing:0.06em;}
+
+    /* ══════════════════════════════════════════════
+       POSICIÓN DE LA BARRA — variantes top/left/right
+       (bottom = layout original, sin overrides)
+    ══════════════════════════════════════════════ */
+
+    /* ── TOP ── */
+    body[data-tb-pos="top"] #taskbar{
+      top:0; bottom:auto;
+      border-top:none; border-bottom:1px solid rgba(0,255,136,0.10);
+      box-shadow:0 10px 50px rgba(0,0,0,0.65), 0 1px 0 rgba(255,255,255,0.04);
+    }
+    body[data-tb-pos="top"] #taskbar::before{ top:auto; bottom:0; }
+    body[data-tb-pos="top"] #taskbar::after{
+      top:auto; bottom:1px;
+      background:linear-gradient(0deg, rgba(255,255,255,0.05) 0%, transparent 100%);
+    }
+    body[data-tb-pos="top"] #desktop,
+    body[data-tb-pos="top"] #wm-layer{ top:var(--taskbar-h); bottom:0; }
+    body[data-tb-pos="top"] #start-menu{
+      top:calc(var(--taskbar-h) + 12px); bottom:auto;
+      transform-origin:top left;
+    }
+    body[data-tb-pos="top"] #start-menu.hidden{ transform:scale(0.94) translateY(-13px); }
+    body[data-tb-pos="top"] #notif-panel{
+      top:calc(var(--taskbar-h) + 12px); bottom:auto;
+      transform-origin:top right;
+    }
+    body[data-tb-pos="top"] #notif-panel.hidden{ transform:scale(0.94) translateY(-10px); }
+    body[data-tb-pos="top"] .hud-bracket.tl,
+    body[data-tb-pos="top"] .hud-bracket.tr{ top:calc(var(--taskbar-h) + 18px); }
+    body[data-tb-pos="top"] .hud-bracket.bl,
+    body[data-tb-pos="top"] .hud-bracket.br{ bottom:18px; }
+    body[data-tb-pos="top"] #toast-container{ top:calc(var(--taskbar-h) + 16px); }
+
+    /* ── LEFT / RIGHT (barra vertical) ── */
+    body[data-tb-pos="left"] #taskbar,
+    body[data-tb-pos="right"] #taskbar{
+      top:0; bottom:0; height:100%; width:var(--taskbar-h);
+      flex-direction:column; border-top:none;
+    }
+    body[data-tb-pos="left"] #taskbar{ left:0; right:auto; border-right:1px solid rgba(0,255,136,0.10); }
+    body[data-tb-pos="right"] #taskbar{ right:0; left:auto; border-left:1px solid rgba(0,255,136,0.10); }
+    body[data-tb-pos="left"] #taskbar::before,
+    body[data-tb-pos="right"] #taskbar::before{
+      top:8%; bottom:8%; left:0; right:auto; width:1px; height:auto;
+      background:linear-gradient(180deg, transparent, rgba(0,255,136,0.45) 30%, rgba(0,212,255,0.30) 55%, rgba(123,79,255,0.20) 80%, transparent);
+    }
+    body[data-tb-pos="right"] #taskbar::before{ left:auto; right:0; }
+    body[data-tb-pos="left"] #taskbar::after,
+    body[data-tb-pos="right"] #taskbar::after{ display:none; }
+
+    body[data-tb-pos="left"] #start-zone,
+    body[data-tb-pos="right"] #start-zone{
+      border-right:none; border-bottom:1px solid rgba(0,255,136,0.07);
+      height:auto; width:100%; padding:8px; justify-content:center;
+    }
+    body[data-tb-pos="left"] #start-btn,
+    body[data-tb-pos="right"] #start-btn{
+      width:100%; justify-content:center; padding:8px 4px; height:auto; font-size:0; gap:0;
+    }
+    body[data-tb-pos="left"] #start-btn .start-logo-img,
+    body[data-tb-pos="right"] #start-btn .start-logo-img{ width:20px; height:20px; }
+
+    body[data-tb-pos="left"] #taskbar-apps,
+    body[data-tb-pos="right"] #taskbar-apps{
+      flex-direction:column; overflow-x:hidden; overflow-y:auto;
+      padding:8px 6px; width:100%;
+    }
+    body[data-tb-pos="left"] .tb-app,
+    body[data-tb-pos="right"] .tb-app{
+      width:100%; max-width:none; height:36px; justify-content:center;
+    }
+    body[data-tb-pos="left"] .tb-app .tb-label,
+    body[data-tb-pos="right"] .tb-app .tb-label{ display:none; }
+
+    body[data-tb-pos="left"] #taskbar-sys,
+    body[data-tb-pos="right"] #taskbar-sys{
+      flex-direction:column; border-left:none; height:auto; width:100%;
+      padding:8px 0; gap:6px;
+    }
+    body[data-tb-pos="left"] #taskbar-sys::before,
+    body[data-tb-pos="right"] #taskbar-sys::before{ display:none; }
+    body[data-tb-pos="left"] .sys-indicator::after,
+    body[data-tb-pos="right"] .sys-indicator::after{ display:none; }
+    body[data-tb-pos="left"] .sys-dots,
+    body[data-tb-pos="right"] .sys-dots{ flex-direction:column; padding:6px 0; }
+
+    body[data-tb-pos="left"] .sys-indicator,
+    body[data-tb-pos="right"] .sys-indicator{ padding:10px 0; height:auto; width:100%; }
+    body[data-tb-pos="left"] #taskbar-clock-time,
+    body[data-tb-pos="right"] #taskbar-clock-time{
+      font-size:0.62rem; letter-spacing:0.02em;
+    }
+    body[data-tb-pos="left"] #taskbar-clock-date,
+    body[data-tb-pos="right"] #taskbar-clock-date{
+      font-size:0.46rem; letter-spacing:0;
+    }
+
+    body[data-tb-pos="left"] #desktop,
+    body[data-tb-pos="left"] #wm-layer{ left:var(--taskbar-h); right:0; top:0; bottom:0; }
+    body[data-tb-pos="right"] #desktop,
+    body[data-tb-pos="right"] #wm-layer{ right:var(--taskbar-h); left:0; top:0; bottom:0; }
+
+    body[data-tb-pos="left"] #start-menu,
+    body[data-tb-pos="right"] #start-menu{ top:12px; bottom:auto; }
+    body[data-tb-pos="left"] #start-menu{ left:calc(var(--taskbar-h) + 8px); transform-origin:top left; }
+    body[data-tb-pos="right"] #start-menu{ right:calc(var(--taskbar-h) + 8px); left:auto; transform-origin:top right; }
+    body[data-tb-pos="left"] #start-menu.hidden,
+    body[data-tb-pos="right"] #start-menu.hidden{ transform:scale(0.94) translateY(-13px); }
+
+    body[data-tb-pos="left"] #notif-panel{ left:calc(var(--taskbar-h) + 8px); right:auto; transform-origin:bottom left; }
+    body[data-tb-pos="right"] #notif-panel{ right:calc(var(--taskbar-h) + 8px); transform-origin:bottom right; }
+
+    body[data-tb-pos="left"] .hud-bracket.bl,
+    body[data-tb-pos="left"] .hud-bracket.br,
+    body[data-tb-pos="right"] .hud-bracket.bl,
+    body[data-tb-pos="right"] .hud-bracket.br{ bottom:18px; }
+    body[data-tb-pos="left"] .hud-bracket.tl,
+    body[data-tb-pos="left"] .hud-bracket.bl{ left:calc(var(--taskbar-h) + 18px); }
+    body[data-tb-pos="right"] .hud-bracket.tr,
+    body[data-tb-pos="right"] .hud-bracket.br{ right:calc(var(--taskbar-h) + 18px); }
+    body[data-tb-pos="right"] #toast-container{ right:calc(var(--taskbar-h) + 16px); }
   </style>
 </head>
-<body class="locked">
+<body class="locked" data-tb-pos="bottom">
 
   <div id="boot-fade-overlay"></div>
   <div id="chrome-overlay"></div>
 
-  <!-- ══ LOCK SCREEN (estilo Windows) ══ -->
+  <!-- ══ LOCK SCREEN (HueBit aurora style) ══ -->
   <div id="lock-screen" class="lock-screen">
-    <div class="lock-blur"></div>
-    <div class="lock-clock">
-      <div class="lock-time" id="lock-time">--:--</div>
-      <div class="lock-date" id="lock-date">--/--/----</div>
-    </div>
-    <div class="lock-panel">
-      <div class="lock-avatar" id="lock-avatar"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1.2-4 4-6 7-6s5.8 2 7 6"/></svg></div>
-      <div class="lock-username" id="lock-username">Usuario</div>
-      <div class="lock-input-wrap">
-        <input type="password" id="lock-password" class="lock-input" placeholder="Contraseña" autocomplete="off" />
-        <button id="lock-unlock-btn" class="lock-submit" type="button">→</button>
+    <div class="lock-aurora"></div>
+    <div class="lock-grain"></div>
+
+    <div class="lock-content">
+      <div class="lock-clock-wrap" id="lock-clock-wrap">
+        <div class="lock-time" id="lock-time">--:--</div>
+        <div class="lock-date" id="lock-date">--/--/----</div>
       </div>
-      <div class="lock-hint" id="lock-hint">Presiona cualquier tecla para desbloquear</div>
-      <div class="lock-safe-badge" id="lock-safe-badge" style="display:none"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5H2.5L12 3.5z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r="0.9" fill="currentColor" stroke="none"/></svg> SAFE MODE</div>
+
+      <div class="lock-cta" id="lock-cta">
+        <div class="lock-cta-arrow">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M6 2v8M2 7l4 3 4-3" stroke="currentColor" stroke-width="1.4"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="lock-cta-label" id="lock-cta-label">Presiona una tecla para desbloquear</span>
+      </div>
+
+      <div class="lock-card" id="lock-card">
+        <div class="lock-avatar" id="lock-avatar"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1.2-4 4-6 7-6s5.8 2 7 6"/></svg></div>
+        <div class="lock-username" id="lock-username">Usuario</div>
+        <div class="lock-divider"></div>
+        <div class="lock-input-wrap" id="lock-input-wrap">
+          <input type="password" id="lock-password" placeholder="Contraseña" autocomplete="off" spellcheck="false" />
+          <button id="lock-unlock-btn" class="lock-submit" type="button">→</button>
+        </div>
+        <div class="lock-hint-btn" id="lock-click-hint" role="button" tabindex="0">Haz clic en cualquier lugar para iniciar sesión</div>
+        <div class="lock-hint" id="lock-hint"></div>
+        <div class="lock-safe-badge" id="lock-safe-badge" style="display:none"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5H2.5L12 3.5z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r="0.9" fill="currentColor" stroke="none"/></svg> SAFE MODE</div>
+      </div>
+
+      <button class="lock-back" id="lock-back" type="button">↑ Bloquear pantalla</button>
     </div>
+
     <div class="lock-bottom">
       <div class="lock-bottom-btn" id="lock-reboot-btn" title="Reiniciar">
         <span class="lock-bottom-icon"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M18 6.3A8 8 0 1 1 6 6.3"/></svg></span>
         <span>Reiniciar</span>
       </div>
     </div>
+
     <!-- Diálogo de confirmación personalizado (no nativo) -->
     <div class="lock-confirm-overlay" id="lock-confirm-overlay" style="display:none">
       <div class="lock-confirm-box">
@@ -1674,7 +2080,6 @@
   </div>
 
   <div id="desktop">
-    <div class="drop-zone-hint">SOLTAR ARCHIVOS AQUÍ</div>
     <div id="desktop-icons"></div>
   </div>
   <div id="wm-layer"></div>
@@ -1689,7 +2094,7 @@
            onerror="this.style.display='none'" />
       <div class="start-header-text">
         <span class="start-title">HUEBOS</span>
-        <span class="start-version">v0.3.0 · Alpha 2.0</span>
+        <span class="start-version">Release 1.0.0</span>
       </div>
     </div>
     <div class="start-search-wrap">
@@ -1753,6 +2158,27 @@
   }[ch]));
 }
 
+    function installNativeKeyGuard(doc){
+      const BLOCKED=[{k:'s',shift:false},{k:'s',shift:true},{k:'p',shift:false},{k:'o',shift:false}];
+      doc.addEventListener('keydown',e=>{
+        if(!(e.ctrlKey||e.metaKey))return;
+        const k=(e.key||'').toLowerCase();
+        if(BLOCKED.some(b=>b.k===k&&!!b.shift===!!e.shiftKey))e.preventDefault();
+      },true);
+    }
+    installNativeKeyGuard(document);
+
+    function installContextMenuGuard(doc){
+      doc.addEventListener('contextmenu', e => {
+        const tag = (e.target && e.target.tagName) || '';
+        const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable);
+        if (isEditable) return;
+        e.preventDefault();
+      });
+    }
+
+    const SYS_KEYGUARD_JS = `(${installNativeKeyGuard.toString()})(document);(${installContextMenuGuard.toString()})(document);`;
+
     const DEFAULT_PREFS = {
       'system.theme'     : 'dark',
       'system.fontSize'  : 14,
@@ -1762,21 +2188,21 @@
 
     const THEME_PALETTES = {
       dark: {
-        green:'#00ff88', greenDim:'#00bb66', greenFaint:'#002e18',
+        green:'#00ff88', greenRgb:'0,255,136', greenDim:'#00bb66', greenDimRgb:'0,187,102', greenFaint:'#002e18',
         greenDark:'#000f08', amber:'#ffcc44', red:'#ff4466',
-        blue:'#00d4ff', bg:'#020c06',
+        blue:'#00d4ff', blueRgb:'0,212,255', bg:'#020c06',
         glass:'rgba(4,20,12,0.60)', border:'rgba(0,255,136,0.16)',
       },
       amber: {
-        green:'#ffbf47', greenDim:'#c98a18', greenFaint:'#3a2300',
+        green:'#ffbf47', greenRgb:'255,191,71', greenDim:'#c98a18', greenDimRgb:'201,138,24', greenFaint:'#3a2300',
         greenDark:'#1e0e00', amber:'#ffd36b', red:'#ff6868',
-        blue:'#ffd36b', bg:'#0a0500',
+        blue:'#ffd36b', blueRgb:'255,211,107', bg:'#0a0500',
         glass:'rgba(22,12,2,0.72)', border:'rgba(255,191,71,0.22)',
       },
       blue: {
-        green:'#6ee7ff', greenDim:'#2ea9d6', greenFaint:'#061824',
+        green:'#6ee7ff', greenRgb:'110,231,255', greenDim:'#2ea9d6', greenDimRgb:'46,169,214', greenFaint:'#061824',
         greenDark:'#030c18', amber:'#7de3ff', red:'#ff6b6b',
-        blue:'#00ccff', bg:'#020912',
+        blue:'#00ccff', blueRgb:'0,204,255', bg:'#020912',
         glass:'rgba(3,10,28,0.68)', border:'rgba(110,231,255,0.18)',
       },
     };
@@ -1787,7 +2213,7 @@
     const BG = (() => {
       const canvas = document.getElementById('bg-canvas');
       const ctx = canvas.getContext('2d');
-      let W=0,H=0,stars=[],mode=DEFAULT_PREFS['desktop.wallpaper'];
+      let W=0,H=0,stars=[],options=['stars','aurora','grid'],wallpaperImg=null,wallpaperUrl=null;
 
       function resize(){
         W=canvas.width=window.innerWidth;
@@ -1860,45 +2286,124 @@
         for(let y=-sp;y<=H+sp;y+=sp){ctx.beginPath();ctx.moveTo(0,y+drift*0.32);ctx.lineTo(W,y+drift*0.32);ctx.stroke();}
         ctx.restore();
       }
-      function setMode(m){mode=['default','solid','grid'].includes(m)?m:DEFAULT_PREFS['desktop.wallpaper'];}
+      function setOptions(opts){
+        options = Array.isArray(opts) ? opts : (opts==='solid' ? [] : opts==='grid' ? ['stars','grid'] : ['stars','aurora','grid']);
+      }
+      function setImage(url){
+        if(!url){
+          wallpaperImg=null; wallpaperUrl=null; return;
+        }
+        if(wallpaperUrl===url) return;
+        wallpaperUrl=url;
+        const img=new Image();
+        img.onload=()=>{wallpaperImg=img;};
+        img.src=url;
+      }
       function frame(ts){
         const t=ts*0.001;
-        ctx.clearRect(0,0,W,H); drawBg();
-        if(mode==='default')drawAurora(t);
-        if(mode!=='solid')drawGrid(t);
-        if(mode!=='solid')stars.forEach(s=>{
-          s.a+=s.da; if(s.a<=0.05||s.a>=1)s.da*=-1;
-          ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
-          ctx.fillStyle=`hsla(${s.hue},100%,78%,${s.a*0.8})`;
-          ctx.fill();
-        });
+        ctx.clearRect(0,0,W,H);
+        
+        if(options.includes('image') && wallpaperImg){
+          const ratio=Math.max(W/wallpaperImg.width,H/wallpaperImg.height);
+          const w=wallpaperImg.width*ratio, h=wallpaperImg.height*ratio;
+          ctx.drawImage(wallpaperImg,(W-w)/2,(H-h)/2,w,h);
+        } else {
+          drawBg();
+          if(options.includes('aurora'))drawAurora(t);
+          if(options.includes('grid'))drawGrid(t);
+          if(options.includes('stars'))stars.forEach(s=>{
+            s.a+=s.da; if(s.a<=0.05||s.a>=1)s.da*=-1;
+            ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+            ctx.fillStyle=`hsla(${s.hue},100%,78%,${s.a*0.8})`;
+            ctx.fill();
+          });
+        }
         requestAnimationFrame(frame);
       }
       window.addEventListener('resize',resize); resize(); requestAnimationFrame(frame);
-      return {setMode};
+      return {setOptions, setImage};
     })();
 
-    function applyTheme(theme){
-      const p=THEME_PALETTES[theme]||THEME_PALETTES.dark; currentPalette=p;
+    function applyTheme(theme, color){
+      let p;
+      if (THEME_PALETTES[theme]) {
+        p = THEME_PALETTES[theme];
+      } else if (color) {
+        const parseRgb = (hex) => {
+          const raw = String(hex).replace('#','');
+          const full = raw.length===3?raw.split('').map(c=>c+c).join(''):raw.padEnd(6,'0').slice(0,6);
+          const n = parseInt(full,16);
+          return [(n>>16)&255, (n>>8)&255, n&255];
+        };
+        const darken = ([r,g,b], f) => `#${[r,g,b].map(c=>Math.max(0,Math.floor(c*f)).toString(16).padStart(2,'0')).join('')}`;
+        const rgbStr = ([r,g,b]) => `${r},${g},${b}`;
+        
+        const base = parseRgb(color);
+        const dim = darken(base, 0.6);
+        const faint = darken(base, 0.15);
+        const dark = darken(base, 0.08);
+        
+        p = {
+          green: color, greenRgb: rgbStr(base),
+          greenDim: dim, greenDimRgb: rgbStr(parseRgb(dim)),
+          greenFaint: faint, greenDark: dark,
+          amber: '#ffcc44', red: '#ff4466',
+          blue: '#00d4ff', blueRgb: '0,212,255',
+          bg: dark, glass: `rgba(${rgbStr(parseRgb(dark))},0.70)`, border: `rgba(${rgbStr(base)},0.20)`,
+        };
+      } else {
+        p = THEME_PALETTES.dark;
+      }
+      
+      currentPalette = p;
       const r=document.documentElement.style;
-      r.setProperty('--g',p.green); r.setProperty('--g-dim',p.greenDim);
+      r.setProperty('--g',p.green); r.setProperty('--g-rgb',p.greenRgb);
+      r.setProperty('--g-dim',p.greenDim); r.setProperty('--g-dim-rgb',p.greenDimRgb);
       r.setProperty('--g-faint',p.greenFaint); r.setProperty('--g-dark',p.greenDark);
       r.setProperty('--amber',p.amber); r.setProperty('--red',p.red);
-      r.setProperty('--cyan',p.blue); r.setProperty('--bg',p.bg);
+      r.setProperty('--cyan',p.blue); r.setProperty('--cyan-rgb',p.blueRgb);
+      r.setProperty('--bg',p.bg);
       r.setProperty('--glass',p.glass); r.setProperty('--border',p.border);
+      /* Guardar en localStorage para que se cargue en el <head> en el próximo arranque */
+      try {
+        localStorage.setItem('huebos_theme', theme);
+        if (color) localStorage.setItem('huebos_theme_color', color);
+      } catch(e){}
     }
     function applyFontSize(size){document.documentElement.style.fontSize=`${Math.max(10,Math.min(24,Number(size)||14))}px`;}
-    function applyDesktopGrid(e){document.getElementById('desktop-icons').classList.toggle('grid-layout',e!==false);}
-    function applyWallpaper(m){BG.setMode(m||DEFAULT_PREFS['desktop.wallpaper']);}
-    function applyShellPref(k,v){
-      if(k==='system.theme')applyTheme(v);
+    function applyDesktopGrid(e){
+
+      Desktop.applyLayoutMode(e !== false ? 'grid' : 'auto');
+    }
+    function applyWallpaper(opts){
+      BG.setOptions(opts);
+      if(opts && Array.isArray(opts) && opts.includes('image')){
+        if(window.Kernel?.prefs) {
+          window.Kernel.prefs.get('desktop.wallpaper.image').then(path => {
+            if(path && window.Kernel.fs) {
+              window.Kernel.fs.readDataURL(path).then(url => BG.setImage(url)).catch(()=>{});
+            } else {
+              BG.setImage(null);
+            }
+          });
+        }
+      } else {
+        BG.setImage(null);
+      }
+    }
+    function applyShellPref(k,v,color){
+      if(k==='system.theme')applyTheme(v,color);
       if(k==='system.fontSize')applyFontSize(v);
       if(k==='desktop.grid')applyDesktopGrid(v);
       if(k==='desktop.wallpaper')applyWallpaper(v);
     }
     async function applyShellPrefs(kernel){
       const all=await kernel.prefs.all();
-      Object.entries(DEFAULT_PREFS).forEach(([k,fb])=>applyShellPref(k,all[k]!==undefined?all[k]:fb));
+      Object.entries(DEFAULT_PREFS).forEach(([k,fb])=>{
+        let v = all[k]!==undefined?all[k]:fb;
+        let c = (k==='system.theme') ? all['system.theme.color'] : null;
+        applyShellPref(k,v,c);
+      });
     }
 
     /* ══ TOAST ══ */
@@ -1911,8 +2416,8 @@
         t.className=`toast ${cls}`; t.style.setProperty('--toast-dur',duration+'ms');
         const ttl=title||(type==='warn'?'AVISO':type==='error'?'ERROR':type==='info'?'INFO':'OK');
         const code=type==='error'?'ERR':type==='warn'?'WRN':type==='info'?'INF':'OK';
-        t.innerHTML=`<div class="toast-left-bar"></div><span class="toast-icon">${ICONS[type]??'●'}</span>
-          <div class="toast-body"><div class="toast-title">${ttl}</div><div class="toast-msg">${msg}</div></div><span class="toast-code">${code}</span>`;
+t.innerHTML=`<div class="toast-left-bar"></div><span class="toast-icon">${ICONS[type]??'●'}</span>
+          <div class="toast-body"><div class="toast-title">${escapeHtml(ttl)}</div><div class="toast-msg">${escapeHtml(msg)}</div></div><span class="toast-code">${code}</span>`;
         container.appendChild(t); t.addEventListener('click',()=>dismiss(t)); setTimeout(()=>dismiss(t),duration);
       }
       function dismiss(t){if(!t.parentNode)return;t.classList.add('toast-out');setTimeout(()=>t.remove(),230);}
@@ -1922,6 +2427,23 @@
     /* ══ CONTEXT MENU ══ */
     const CtxMenu=(()=>{
       const el=document.getElementById('ctx-menu'); let _open=false;
+      function _position(x,y){
+        const vw=window.innerWidth,vh=window.innerHeight;
+        const menuW=el.offsetWidth||200;
+        const menuH=el.offsetHeight||0;
+        const margin=8;
+        const tbPos=document.body.dataset.tbPos||'bottom';
+        const tbThick=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--taskbar-h'))||58;
+        let minX=margin, maxX=vw-menuW-margin, minY=margin, maxY=vh-menuH-margin;
+        if(tbPos==='bottom') maxY-=tbThick;
+        else if(tbPos==='top') minY+=tbThick;
+        else if(tbPos==='left') minX+=tbThick;
+        else if(tbPos==='right') maxX-=tbThick;
+        maxX=Math.max(minX,maxX); maxY=Math.max(minY,maxY);
+        const lx=Math.min(Math.max(x,minX),maxX);
+        const ly=Math.min(Math.max(y,minY),maxY);
+        el.style.left=lx+'px'; el.style.top=ly+'px';
+      }
       function show(x,y,items){
         el.innerHTML='';
         items.forEach(item=>{
@@ -1935,12 +2457,17 @@ else{const d=document.createElement('div');d.className='ctx-item';
             if(item.action&&!item.disabled)d.addEventListener('click',()=>{hide();item.action();}); el.appendChild(d);}
         });
         el.classList.remove('hidden'); _open=true;
-        const vw=window.innerWidth,vh=window.innerHeight;
-        let lx=x,ly=y;
-        if(lx+200>vw)lx=vw-206; if(ly+el.offsetHeight>vh-60)ly=ly-el.offsetHeight;
-        el.style.left=lx+'px'; el.style.top=ly+'px';
+        _position(x,y);
       }
       function hide(){el.classList.add('hidden');_open=false;}
+      // Clic derecho sobre el propio menú contextual: en vez de abrir el
+      // menú nativo del navegador, reubicamos este mismo menú (mismos
+      // items) en el nuevo punto donde se hizo clic.
+      el.addEventListener('contextmenu',e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        if(_open)_position(e.clientX,e.clientY);
+      });
       document.addEventListener('click',e=>{if(_open&&!el.contains(e.target))hide();});
       document.addEventListener('contextmenu',e=>{if(_open&&!e.defaultPrevented)hide();});
       document.addEventListener('keydown',e=>{if(_open&&e.key==='Escape')hide();});
@@ -1979,9 +2506,9 @@ function makeDraggable(titlebar,win,pidRef){
         });
         function onMove(e){
           if(!dragging)return;
-          const maxH=window.innerHeight-58;
-          let nx=Math.max(0,Math.min(e.clientX-ox,window.innerWidth-60));
-          let ny=Math.max(0,Math.min(e.clientY-oy,maxH-20));
+          const lb=layer.getBoundingClientRect();
+          let nx=Math.max(0,Math.min(e.clientX-ox-lb.left,lb.width-60));
+          let ny=Math.max(0,Math.min(e.clientY-oy-lb.top,lb.height-20));
           win.style.left=nx+'px'; win.style.top=ny+'px';
           const w=_windows[pidRef.pid]; if(w){w.state.x=nx;w.state.y=ny;}
         }
@@ -2000,15 +2527,17 @@ function makeDraggable(titlebar,win,pidRef){
           h.addEventListener('mousedown',e=>{
             if(e.button!==0)return;
             const w=_windows[pidRef.pid]; if(!w||w.maximized)return;
-            sX=e.clientX;sY=e.clientY; const r=win.getBoundingClientRect();
-            sW=r.width;sH=r.height;sL=r.left;sT=r.top; focus(pidRef.pid);
+            sX=e.clientX;sY=e.clientY;
+            const lb=layer.getBoundingClientRect();
+            const r=win.getBoundingClientRect();
+            sW=r.width;sH=r.height;sL=r.left-lb.left;sT=r.top-lb.top; focus(pidRef.pid);
             shield.style.display='block'; shield.style.cursor=getComputedStyle(h).cursor;
             e.preventDefault(); e.stopPropagation();
             const onMove=ev=>{
               const dx=ev.clientX-sX,dy=ev.clientY-sY;
-              let w2=sW,h2=sH,l=sL,t=sT; const minW=300,minH=180,tbH=58;
+              let w2=sW,h2=sH,l=sL,t=sT; const minW=300,minH=180;
               if(dir.includes('e'))w2=Math.max(minW,sW+dx);
-              if(dir.includes('s'))h2=Math.max(minH,Math.min(sH+dy,window.innerHeight-sT-tbH));
+              if(dir.includes('s'))h2=Math.max(minH,Math.min(sH+dy,lb.height-sT));
               if(dir.includes('w')){w2=Math.max(minW,sW-dx);l=sL+sW-w2;}
               if(dir.includes('n')){h2=Math.max(minH,sH-dy);t=Math.max(0,Math.min(sT+sH-minH,sT+dy));}
               win.style.width=w2+'px';win.style.height=h2+'px';
@@ -2049,8 +2578,23 @@ function makeDraggable(titlebar,win,pidRef){
         }
         focus(pid);
       }
-function close(pid){
+function closeProcessTree(pid){
+        if(!window.Kernel||!Kernel.procs)return;
+        let children=[];
+        try{ children=(Kernel.procs.getChildren?Kernel.procs.getChildren(pid):[])||[]; }
+        catch(e){ children=[]; }
+        children.forEach(child=>{
+          const cpid=(child&&typeof child==='object')?child.pid:child;
+          if(cpid==null||cpid===pid)return;
+          closeProcessTree(cpid);
+          const cw=_windows[cpid];
+          if(cw)close(cpid);
+          else{ try{Kernel.procs.kill(cpid);}catch(e){} }
+        });
+      }
+      function close(pid){
         const w=_windows[pid]; if(!w)return;
+        closeProcessTree(pid);
         w.el.classList.add('animating-close');
         setTimeout(()=>{
           if(w.dragHandlers){
@@ -2076,7 +2620,8 @@ function close(pid){
 
       function createWindow(proc,opts={}){
         const pid=proc.pid;
-        const vw=window.innerWidth,vh=window.innerHeight-58;
+        const lb=layer.getBoundingClientRect();
+        const vw=lb.width||window.innerWidth,vh=lb.height||(window.innerHeight-58);
         const W0=opts.width||Math.min(660,vw*0.6);
         const H0=opts.height||Math.min(480,vh*0.6);
         const X0=opts.x??Math.max(0,Math.min(40+(pid%6)*36,vw-W0-20));
@@ -2103,13 +2648,20 @@ function close(pid){
           const iframe=document.createElement('iframe'); iframe.src=opts.url;
           iframe.sandbox='allow-scripts allow-same-origin allow-forms allow-modals';
           content.appendChild(iframe);
+        } else if(opts.content){
+          if(typeof opts.content==='string'){
+            const ph=document.createElement('div'); ph.className='wm-placeholder';
+            ph.innerHTML=opts.content;
+            content.appendChild(ph);
+          } else {
+            content.appendChild(opts.content);
+          }
         } else {
-          const ph=document.createElement('div'); ph.className='wm-placeholder';
+          const ph = document.createElement('div'); ph.className='wm-placeholder';
           ph.innerHTML=`<h2><span class="win-icon" style="display:inline-block">${Kernel.icons.render(proc.icon)}</span> ${proc.title||proc.appId}</h2>
             <p>PID: ${pid} · App: <strong>${proc.appId}</strong></p>
             <p style="margin-top:10px;opacity:0.45;font-size:0.68rem">Ventana lista para contenido.<br>
             Conecta via <code>opts.url</code> o <code>opts.content</code>.</p>`;
-          if(opts.content){ph.innerHTML='';if(typeof opts.content==='string')ph.innerHTML=opts.content;else ph.appendChild(opts.content);}
           content.appendChild(ph);
         }
 
@@ -2135,6 +2687,7 @@ const pidRef={pid};
         btn.innerHTML=`<span class="tb-icon">${Kernel.icons.render(proc.icon)}</span><span class="tb-label">${proc.title||proc.appId}</span><span class="tb-signal"></span>`;
         setTimeout(()=>btn.classList.remove('tb-enter'),460);
         btn.addEventListener('click',()=>{
+          if(btn.dataset.tbDragSkip){delete btn.dataset.tbDragSkip;return;}
           const w=_windows[pid]; if(!w)return;
           if(w.minimized)minimize(pid);
           else if(w.el.classList.contains('focused'))minimize(pid);
@@ -2181,9 +2734,13 @@ const pidRef={pid};
           const inp  = () => document.getElementById(`dlg-i-${pid}`);
           document.getElementById(`dlg-o-${pid}`).addEventListener('click', () => done(inp()?.value.trim() || null));
           document.getElementById(`dlg-x-${pid}`).addEventListener('click', () => done(null));
-          inp()?.addEventListener('keydown', e => {
-            if (e.key === 'Enter')  done(inp()?.value.trim() || null);
-            if (e.key === 'Escape') done(null);
+          /* Captura TODO keydown que ocurra dentro del diálogo antes de que
+             suba a document, para que el escritorio (F2/Del/Enter/etc.) no
+             reaccione a algo que en realidad iba dirigido al diálogo. */
+          div.addEventListener('keydown', e => {
+            e.stopPropagation();
+            if (e.key === 'Enter')  { e.preventDefault(); done(inp()?.value.trim() || null); }
+            if (e.key === 'Escape') { e.preventDefault(); done(null); }
           });
           setTimeout(() => inp()?.focus(), 120);
         });
@@ -2203,12 +2760,211 @@ const pidRef={pid};
             </div>`;
           WM.createWindow(proc, { title, icon, width: 370, height: 185, content: div });
           const done = v => { WM.close(pid); resolve(v); };
-          document.getElementById(`dlg-y-${pid}`).addEventListener('click', () => done(true));
-          document.getElementById(`dlg-n-${pid}`).addEventListener('click', () => done(false));
+          const yesBtn = document.getElementById(`dlg-y-${pid}`);
+          const noBtn  = document.getElementById(`dlg-n-${pid}`);
+          yesBtn.addEventListener('click', () => done(true));
+          noBtn.addEventListener('click', () => done(false));
+          /* Igual que en prompt(): sin esto, Enter/Escape se filtran hasta
+             document y el escritorio los interpreta como sus propios atajos
+             (p. ej. abrir el ítem seleccionado en vez de confirmar el diálogo). */
+          div.addEventListener('keydown', e => {
+            e.stopPropagation();
+            if (e.key === 'Enter')  { e.preventDefault(); done(true); }
+            if (e.key === 'Escape') { e.preventDefault(); done(false); }
+          });
+          setTimeout(() => yesBtn.focus(), 120);
         });
       }
 
       return { prompt, confirm };
+    })();
+
+    /* ══ TASKBAR: reordenar apps + menú contextual ══ */
+    const TaskbarSort = (()=>{
+      const tbApps=document.getElementById('taskbar-apps');
+      const taskbarEl=document.getElementById('taskbar');
+
+      let _showDesktopState=null;
+      function toggleShowDesktop(){
+        const entries=Object.entries(WM.windows);
+        if(!entries.length){Toast.show('No hay ventanas abiertas','info');return;}
+        const allMin=entries.every(([,w])=>w.minimized);
+        if(allMin&&_showDesktopState){
+          _showDesktopState.forEach(pid=>{const w=WM.getWindow(pid);if(w&&w.minimized)WM.minimize(pid);});
+          _showDesktopState=null;
+        } else {
+          _showDesktopState=entries.filter(([,w])=>!w.minimized).map(([pid])=>+pid);
+          _showDesktopState.forEach(pid=>WM.minimize(pid));
+        }
+      }
+
+      function resetOrder(){
+        const items=Array.from(tbApps.querySelectorAll('.tb-app:not(.tb-closing)'));
+        if(!items.length){Toast.show('No hay apps en la barra','info');return;}
+        items.sort((a,b)=>(+a.dataset.pid)-(+b.dataset.pid));
+        items.forEach(it=>tbApps.appendChild(it));
+        Toast.show('Orden de la barra restablecido','ok');
+      }
+
+      function showTaskbarMenu(x,y){
+        const entries=Object.entries(WM.windows);
+        const anyOpen=entries.length>0;
+        const allMin=anyOpen&&entries.every(([,w])=>w.minimized);
+        CtxMenu.show(x,y,[
+          {label:'BARRA DE TAREAS'},
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M8 20h8M12 17v3"/></svg>',text:allMin?'Restaurar ventanas':'Mostrar escritorio',disabled:!anyOpen,action:toggleShowDesktop},
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7h11M15 3l4 4-4 4"/><path d="M16 17H5M9 21l-4-4 4-4"/></svg>',text:'Restablecer orden',disabled:!anyOpen,action:resetOrder},
+          'sep',
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M7 9l3 3-3 3M12 15h5"/></svg>',text:'Abrir Terminal',action:()=>window.__wos&&window.__wos.launch('terminal',{})},
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V7a4 4 0 018 0v4"/><path d="M12 15v3"/></svg>',text:'Bloquear pantalla',action:()=>{if(window.__wos_lock)window.__wos_lock();}},
+          'sep',
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.2-1.6l2-1.4-2-3.4-2.3.8a7 7 0 00-2.7-1.6L13.4 2h-2.8l-.4 2.8a7 7 0 00-2.7 1.6l-2.3-.8-2 3.4 2 1.4A7 7 0 005 12c0 .5 0 1 .1 1.6l-2 1.4 2 3.4 2.3-.8a7 7 0 002.7 1.6l.4 2.8h2.8l.4-2.8a7 7 0 002.7-1.6l2.3.8 2-3.4-2-1.4c.1-.6.1-1.1.1-1.6z"/></svg>',text:'Preferencias del sistema',action:()=>openPrefsWindow()},
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.7" r="0.9" fill="currentColor" stroke="none"/></svg>',text:'Información del sistema',action:()=>openSysInfoWindow()},
+        ]);
+      }
+
+      /* ── Ajustes propios de la barra (zona fuera de #taskbar-apps) ── */
+      let _tbPos='bottom';
+      const TB_POSITIONS=['bottom','top','left','right'];
+      function applyTaskbarPositionDOM(pos){
+        _tbPos=TB_POSITIONS.includes(pos)?pos:'bottom';
+        document.body.dataset.tbPos=_tbPos;
+      }
+      async function loadTaskbarPosition(){
+        if(!Kernel.isReady)return 'bottom';
+        const p=await Kernel.prefs.get('taskbar.position');
+        return TB_POSITIONS.includes(p)?p:'bottom';
+      }
+      async function setTaskbarPosition(pos){
+        if(!Kernel.isReady)return;
+        const p=TB_POSITIONS.includes(pos)?pos:'bottom';
+        await Kernel.prefs.set('taskbar.position',p);
+        applyTaskbarPositionDOM(p);
+        CtxMenu.hide();
+      }
+      function posIcon(v){ return _tbPos===v?'✓':'▫'; }
+      function posLabel(v){ return v==='bottom'?'Abajo':v==='top'?'Arriba':v==='left'?'Izquierda':'Derecha'; }
+
+      async function getTaskbarSettings(){
+        if(!Kernel.isReady)return{hideClock:false,hideNotif:false,hideSysDots:false};
+        return{
+          hideClock  : !!(await Kernel.prefs.get('taskbar.hideClock',false)),
+          hideNotif  : !!(await Kernel.prefs.get('taskbar.hideNotif',false)),
+          hideSysDots: !!(await Kernel.prefs.get('taskbar.hideSysDots',false)),
+        };
+      }
+      async function applyTaskbarSettings(){
+        const s=await getTaskbarSettings();
+        const clockEl=document.querySelector('#taskbar-sys .sys-indicator');
+        const notifEl=document.getElementById('notif-btn');
+        const dotsEl=document.querySelector('#taskbar-sys .sys-dots');
+        if(clockEl)clockEl.style.display=s.hideClock?'none':'';
+        if(notifEl)notifEl.style.display=s.hideNotif?'none':'';
+        if(dotsEl)dotsEl.style.display=s.hideSysDots?'none':'';
+        applyTaskbarPositionDOM(await loadTaskbarPosition());
+      }
+      async function setTaskbarSetting(key,value){
+        if(!Kernel.isReady)return;
+        await Kernel.prefs.set(key,value);
+        await applyTaskbarSettings();
+      }
+      async function showTaskbarSettingsMenu(x,y){
+        const s=await getTaskbarSettings();
+        CtxMenu.show(x,y,[
+          {label:'CONFIGURACIÓN DE LA BARRA'},
+          {icon:s.hideClock?'▫':'✓',text:s.hideClock?'Mostrar reloj':'Ocultar reloj',action:()=>setTaskbarSetting('taskbar.hideClock',!s.hideClock)},
+          {icon:s.hideNotif?'▫':'✓',text:s.hideNotif?'Mostrar notificaciones':'Ocultar notificaciones',action:()=>setTaskbarSetting('taskbar.hideNotif',!s.hideNotif)},
+          {icon:s.hideSysDots?'▫':'✓',text:s.hideSysDots?'Mostrar indicadores SYS':'Ocultar indicadores SYS',action:()=>setTaskbarSetting('taskbar.hideSysDots',!s.hideSysDots)},
+          'sep',
+          {label:'POSICIÓN DE LA BARRA'},
+          {icon:posIcon('bottom'),text:posLabel('bottom'),action:()=>setTaskbarPosition('bottom')},
+          {icon:posIcon('top'),text:posLabel('top'),action:()=>setTaskbarPosition('top')},
+          {icon:posIcon('left'),text:posLabel('left'),action:()=>setTaskbarPosition('left')},
+          {icon:posIcon('right'),text:posLabel('right'),action:()=>setTaskbarPosition('right')},
+          'sep',
+          {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.2-1.6l2-1.4-2-3.4-2.3.8a7 7 0 00-2.7-1.6L13.4 2h-2.8l-.4 2.8a7 7 0 00-2.7 1.6l-2.3-.8-2 3.4 2 1.4A7 7 0 005 12c0 .5 0 1 .1 1.6l-2 1.4 2 3.4 2.3-.8a7 7 0 002.7 1.6l.4 2.8h2.8l.4-2.8a7 7 0 002.7-1.6l2.3.8 2-3.4-2-1.4c.1-.6.1-1.1.1-1.6z"/></svg>',text:'Preferencias del sistema',action:()=>openPrefsWindow()},
+        ]);
+      }
+
+      taskbarEl.addEventListener('contextmenu',e=>{
+        if(e.target.closest('.tb-app'))return; // cada app ya tiene su propio menú (minimizar/maximizar/cerrar)
+        e.preventDefault();
+        if(e.target.closest('#taskbar-apps')){
+          showTaskbarMenu(e.clientX,e.clientY);
+        } else {
+          showTaskbarSettingsMenu(e.clientX,e.clientY);
+        }
+      });
+
+      /* ── Arrastre para reordenar: carril horizontal, sin drag&drop nativo ── */
+      tbApps.addEventListener('mousedown',e=>{
+        if(e.button!==0)return;
+        const tbApp=e.target.closest('.tb-app');
+        if(!tbApp)return;
+
+        const startX=e.clientX,startY=e.clientY;
+        const rect=tbApp.getBoundingClientRect();
+        const offsetX=startX-rect.left;
+        let dragging=false,ghost=null,placeholder=null;
+
+        function railY(){
+          const r=tbApps.getBoundingClientRect();
+          return r.top+r.height/2;
+        }
+        function clampX(x){
+          const r=tbApps.getBoundingClientRect();
+          return Math.min(Math.max(x,r.left),r.right-rect.width);
+        }
+        function reorder(clientX){
+          const siblings=Array.from(tbApps.querySelectorAll('.tb-app:not(.tb-closing)'));
+          let target=null;
+          for(const sib of siblings){
+            const r=sib.getBoundingClientRect();
+            if(clientX<r.left+r.width/2){ target=sib; break; }
+          }
+          if(target) tbApps.insertBefore(placeholder,target);
+          else tbApps.appendChild(placeholder);
+        }
+
+        function onMove(ev){
+          const dx=ev.clientX-startX,dy=ev.clientY-startY;
+          if(!dragging&&Math.hypot(dx,dy)<4)return;
+          if(!dragging){
+            dragging=true;
+            placeholder=document.createElement('div');
+            placeholder.className='tb-app-placeholder';
+            placeholder.style.width=rect.width+'px';
+            placeholder.style.height=rect.height+'px';
+            tbApps.insertBefore(placeholder,tbApp);
+            tbApp.remove();
+            ghost=tbApp.cloneNode(true);
+            ghost.classList.add('tb-app-ghost');
+            ghost.style.width=rect.width+'px';
+            ghost.style.height=rect.height+'px';
+            document.body.appendChild(ghost);
+            document.body.style.cursor='grabbing';
+          }
+          const nx=clampX(ev.clientX-offsetX);
+          ghost.style.left=nx+'px';
+          ghost.style.top=(railY()-rect.height/2)+'px';
+          reorder(ev.clientX);
+        }
+        function onUp(){
+          document.removeEventListener('mousemove',onMove);
+          document.removeEventListener('mouseup',onUp);
+          document.body.style.cursor='';
+          if(dragging){
+            tbApp.dataset.tbDragSkip='1';
+            tbApps.insertBefore(tbApp,placeholder);
+            placeholder.remove();
+            if(ghost)ghost.remove();
+          }
+        }
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+      });
+
+      return { applyTaskbarSettings, setTaskbarPosition, posIcon, posLabel, currentPosition:()=>_tbPos };
     })();
 
     /* ══ START MENU ══ */
@@ -2319,7 +3075,10 @@ let _selected=new Set();       // paths seleccionados
       let _marqueeEl=null;
       let _marqueeStart=null;
       let _dragState=null;           // estado de arrastre de iconos
-      const ICON_W=108, ICON_H=104;  // tamaño aproximado de un icono (padding incluido)
+      let _stateLoaded=false;        // true solo cuando layout/posiciones/orden/tamaño ya se cargaron de prefs
+      let _stateLoadPromise=null;    // promesa de esa carga, para que nadie renderice antes de tiempo
+      const ICON_SIZE_DIMENSIONS={ sm:{w:82,h:78}, md:{w:108,h:104}, lg:{w:132,h:128} };
+      let ICON_W=108, ICON_H=104;    // se recalculan según _iconSize (ver applyIconSize/init)
       const GRID_COLS=8;             // columnas para modo grid
       const SNAP=1;                  // snapping en px (1 = sin snap)
 
@@ -2379,16 +3138,69 @@ let _selected=new Set();       // paths seleccionados
         try{ _layoutMode=(await K.prefs.get('desktop.layoutMode'))||'auto'; }catch(e){ _layoutMode='auto'; }
       }
 
+      /* ── Rejilla imaginaria: tamaño de celda ligado al icono y al escritorio ── */
+      function _gridMetrics(){
+        const gapX=10, gapY=8, originX=18, originY=18;
+        const rect=desktop.getBoundingClientRect();
+        const cellW=ICON_W+gapX, cellH=ICON_H+gapY;
+        const maxCols=Math.max(1,Math.floor((rect.width-originX*2+gapX)/cellW));
+        const maxRows=Math.max(1,Math.floor((rect.height-originY*2+gapY)/cellH));
+        return {originX,originY,cellW,cellH,maxCols,maxRows};
+      }
+      function _snapPosToGrid(x,y){
+        const {originX,originY,cellW,cellH,maxCols,maxRows}=_gridMetrics();
+        let col=Math.round((x-originX)/cellW);
+        let row=Math.round((y-originY)/cellH);
+        col=Math.min(Math.max(col,0),maxCols-1);
+        row=Math.min(Math.max(row,0),maxRows-1);
+        return {x:originX+col*cellW,y:originY+row*cellH};
+      }
+      function _occupiedGridCells(excludePaths){
+        const {originX,originY,cellW,cellH}=_gridMetrics();
+        const set=new Set();
+        Object.entries(_iconPositions).forEach(([p,pos])=>{
+          if(excludePaths.includes(p))return;
+          const col=Math.round((pos.x-originX)/cellW);
+          const row=Math.round((pos.y-originY)/cellH);
+          set.add(col+','+row);
+        });
+        return set;
+      }
+      function _nearestFreeGridCell(x,y,occupied){
+        const {originX,originY,cellW,cellH,maxCols,maxRows}=_gridMetrics();
+        let col=Math.round((x-originX)/cellW);
+        let row=Math.round((y-originY)/cellH);
+        col=Math.min(Math.max(col,0),maxCols-1);
+        row=Math.min(Math.max(row,0),maxRows-1);
+        const maxRadius=Math.max(maxCols,maxRows);
+        for(let radius=0;radius<=maxRadius;radius++){
+          for(let dc=-radius;dc<=radius;dc++){
+            for(let dr=-radius;dr<=radius;dr++){
+              if(Math.max(Math.abs(dc),Math.abs(dr))!==radius)continue;
+              const c=col+dc,r=row+dr;
+              if(c<0||r<0||c>=maxCols||r>=maxRows)continue;
+              const key=c+','+r;
+              if(!occupied.has(key)){
+                occupied.add(key);
+                return {x:originX+c*cellW,y:originY+r*cellH};
+              }
+            }
+          }
+        }
+        return {x:originX+col*cellW,y:originY+row*cellH};
+      }
+
       /* ── Modo de organización ── */
 function applyLayoutMode(mode){
         _layoutMode=mode;
         iconsEl.classList.toggle('manual-layout',mode==='manual');
         iconsEl.classList.toggle('grid-layout',mode==='grid');
         if(mode==='manual'){
-          // Si un icono no tiene posición guardada (nuevo), se le asigna
-          // el primer hueco libre en vez de colapsar en (0,0).
           const used=Object.values(_iconPositions);
           const occupies=(x,y)=>used.some(p=>Math.abs(p.x-x)<ICON_W*0.6&&Math.abs(p.y-y)<ICON_H*0.6);
+          const rect=desktop.getBoundingClientRect();
+          const availH=Math.max(rect.height-18-18,ICON_H);
+          const maxRows=Math.max(1,Math.floor((availH+8)/(ICON_H+8)));
           let changed=false;
           document.querySelectorAll('.desktop-icon').forEach(d=>{
             const p=d.dataset.path;
@@ -2397,9 +3209,38 @@ function applyLayoutMode(mode){
               let col=0,row=0,x,y;
               do{
                 x=18+col*(ICON_W+10); y=18+row*(ICON_H+8);
-                col++; if(col>=GRID_COLS){col=0;row++;}
+                row++; if(row>=maxRows){row=0;col++;}
               }while(occupies(x,y));
               pos={x,y}; _iconPositions[p]=pos; used.push(pos); changed=true;
+            }
+            d.style.left=pos.x+'px'; d.style.top=pos.y+'px';
+          });
+          if(changed)saveIconPositions();
+        } else if(mode==='grid'){
+          const {originX,originY,cellW,cellH,maxCols,maxRows}=_gridMetrics();
+          const occupied=new Set();
+          const nodes=Array.from(document.querySelectorAll('.desktop-icon'));
+          nodes.sort((a,b)=>(a.dataset.path||'').localeCompare(b.dataset.path||''));
+          let changed=false;
+          nodes.forEach(d=>{
+            const p=d.dataset.path;
+            let pos=_iconPositions[p];
+            if(!pos){
+              pos=_nearestFreeGridCell(originX,originY,occupied);
+              _iconPositions[p]=pos; changed=true;
+              d.style.left=pos.x+'px'; d.style.top=pos.y+'px';
+              return;
+            }
+            const col=Math.min(Math.max(Math.round((pos.x-originX)/cellW),0),maxCols-1);
+            const row=Math.min(Math.max(Math.round((pos.y-originY)/cellH),0),maxRows-1);
+            const key=col+','+row;
+            if(occupied.has(key)){
+              pos=_nearestFreeGridCell(originX+col*cellW,originY+row*cellH,occupied);
+              _iconPositions[p]=pos; changed=true;
+            } else {
+              const snapped={x:originX+col*cellW,y:originY+row*cellH};
+              if(snapped.x!==pos.x||snapped.y!==pos.y){pos=snapped;_iconPositions[p]=pos;changed=true;}
+              occupied.add(key);
             }
             d.style.left=pos.x+'px'; d.style.top=pos.y+'px';
           });
@@ -2412,19 +3253,128 @@ function applyLayoutMode(mode){
         saveLayoutMode();
       }
       function autoArrange(){
-        // Reorganiza todos los iconos en una cuadrícula ajustada
         const icons=Array.from(document.querySelectorAll('.desktop-icon'));
-        const cols=GRID_COLS;
         const startX=18, startY=18;
         const gapX=10, gapY=8;
+        const rect=desktop.getBoundingClientRect();
+        const availH=Math.max(rect.height-startY-18,ICON_H);
+        const maxRows=Math.max(1,Math.floor((availH+gapY)/(ICON_H+gapY)));
         icons.forEach((d,i)=>{
-          const col=i%cols, row=Math.floor(i/cols);
+          const col=Math.floor(i/maxRows), row=i%maxRows;
           const x=startX+col*(ICON_W+gapX);
           const y=startY+row*(ICON_H+gapY);
           _iconPositions[d.dataset.path]={x,y};
           d.style.left=x+'px'; d.style.top=y+'px';
         });
         saveIconPositions();
+      }
+
+      async function repositionIcons(paths, clientX, clientY, rawOffset, anchorPath){
+        let offset={x:0,y:0};
+        try{ offset=JSON.parse(rawOffset||'{}'); }catch(_){}
+        if(_layoutMode==='auto'){
+          const dRect0=desktop.getBoundingClientRect();
+          document.querySelectorAll('.desktop-icon').forEach(d=>{
+            const r=d.getBoundingClientRect();
+            _iconPositions[d.dataset.path]={x:r.left-dRect0.left,y:r.top-dRect0.top};
+          });
+          applyLayoutMode('manual');
+        }
+        const dRect=desktop.getBoundingClientRect();
+        const baseX=Math.max(0,Math.min(clientX-dRect.left-(offset.x||0),dRect.width-ICON_W));
+        const baseY=Math.max(0,Math.min(clientY-dRect.top-(offset.y||0),dRect.height-ICON_H));
+
+        if(_layoutMode==='grid'&&paths.length>1){
+          const {originX,originY,cellW,cellH,maxCols,maxRows}=_gridMetrics();
+          const toCell=pos=>({
+            c:Math.min(Math.max(Math.round(((pos?.x??baseX)-originX)/cellW),0),maxCols-1),
+            r:Math.min(Math.max(Math.round(((pos?.y??baseY)-originY)/cellH),0),maxRows-1),
+          });
+          const anchor=(anchorPath&&paths.includes(anchorPath))?anchorPath:paths[0];
+          const oldAnchorCell=toCell(_iconPositions[anchor]);
+
+          // celdas ocupadas por iconos que NO se están moviendo
+          const occupied=_occupiedGridCells(paths);
+          const newAnchorPos=_nearestFreeGridCell(baseX,baseY,occupied);
+          const newAnchorCell=toCell(newAnchorPos);
+          const deltaC=newAnchorCell.c-oldAnchorCell.c;
+          const deltaR=newAnchorCell.r-oldAnchorCell.r;
+
+          // el ancla ya quedó reservada en `occupied` por _nearestFreeGridCell
+          _iconPositions[anchor]=newAnchorPos;
+          const anchorEl=document.querySelector(`.desktop-icon[data-path="${CSS.escape(anchor)}"]`);
+          if(anchorEl){ anchorEl.style.left=newAnchorPos.x+'px'; anchorEl.style.top=newAnchorPos.y+'px'; }
+
+          paths.filter(p=>p!==anchor).forEach(p=>{
+            const oldCell=toCell(_iconPositions[p]);
+            const c=Math.min(Math.max(oldCell.c+deltaC,0),maxCols-1);
+            const r=Math.min(Math.max(oldCell.r+deltaR,0),maxRows-1);
+            const desiredPos={x:originX+c*cellW,y:originY+r*cellH};
+            const finalPos=_nearestFreeGridCell(desiredPos.x,desiredPos.y,occupied);
+            _iconPositions[p]=finalPos;
+            const d=document.querySelector(`.desktop-icon[data-path="${CSS.escape(p)}"]`);
+            if(d){ d.style.left=finalPos.x+'px'; d.style.top=finalPos.y+'px'; }
+          });
+        } else if(_layoutMode==='grid'){
+          const occupied=_occupiedGridCells(paths);
+          const pos=_nearestFreeGridCell(baseX,baseY,occupied);
+          _iconPositions[paths[0]]=pos;
+          const d=document.querySelector(`.desktop-icon[data-path="${CSS.escape(paths[0])}"]`);
+          if(d){ d.style.left=pos.x+'px'; d.style.top=pos.y+'px'; }
+        } else {
+          paths.forEach((p,i)=>{
+            const pos={x:baseX+i*14, y:baseY+i*14};
+            _iconPositions[p]=pos;
+            const d=document.querySelector(`.desktop-icon[data-path="${CSS.escape(p)}"]`);
+            if(d){ d.style.left=pos.x+'px'; d.style.top=pos.y+'px'; }
+          });
+        }
+        await saveIconPositions();
+      }
+
+      async function moveExternalItemsToDesktop(paths){
+        const K=getKernel(); if(!K)return;
+        let moved=0,errors=0;
+        for(const p of paths){
+          if(K.fs.dirname(p)==='/home/desktop')continue;
+          const name=K.fs.basename(p);
+          let target=`/home/desktop/${name}`;
+          try{
+            if(await K.fs.exists(target)){
+              let n=2;
+              while(await K.fs.exists(`/home/desktop/${name} (${n})`))n++;
+              target=`/home/desktop/${name} (${n})`;
+            }
+            await K.fs.move(p,target);
+            moved++;
+          }catch(err){ errors++; }
+        }
+        if(moved)Toast.show(`${moved} elemento(s) movidos al escritorio`,'ok');
+        if(errors)Toast.show(`${errors} elemento(s) no se pudieron mover`,'error');
+        await refreshDesktop();
+      }
+
+      async function moveItemsIntoFolder(paths,destDir){
+        const K=getKernel(); if(!K)return;
+        let moved=0,errors=0;
+        for(const p of paths){
+          if(p===destDir)continue;
+          if(K.fs.dirname(p)===destDir)continue;
+          const name=K.fs.basename(p);
+          let target=`${destDir}/${name}`;
+          try{
+            if(await K.fs.exists(target)){
+              let n=2;
+              while(await K.fs.exists(`${destDir}/${name} (${n})`))n++;
+              target=`${destDir}/${name} (${n})`;
+            }
+            await K.fs.move(p,target);
+            moved++;
+          }catch(err){ errors++; }
+        }
+        if(moved)Toast.show(`${moved} elemento(s) movidos`,'ok');
+        if(errors)Toast.show(`${errors} elemento(s) no se pudieron mover`,'error');
+        await refreshDesktop();
       }
 
       /* ── Renombrado in-line ── */
@@ -2452,6 +3402,11 @@ function applyLayoutMode(mode){
           try{
             if(await K.fs.exists(newPath)){ Toast.show(`Ya existe "${newName}"`,'warn'); input.replaceWith(labelEl); return; }
             await K.fs.move(item.id,newPath);
+            if(Object.prototype.hasOwnProperty.call(_iconPositions,item.id)){
+              _iconPositions[newPath]=_iconPositions[item.id];
+              delete _iconPositions[item.id];
+              await saveIconPositions();
+            }
             Toast.show('Renombrado','ok');
           }catch(err){ Toast.show(err.message||'No se pudo renombrar','error'); input.replaceWith(labelEl); }
         }
@@ -2495,23 +3450,30 @@ function applyLayoutMode(mode){
         const deletable=paths.filter(p=>!isProtected(p));
         if(protectedPaths.length)Toast.show(`${protectedPaths.length} elemento(s) protegido(s) del sistema`,'warn');
         if(!deletable.length)return;
-        if(deletable.length>1){
-          const ok=await Dialog.confirm(`¿Eliminar ${deletable.length} elementos? Esta acción no se puede deshacer.`);
-          if(!ok)return;
-        }
+        const confirmMsg = deletable.length>1
+          ? `¿Eliminar ${deletable.length} elementos? Esta acción no se puede deshacer.`
+          : `¿Eliminar "${K.fs.basename(deletable[0])}"? Esta acción no se puede deshacer.`;
+        const ok=await Dialog.confirm(confirmMsg,{title:'Eliminar'});
+        if(!ok)return;
         let count=0;
         for(const p of deletable){
-          try{ await K.fs.remove(p); count++; }
+          try{
+            await K.fs.remove(p);
+            if(Object.prototype.hasOwnProperty.call(_iconPositions,p))delete _iconPositions[p];
+            count++;
+          }
           catch(err){ Toast.show(`Error: ${err.message||err}`,'error'); }
         }
-        if(count)Toast.show(`${count} elemento(s) eliminado(s)`,'ok');
+        if(count){ Toast.show(`${count} elemento(s) eliminado(s)`,'ok'); await saveIconPositions(); }
         clearSelection();
         await refreshDesktop();
       }
 
+      
+
       /* ── Renderizado desde FS ── */
+      /* ── Renderizado desde FS (Diffing) ── */
       function renderFromFs(items){
-        iconsEl.innerHTML='';
         const entries=[...items].sort((a,b)=>{
           if(_sortBy==='date')return (b.mtime||0)-(a.mtime||0);
           if(_sortBy==='name')return (a.name||'').localeCompare(b.name||'');
@@ -2519,171 +3481,212 @@ function applyLayoutMode(mode){
           return (a.name||'').localeCompare(b.name||'');
         });
 
-        entries.forEach(item=>{
-    const isShortcut=item.type==='shortcut' || item.meta?.isDesktopShortcut;
-    const isExe=!isShortcut && item.type==='file' && (item.name||'').endsWith('.exe') && !!item.meta?.appId;
-    const ic=document.createElement('div'); ic.className='desktop-icon';
-    ic.dataset.path=item.id;
-const icon = item.meta?.icon || item.icon || (isShortcut ? '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 16.5l-1.8 1.8a3.5 3.5 0 01-5-5L4 10.5"/><path d="M16 7.5l1.8-1.8a3.5 3.5 0 015 5L20 13.5"/></svg>' : isExe ? '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.2-1.6l2-1.4-2-3.4-2.3.8a7 7 0 00-2.7-1.6L13.4 2h-2.8l-.4 2.8a7 7 0 00-2.7 1.6l-2.3-.8-2 3.4 2 1.4A7 7 0 005 12c0 .5 0 1 .1 1.6l-2 1.4 2 3.4 2.3-.8a7 7 0 002.7 1.6l.4 2.8h2.8l.4-2.8a7 7 0 002.7-1.6l2.3.8 2-3.4-2-1.4c.1-.6.1-1.1.1-1.6z"/></svg>' : (item.type==='dir' ? '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a1 1 0 011-1h5l2 2h9a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V7z"/></svg>' : '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2.5h7l4 4V21a.5.5 0 01-.5.5h-11A.5.5 0 016 21V3a.5.5 0 011-.5z"/><path d="M14 2.5V7h4.5"/></svg>'));
-    const label = (isExe && item.meta?.displayName) ? item.meta.displayName : (item.name || item.id.split('/').pop());
-    const safeLabel = escapeHtml(label);
-    const iconMarkup = Kernel.icons.render(icon);
-    ic.innerHTML=`<span class="icon-wrap"><span class="icon">${iconMarkup}</span>${isShortcut?'<span class="shortcut-badge"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg></span>':''}</span><span class="label">${safeLabel}</span>`;
-
-    /* ── Click: selección ── */
-    ic.addEventListener('click',e=>{
-      e.stopPropagation();
-      if(e.ctrlKey||e.metaKey){ toggleSelection(item.id); }
-      else if(e.shiftKey&&_activePath){
-        // Selección por rango: desde el activo hasta este
-        const allPaths=Array.from(document.querySelectorAll('.desktop-icon')).map(d=>d.dataset.path);
-        const i1=allPaths.indexOf(_activePath);
-        const i2=allPaths.indexOf(item.id);
-        if(i1>=0&&i2>=0){
-          const [lo,hi]=[Math.min(i1,i2),Math.max(i1,i2)];
-          setSelection(allPaths.slice(lo,hi+1),_activePath);
-        } else { setSelection([item.id]); }
-      }
-      else { setSelection([item.id]); }
-    });
-
-    /* ── Doble click: abrir ── */
-    ic.addEventListener('dblclick',async(e)=>{
-      e.stopPropagation();
-      if(isShortcut||isExe){
-        const appId=item.meta?.appId;
-        if(appId){
-          const app=await getKernel()?.apps?.get(appId);
-          if(app)launchApp(app,{filePath:item.meta?.filePath||undefined,startPath:item.meta?.startPath||undefined});
-          else Toast.show(`${isShortcut?'Acceso':'Ejecutable'} "${label}" no disponible`,'warn');
-        }
-        return;
-      }
-      if(item.type==='dir'){
-        Toast.show(`Abrir carpeta ${label}`,'info');
-        return;
-      }
-      if(getKernel()?.openFile){
-        const result=await getKernel().openFile(item.id);
-        if(!result?.ok) Toast.show('No hay app asociada para este archivo','info');
-      }
-    });
-
-    /* ── Menú contextual del icono ── */
-    ic.addEventListener('contextmenu',e=>{
-      e.preventDefault(); e.stopPropagation();
-      // Si el icono no estaba seleccionado, seleccionar solo este
-      if(!_selected.has(item.id))setSelection([item.id]);
-      showIconContextMenu(e.clientX,e.clientY,item);
-    });
-
-    /* ── Arrastre de iconos (modo manual) ── */
-    ic.addEventListener('mousedown',e=>{
-      if(e.button!==0)return;
-      // No iniciar drag si el click fue en el input de renombrado
-      if(e.target.classList.contains('label-input'))return;
-      e.preventDefault();
-      startIconDrag(e,ic,item);
-    });
-
-          iconsEl.appendChild(ic);
+        // 1. Mapear iconos actuales en el DOM
+        const existingIcons = new Map();
+        iconsEl.querySelectorAll('.desktop-icon').forEach(el => {
+          existingIcons.set(el.dataset.path, el);
         });
 
-        // Re-aplicar modo de layout tras render
+        const newOrder = [];
+
+        entries.forEach(item=>{
+          let ic = existingIcons.get(item.id);
+          if (!ic) {
+            // Si el icono no existe en el DOM, lo creamos nuevo
+            ic = document.createElement('div');
+            ic.className='desktop-icon';
+            ic.dataset.path=item.id;
+          }
+          ic.dataset.dropCapable = (item.type==='dir') ? '1' : '0';
+
+          // Actualizar contenido del icono (solo si cambió)
+          const isShortcut=item.type==='shortcut' || item.meta?.isDesktopShortcut;
+          const isExe=!isShortcut && item.type==='file' && (item.name||'').endsWith('.exe') && !!item.meta?.appId;
+          
+          const ext = '.' + (item.name.split('.').pop() || '').toLowerCase();
+          const IMG_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp'];
+          const isImg = item.type === 'file' && !isExe && !isShortcut && IMG_EXTS.includes(ext);
+          const VID_EXTS = ['.mp4', '.webm', '.ogg', '.mov', '.mkv'];
+          const isVid = item.type === 'file' && !isExe && !isShortcut && VID_EXTS.includes(ext);
+
+          const icon = item.meta?.icon || item.icon || (isShortcut ? '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5l5-5"/><path d="M8 16.5l-1.8 1.8a3.5 3.5 0 01-5-5L4 10.5"/><path d="M16 7.5l1.8-1.8a3.5 3.5 0 015 5L20 13.5"/></svg>' : isExe ? '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.2-1.6l2-1.4-2-3.4-2.3.8a7 7 0 00-2.7-1.6L13.4 2h-2.8l-.4 2.8a7 7 0 00-2.7 1.6l-2.3-.8-2 3.4 2 1.4A7 7 0 005 12c0 .5 0 1 .1 1.6l-2 1.4 2 3.4 2.3-.8a7 7 0 002.7 1.6l.4 2.8h2.8l.4-2.8a7 7 0 002.7-1.6l2.3.8 2-3.4-2-1.4c.1-.6.1-1.1.1-1.6z"/></svg>' : (item.type==='dir' ? '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a1 1 0 011-1h5l2 2h9a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V7z"/></svg>' : '<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2.5h7l4 4V21a.5.5 0 01-.5.5h-11A.5.5 0 016 21V3a.5.5 0 011-.5z"/><path d="M14 2.5V7h4.5"/></svg>'));
+          
+          const label = (isExe && item.meta?.displayName) ? item.meta.displayName : (item.name || item.id.split('/').pop());
+          const safeLabel = escapeHtml(label);
+          
+          const expectedShortcutBadge = isShortcut?'<span class="shortcut-badge"><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg></span>':'';
+          const iconMarkup = Kernel.icons.render(icon);
+          const expectedHTML = `<span class="icon-wrap"><span class="icon">${iconMarkup}</span>${expectedShortcutBadge}</span><span class="label">${safeLabel}</span>`;
+          
+          if (!ic.dataset.thumbLoaded && ic.innerHTML !== expectedHTML) {
+            ic.innerHTML = expectedHTML;
+          }
+
+          // --- MINIATURAS EN TIEMPO REAL (CACHED) ---
+          if ((isImg || isVid) && !ic.dataset.thumbLoaded) {
+            const wrapEl = ic.querySelector('.icon-wrap');
+            if (wrapEl) {
+              wrapEl.style.overflow = 'hidden';
+              if (isImg) {
+                getKernel().fs.readDataURL(item.id).then(dataUrl => {
+                  if (wrapEl) {
+                    wrapEl.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:contain;padding:4px;box-sizing:border-box;" alt="" />`;
+                    ic.dataset.thumbLoaded = 'true';
+                  }
+                }).catch(()=>{});
+              } else if (isVid) {
+                getKernel().fs.readBlob(item.id).then(blob => {
+                  const url = URL.createObjectURL(blob);
+                  const video = document.createElement('video');
+                  video.muted = true; video.src = url;
+                  video.addEventListener('loadeddata', () => { video.currentTime = 0.1; });
+                  video.addEventListener('seeked', () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                    const ctx = canvas.getContext('2d'); ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    URL.revokeObjectURL(url);
+                    if (wrapEl) {
+                      wrapEl.innerHTML = `<img src="${canvas.toDataURL('image/png')}" style="width:100%;height:100%;object-fit:contain;padding:4px;box-sizing:border-box;" alt="" />`;
+                      const playBadge = document.createElement('div');
+                      playBadge.innerHTML = '▶';
+                      playBadge.style.cssText = 'position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.8);color:var(--g);font-size:0.5rem;padding:2px 4px;border-radius:50%;text-shadow:0 0 4px var(--g);';
+                      wrapEl.appendChild(playBadge);
+                      ic.dataset.thumbLoaded = 'true';
+                    }
+                  });
+                  video.addEventListener('error', () => { URL.revokeObjectURL(url); });
+                }).catch(()=>{});
+              }
+            }
+          } else if (!isImg && !isVid && ic.dataset.thumbLoaded) {
+            delete ic.dataset.thumbLoaded;
+          }
+
+          // Eventos (solo asignar si es nuevo)
+          if (!existingIcons.has(item.id)) {
+            ic.addEventListener('click',e=>{
+              e.stopPropagation();
+              if(e.ctrlKey||e.metaKey){ toggleSelection(item.id); }
+              else if(e.shiftKey&&_activePath){
+                const allPaths=Array.from(document.querySelectorAll('.desktop-icon')).map(d=>d.dataset.path);
+                const i1=allPaths.indexOf(_activePath);
+                const i2=allPaths.indexOf(item.id);
+                if(i1>=0&&i2>=0){
+                  const [lo,hi]=[Math.min(i1,i2),Math.max(i1,i2)];
+                  setSelection(allPaths.slice(lo,hi+1),_activePath);
+                } else { setSelection([item.id]); }
+              }
+              else { setSelection([item.id]); }
+            });
+
+            ic.addEventListener('dblclick', async (e) => {
+              e.stopPropagation();
+              if (isShortcut || isExe) {
+                const appId = item.meta?.appId;
+                if (appId) {
+                  const app = await getKernel()?.apps?.get(appId);
+                  if (app) launchApp(app, { filePath: item.meta?.filePath || undefined, startPath: item.meta?.startPath || undefined });
+                  else Toast.show(`${isShortcut ? 'Acceso' : 'Ejecutable'} "${label}" no disponible`, 'warn');
+                }
+                return;
+              }
+              if (item.type === 'dir') {
+                if (window.__wos) window.__wos.launch('files', { startPath: item.id });
+                return;
+              }
+              if (getKernel()?.openFile) {
+                const result = await getKernel().openFile(item.id);
+                if (!result?.ok) Toast.show('No hay app asociada para este archivo', 'info');
+              }
+            });
+
+            ic.addEventListener('contextmenu',e=>{
+              e.preventDefault(); e.stopPropagation();
+              if(!_selected.has(item.id))setSelection([item.id]);
+              showIconContextMenu(e.clientX,e.clientY,item);
+            });
+
+            ic.draggable = true;
+            ic.addEventListener('dragstart', e => {
+              if (e.target.classList.contains('label-input')) { e.preventDefault(); return; }
+              const paths = (_selected.has(item.id) && _selected.size > 1) ? getSelectedPaths() : [item.id];
+              const rect = ic.getBoundingClientRect();
+              e.dataTransfer.setData('text/x-huebos-paths', JSON.stringify(paths));
+              e.dataTransfer.setData('text/x-huebos-grab-offset', JSON.stringify({ x: e.clientX - rect.left, y: e.clientY - rect.top }));
+              e.dataTransfer.setData('text/x-huebos-desktop-origin', '1');
+              e.dataTransfer.setData('text/x-huebos-anchor-path', item.id);
+              e.dataTransfer.effectAllowed = 'move';
+              ic.classList.add('dragging');
+            });
+            ic.addEventListener('dragend', () => ic.classList.remove('dragging'));
+
+            if (item.type === 'dir') {
+              ic.addEventListener('dragover', e => {
+                if (!e.dataTransfer.types.includes('text/x-huebos-paths')) return;
+                e.preventDefault();
+                ic.classList.add('drop-target');
+              });
+              ic.addEventListener('dragleave', () => ic.classList.remove('drop-target'));
+              ic.addEventListener('drop', async e => {
+                e.preventDefault();
+                e.stopPropagation();
+                ic.classList.remove('drop-target');
+                const raw = e.dataTransfer.getData('text/x-huebos-paths');
+                if (!raw) return;
+                await moveItemsIntoFolder(JSON.parse(raw), item.id);
+              });
+            }
+          }
+          
+          newOrder.push(ic);
+          existingIcons.delete(item.id);
+        });
+
+        // 2. Eliminar iconos del DOM que ya no existen en el FS
+        existingIcons.forEach(el => el.remove());
+
+        // 3. Re-ordenar el DOM (append mueve el elemento si ya existe, sin destruirlo)
+        newOrder.forEach(ic => {
+          if (iconsEl.lastChild !== ic) {
+            iconsEl.appendChild(ic);
+          }
+        });
+
+        // 4. Re-aplicar posiciones manualmente sin resetear CSS
         applyLayoutMode(_layoutMode);
-        // Re-aplicar selección visual
         applySelectionVisuals();
       }
 
-      /* ── Arrastre de iconos ── */
-      function startIconDrag(e,iconEl,item){
-        const startX=e.clientX, startY=e.clientY;
-        const rect=iconEl.getBoundingClientRect();
-        const offsetX=startX-rect.left;
-        const offsetY=startY-rect.top;
-        const desktopRect=desktop.getBoundingClientRect();
-        let moved=false;
-        let ghost=null;
-        const paths=getSelectedPaths().length?getSelectedPaths():[item.id];
-
-        function onMove(ev){
-          const dx=ev.clientX-startX, dy=ev.clientY-startY;
-          if(!moved && Math.hypot(dx,dy)<4)return; // umbral
-          if(!moved){
-            moved=true;
-            // Al arrastrar, si no estábamos en modo manual, capturamos la
-            // posición actual en pantalla de TODOS los iconos y pasamos a
-            // manual, para que nada salte de lugar al soltar.
-            if(_layoutMode!=='manual'){
-              const dRect=desktop.getBoundingClientRect();
-              document.querySelectorAll('.desktop-icon').forEach(d=>{
-                const r=d.getBoundingClientRect();
-                _iconPositions[d.dataset.path]={x:r.left-dRect.left,y:r.top-dRect.top};
-              });
-              applyLayoutMode('manual');
-            }
-            desktop.classList.add('icon-dragging');
-            iconEl.classList.add('dragging');
-            // Crear ghost
-            ghost=iconEl.cloneNode(true);
-            ghost.classList.add('drag-ghost');
-            ghost.classList.remove('dragging');
-            ghost.style.width=rect.width+'px';
-            document.body.appendChild(ghost);
-          }
-          if(ghost){
-            ghost.style.left=(ev.clientX-offsetX)+'px';
-            ghost.style.top=(ev.clientY-offsetY)+'px';
-          }
+      desktop.addEventListener('dragover',e=>{
+        if(e.dataTransfer.types.includes('text/x-huebos-paths')){
+          e.preventDefault();
+          e.dataTransfer.dropEffect='move';
+          return;
         }
-        function onUp(ev){
-          document.removeEventListener('mousemove',onMove);
-          document.removeEventListener('mouseup',onUp);
-          desktop.classList.remove('icon-dragging');
-          iconEl.classList.remove('dragging');
-          if(ghost){ghost.remove();ghost=null;}
-          if(!moved)return;
-
-          // Calcular nueva posición relativa al desktop
-          const desktopRect2=desktop.getBoundingClientRect();
-          let nx=ev.clientX-desktopRect2.left-offsetX;
-          let ny=ev.clientY-desktopRect2.top-offsetY;
-          // Clamp dentro del escritorio
-          nx=Math.max(0,Math.min(nx,desktopRect2.width-ICON_W));
-          ny=Math.max(0,Math.min(ny,desktopRect2.height-ICON_H));
-          // Snap
-          nx=Math.round(nx/SNAP)*SNAP;
-          ny=Math.round(ny/SNAP)*SNAP;
-
-          if(paths.length===1){
-            _iconPositions[paths[0]]={x:nx,y:ny};
-            iconEl.style.left=nx+'px';
-            iconEl.style.top=ny+'px';
+        e.preventDefault();
+        e.dataTransfer.dropEffect='none';
+      });
+      desktop.addEventListener('drop',async e=>{
+        e.preventDefault();
+        const hoveredIcon=e.target.closest('.desktop-icon');
+        if(hoveredIcon&&hoveredIcon.dataset.dropCapable==='1')return; // solo carpetas gestionan su propio drop
+        const raw=e.dataTransfer.getData('text/x-huebos-paths');
+        if(raw){
+          const paths=JSON.parse(raw);
+          const K=getKernel();
+          const isDesktopOrigin=e.dataTransfer.getData('text/x-huebos-desktop-origin')==='1';
+          const allAlreadyOnDesktop=K&&paths.every(p=>K.fs.dirname(p)==='/home/desktop');
+          if(isDesktopOrigin&&allAlreadyOnDesktop){
+            await repositionIcons(paths,e.clientX,e.clientY,e.dataTransfer.getData('text/x-huebos-grab-offset'),e.dataTransfer.getData('text/x-huebos-anchor-path'));
           } else {
-            // Mover todos los seleccionados manteniendo offset relativo
-            const baseRect=iconEl.getBoundingClientRect();
-            const baseDx=baseRect.left-desktopRect2.left;
-            const baseDy=baseRect.top-desktopRect2.top;
-            paths.forEach(p=>{
-              const d=document.querySelector(`.desktop-icon[data-path="${CSS.escape(p)}"]`);
-              if(!d)return;
-              const dRect=d.getBoundingClientRect();
-              const oldX=dRect.left-desktopRect2.left;
-              const oldY=dRect.top-desktopRect2.top;
-              const relX=oldX-baseDx, relY=oldY-baseDy;
-              const fx=nx+relX, fy=ny+relY;
-              _iconPositions[p]={x:Math.max(0,fx),y:Math.max(0,fy)};
-              d.style.left=Math.max(0,fx)+'px';
-              d.style.top=Math.max(0,fy)+'px';
-            });
+            await moveExternalItemsToDesktop(paths);
           }
-          saveIconPositions();
+          return;
         }
-        document.addEventListener('mousemove',onMove);
-        document.addEventListener('mouseup',onUp);
-      }
-
-      /* ── Menú contextual del icono ── */
+        if(e.dataTransfer.files&&e.dataTransfer.files.length){
+          Toast.show('Usa la app Archivos para importar archivos','info','ESCRITORIO');
+        }
+      });
       function showIconContextMenu(x,y,item){
         const protectedNode=isProtected(item.id);
         const selPaths=getSelectedPaths();
@@ -2815,7 +3818,10 @@ const isShortcutCtx=item.type==='shortcut'||item.meta?.isDesktopShortcut;
         await refreshDesktop();
       }
       async function applyIconSize(size){
-        _iconSize=size; iconsEl.dataset.iconSize=size; await saveIconSize();
+        _iconSize=size; iconsEl.dataset.iconSize=size;
+        const dims=ICON_SIZE_DIMENSIONS[size]||ICON_SIZE_DIMENSIONS.md;
+        ICON_W=dims.w; ICON_H=dims.h;
+        await saveIconSize();
       }
       async function saveSortBy(){ const K=getKernel(); if(!K?.prefs)return; try{await K.prefs.set('desktop.sortBy',_sortBy);}catch(e){} }
       async function loadSortBy(){ const K=getKernel(); if(!K?.prefs)return; try{ _sortBy=(await K.prefs.get('desktop.sortBy'))||'type'; }catch(e){ _sortBy='type'; } }
@@ -2834,7 +3840,10 @@ const isShortcutCtx=item.type==='shortcut'||item.meta?.isDesktopShortcut;
           }
           return;
         }
-        if(item.type==='dir'){ Toast.show(`Abrir carpeta ${item.name||item.id}`,'info'); return; }
+              if(item.type==='dir'){
+        if(window.__wos) window.__wos.launch('files', { startPath: item.id });
+        return;
+      }
         if(getKernel()?.openFile){
           const result=await getKernel().openFile(item.id);
           if(!result?.ok)Toast.show('No hay app asociada','info');
@@ -2908,19 +3917,19 @@ const isShortcutCtx=item.type==='shortcut'||item.meta?.isDesktopShortcut;
           {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a1 1 0 011-1h5l2 2h9a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V7z"/></svg>',text:'Nueva carpeta',action:async()=>{
             const name=await Dialog.prompt('Nombre de la carpeta:',{placeholder:'mi_carpeta',title:'Nueva carpeta'});
             if(!name)return;
-            const target=`/home/${name.replace(/[/\\]/g,'')}`;
+            const target=`/home/desktop/${name.replace(/[/\\]/g,'')}`;
             try{
-              if(await Kernel.fs.exists(target)){Toast.show(`Ya existe "${name}" en /home`,'warn');return;}
-              await Kernel.fs.mkdir(target); Toast.show('Carpeta creada en /home','ok');
+              if(await Kernel.fs.exists(target)){Toast.show(`Ya existe "${name}" en el escritorio`,'warn');return;}
+              await Kernel.fs.mkdir(target); Toast.show('Carpeta creada en el escritorio','ok');
             }
             catch(err){Toast.show(err.message||'No se pudo crear la carpeta','error');}
           }},
           {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2.5h7l4 4V21a.5.5 0 01-.5.5h-11A.5.5 0 016 21V3a.5.5 0 011-.5z"/><path d="M14 2.5V7h4.5"/></svg>',text:'Nuevo archivo',action:async()=>{
             const name=await Dialog.prompt('Nombre del archivo:',{placeholder:'documento.txt',title:'Nuevo archivo'});
             if(!name)return;
-            const target=`/home/docs/${name.replace(/[/\\]/g,'')}`;
+            const target=`/home/desktop/${name.replace(/[/\\]/g,'')}`;
             try{
-              await Kernel.fs.write(target,''); Toast.show('Archivo creado en /home/docs','ok');
+              await Kernel.fs.write(target,''); Toast.show('Archivo creado en el escritorio','ok');
             }
             catch(err){
               const msg = err.message==='INVALID_FILE_TARGET'
@@ -2997,6 +4006,10 @@ const isShortcutCtx=item.type==='shortcut'||item.meta?.isDesktopShortcut;
       /* ── Refresh desde FS ── */
       async function refreshDesktop(){
         if(!getKernel()?.isReady)return;
+        if(!_stateLoaded){
+          if(_stateLoadPromise) await _stateLoadPromise;
+          else return; // Desktop.init() aún no arrancó; nada que dibujar todavía
+        }
         try{
           const items=await getKernel().fs.readdir('/home/desktop');
           renderFromFs(items);
@@ -3024,37 +4037,21 @@ const isShortcutCtx=item.type==='shortcut'||item.meta?.isDesktopShortcut;
       // Atajos de teclado
       document.addEventListener('keydown',handleDesktopKeydown);
 
-      // Drag & drop de archivos externos
-      desktop.addEventListener('dragover',e=>{e.preventDefault();desktop.classList.add('drop-active');});
-      desktop.addEventListener('dragleave',()=>desktop.classList.remove('drop-active'));
-const DROP_TEXT_EXTENSIONS = ['.txt','.md','.js','.ts','.html','.css','.json','.csv','.log','.sh','.py','.xml','.yaml','.yml','.ini','.cfg','.conf','.env'];
-      desktop.addEventListener('drop',async e=>{
-        e.preventDefault(); desktop.classList.remove('drop-active');
-        const files=Array.from(e.dataTransfer.files); if(!files.length)return;
-        Toast.show(`${files.length} archivo(s) recibido(s)`,'info','DROP ZONE');
-        if(window.Kernel){
-          for(const file of files){
-            const target=`/home/downloads/${file.name}`;
-            const ext=(file.name.match(/\.[^.]+$/)||[''])[0].toLowerCase();
-            if(DROP_TEXT_EXTENSIONS.includes(ext)){
-              const text=await file.text().catch(()=>'');
-              await Kernel.fs.write(target,text);
-            } else {
-              await Kernel.fs.writeBinary(target,file,file.type||'application/octet-stream');
-            }
-          }
-          Toast.show('Archivos guardados en /home/downloads','ok');
-          await refreshDesktop();
-        }
-      });
+      // aveces dudo sobre lo que se, pero es importante, pq si no dudara, entonces estaria en una parte 'mirame no me toques'
 
       /* ── Init ── */
       async function init(){
-        await loadLayoutMode();
-        await loadIconPositions();
-        await loadSortBy();
-        await loadIconSize();
-        iconsEl.dataset.iconSize=_iconSize;
+        _stateLoadPromise=(async()=>{
+          await loadLayoutMode();
+          await loadIconPositions();
+          await loadSortBy();
+          await loadIconSize();
+          iconsEl.dataset.iconSize=_iconSize;
+          const _dims=ICON_SIZE_DIMENSIONS[_iconSize]||ICON_SIZE_DIMENSIONS.md;
+          ICON_W=_dims.w; ICON_H=_dims.h;
+          _stateLoaded=true;
+        })();
+        await _stateLoadPromise;
         await refreshDesktop();
       }
 
@@ -3067,13 +4064,17 @@ const DROP_TEXT_EXTENSIONS = ['.txt','.md','.js','.ts','.html','.css','.json','.
     const clockDate=document.getElementById('taskbar-clock-date');
     function updateClock(){
       const now=new Date();
-      clockTime.textContent=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
-      clockDate.textContent=`${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+      const vertical=document.body.dataset.tbPos==='left'||document.body.dataset.tbPos==='right';
+      const hh=String(now.getHours()).padStart(2,'0'), mm=String(now.getMinutes()).padStart(2,'0');
+      clockTime.textContent = vertical ? `${hh}:${mm}` : `${hh}:${mm}:${String(now.getSeconds()).padStart(2,'0')}`;
+      const dd=String(now.getDate()).padStart(2,'0'), mo=String(now.getMonth()+1).padStart(2,'0');
+      clockDate.textContent = vertical ? `${dd}/${mo}` : `${dd}/${mo}/${now.getFullYear()}`;
     }
     updateClock(); setInterval(updateClock,1000);
 
     /* ══ APP LAUNCHER ══ */
-    let _singletons={};
+let _singletons={};
+    const _ipcAppByWindow = new WeakMap(); // contentWindow del iframe -> {appId, pid, trusted}
     function launchApp(app,opts={}){
       if(app.singleton&&_singletons[app.id]){
         const ep=_singletons[app.id]; const wd=WM.getWindow(ep);
@@ -3081,23 +4082,68 @@ const DROP_TEXT_EXTENSIONS = ['.txt','.md','.js','.ts','.html','.css','.json','.
       }
       const proc=Kernel.procs.spawn(app.id,{title:app.name,icon:app.icon,parentPid:opts.parentPid??null,cwd:opts.cwd||'/home'});
       if(app.singleton)_singletons[app.id]=proc.pid;
+      
       const winOpts={title:app.name,icon:app.icon,width:app.meta?.winWidth||660,height:app.meta?.winHeight||480};
-      if(app.entry&&app.entry!=='shell.html'){
-        const url=new URL(app.entry,window.location.href);
-        const p=new URLSearchParams();
-        if(opts.filePath)p.set('path',opts.filePath);
-        if(opts.startPath)p.set('startPath',opts.startPath);
-        p.set('pid',String(proc.pid));
-        p.set('_ts',String(Date.now())); url.search=p.toString(); winOpts.url=url.toString();
+
+      if(app.entry && app.entry !== 'shell.html') {
+        const isVfs = app.entry.startsWith('/');
+        
+        const htmlPromise = isVfs ? Kernel.fs.read(app.entry) : fetch(app.entry, { cache: 'no-store' }).then(r => r.text());
+        
+htmlPromise.then(async (html) => {
+
+          const bootOptsScript = `<script>window.__APP_PID=${JSON.stringify(proc.pid)};window.__APP_OPTS=${JSON.stringify(opts)};${SYS_KEYGUARD_JS}<\/script>`;
+          html = html.includes('<head>')
+            ? html.replace('<head>', `<head>${bootOptsScript}`)
+            : bootOptsScript + html;
+
+          // --- INYECCIÓN AUTOMÁTICA DEL SDK PARA TODAS LAS APPS ---
+          try {
+            let clientCode = '';
+            try {
+              const paths = await Kernel.prefs.get('system.paths') || {};
+              const clientPath = paths.wosClient || '/apps/lib/wos-client.js';
+              clientCode = await Kernel.fs.read(clientPath);
+            } catch (e) {
+              // Fallback por si no está en el VFS, lo leemos localmente
+              const res = await fetch('./apps/lib/wos-client.js');
+              clientCode = await res.text();
+            }
+            if (clientCode) {
+              html = html.replace('</head>', `<script>${clientCode}<\/script></head>`);
+            }
+          } catch (e) {
+            console.warn('[Shell] No se pudo inyectar wos-client.js', e);
+          }
+          // --------------------------------------------------------
+          const iframe = document.createElement('iframe');
+          iframe.style.cssText = 'width:100%;height:100%;border:none;background:transparent;';
+          iframe.sandbox = 'allow-scripts allow-same-origin allow-forms allow-modals';
+          iframe.srcdoc = html;
+          
+          const wdata = WM.createWindow(proc, { ...winOpts, content: iframe });
+          _ipcAppByWindow.set(iframe.contentWindow, {
+            appId: app.id,
+            pid: proc.pid,
+            trusted: !!(app.meta && app.meta.systemApp),
+          });
+          
+          iframe.addEventListener('load',()=>{ 
+            // Mensaje de respaldo por si la app prefiere postMessage en vez
+            // de leer window.__APP_OPTS (ambos mecanismos coexisten sin pisarse).
+            iframe.contentWindow.postMessage({type:'app:init', pid:proc.pid, opts:{...opts}},'*');
+            if(opts.filePath)iframe.contentWindow.postMessage({type:'editor:open',path:opts.filePath},'*');
+            if(opts.startPath)iframe.contentWindow.postMessage({type:'files:navigate',path:opts.startPath},'*');
+          },{once:true});
+        }).catch(err => {
+          WM.createWindow(proc, { ...winOpts, content: `<div style="padding:20px;color:red">Error al cargar app: ${err.message}</div>` });
+        });
+        
+        Toast.show(`${app.name} iniciada`,'ok');
+        return;
       }
-      const wdata=WM.createWindow(proc,winOpts);
-      if((opts.filePath||opts.startPath)&&winOpts.url){
-        const iframe=wdata.el.querySelector('iframe');
-        if(iframe){iframe.addEventListener('load',()=>{
-          if(opts.filePath)iframe.contentWindow.postMessage({type:'editor:open',path:opts.filePath},'*');
-          if(opts.startPath)iframe.contentWindow.postMessage({type:'files:navigate',path:opts.startPath},'*');
-        },{once:true});}
-      }
+
+      WM.createWindow(proc,winOpts);
       Toast.show(`${app.name} iniciada`,'ok');
     }
 
@@ -3114,7 +4160,7 @@ const DROP_TEXT_EXTENSIONS = ['.txt','.md','.js','.ts','.html','.css','.json','.
       const session=Kernel.session;
       div.innerHTML=`<h2><svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.7" r="0.9" fill="currentColor" stroke="none"/></svg> Sistema</h2>
         <div style="font-size:0.72rem;line-height:2.2;color:var(--g-dim)">
-          <div><span style="color:var(--g)">KERNEL</span>    HUEBOS v0.4.0</div>
+          <div><span style="color:var(--g)">KERNEL</span>    HUEBOS v0.5.2</div>
           <div><span style="color:var(--g)">SHELL</span>     Cyberhacker · Aero Glass</div>
           <div><span style="color:var(--g)">SESIÓN</span>    #${session.count??'?'}</div>
           <div><span style="color:var(--g)">MOTOR</span>     ${navigator.userAgent.split(' ').slice(-1)[0]}</div>
@@ -3158,7 +4204,7 @@ const DROP_TEXT_EXTENSIONS = ['.txt','.md','.js','.ts','.html','.css','.json','.
 async function resolveShellApps(kernel){
   const raw=await kernel.apps.list();
   const unique=[...new Map(
-    raw.filter(app=>app?.entry&&app.entry.startsWith('./apps/')).map(a=>[a.id,a])
+    raw.filter(app=>app?.entry && (app.entry.startsWith('./apps/') || app.entry.startsWith('/'))).map(a=>[a.id,a])
   ).values()];
   return unique;
 }
@@ -3186,18 +4232,28 @@ function shellInit(kernel){
     return;
   }
 
-  window.__toast=Toast.show.bind(Toast);
+      window.__toast=Toast.show.bind(Toast);
+
+      /* ══ APLICAR TEMA Y PREFERENCIAS ANTES DE LA LOCK SCREEN ══ */
+      applyShellPrefs(kernel).catch(()=>{Object.entries(DEFAULT_PREFS).forEach(([k,v])=>applyShellPref(k,v));});
 
       /* ══ LOCK SCREEN ══ */
       const lockScreen=document.getElementById('lock-screen');
       const lockTime=document.getElementById('lock-time');
       const lockDate=document.getElementById('lock-date');
+      const lockClockWrap=document.getElementById('lock-clock-wrap');
+      const lockCta=document.getElementById('lock-cta');
+      const lockCtaLabel=document.getElementById('lock-cta-label');
+      const lockCard=document.getElementById('lock-card');
       const lockAvatar=document.getElementById('lock-avatar');
       const lockUsername=document.getElementById('lock-username');
       const lockPassword=document.getElementById('lock-password');
+      const lockInputWrap=document.getElementById('lock-input-wrap');
+      const lockClickHint=document.getElementById('lock-click-hint');
       const lockUnlockBtn=document.getElementById('lock-unlock-btn');
       const lockHint=document.getElementById('lock-hint');
       const lockSafeBadge=document.getElementById('lock-safe-badge');
+      const lockBack=document.getElementById('lock-back');
 
       let _lockClockInterval=null;
       function updateLockClock(){
@@ -3208,12 +4264,43 @@ function shellInit(kernel){
         if(lockDate)lockDate.textContent=`${days[now.getDay()]}, ${now.getDate()} de ${months[now.getMonth()]}`;
       }
 
-      /* Actualizar reloj y foco inmediatamente, sin esperar al Kernel */
+      /* Actualizar reloj inmediatamente, sin esperar al Kernel */
       updateLockClock();
       if(_lockClockInterval)clearInterval(_lockClockInterval);
       _lockClockInterval=setInterval(updateLockClock,1000);
       if(lockUsername)lockUsername.textContent='Invitado';
-      setTimeout(()=>{if(lockPassword&&!lockScreen.classList.contains('hidden'))lockPassword.focus();},100);
+
+      /* ── Estado idle (reloj grande + CTA) ↔ login (tarjeta con contraseña) ── */
+      let _lockLoginMode=false;
+      let _lockNeedPassword=false;
+      let _unlocking=false;
+
+      function goLockLogin(){
+        if(_lockLoginMode)return;
+        _lockLoginMode=true;
+        lockCta.classList.add('hidden');
+        lockClockWrap.classList.add('login-mode');
+        setTimeout(()=>{
+          lockCard.classList.add('visible');
+          lockBack.classList.add('visible');
+        },80);
+        setTimeout(()=>{
+          if(_lockNeedPassword){ lockPassword.focus(); }
+          else if(lockClickHint){ lockClickHint.focus(); }
+        },220);
+      }
+      function goLockIdle(){
+        if(!_lockLoginMode)return;
+        _lockLoginMode=false;
+        lockCard.classList.remove('visible');
+        lockBack.classList.remove('visible');
+        lockClockWrap.classList.remove('login-mode');
+        lockPassword.value='';
+        lockHint.textContent='';
+        setTimeout(()=>lockCta.classList.remove('hidden'),480);
+      }
+      if(lockBack)lockBack.addEventListener('click',goLockIdle);
+      if(lockCta)lockCta.addEventListener('click',goLockLogin);
 
       async function showLockScreen(animate){
         if(!lockScreen)return;
@@ -3234,25 +4321,28 @@ function shellInit(kernel){
         if(user){const u=await kernel.users.get(user.id);userPwd=u?.password||'';}
         const storedPwd=secPwd||userPwd;
         const needPassword=requirePwd&&storedPwd;
+        _lockNeedPassword=needPassword;
         lockPassword.value='';
-        if(needPassword){
-          lockPassword.style.display='';
-          lockUnlockBtn.style.display='';
-          lockHint.textContent='Introduce tu contraseña para desbloquear';
-          lockHint.style.color='';
-        }else{
-          lockPassword.style.display='none';
-          lockUnlockBtn.style.display='none';
-          lockHint.textContent='Presiona cualquier tecla para desbloquear';
-          lockHint.style.color='';
-        }
+        lockHint.textContent='';
+        lockHint.style.color='';
+        lockCtaLabel.textContent=needPassword?'Haz clic para desbloquear':'Presiona una tecla para continuar';
+        if(lockInputWrap)lockInputWrap.style.display=needPassword?'flex':'none';
+        if(lockClickHint)lockClickHint.style.display=needPassword?'none':'block';
+
+        /* Siempre arranca en modo idle (reloj grande + CTA); la tarjeta con
+           contraseña solo aparece tras interactuar, si hace falta. */
+        _lockLoginMode=false;
+        lockCard.classList.remove('visible');
+        lockBack.classList.remove('visible');
+        lockClockWrap.classList.remove('login-mode');
+        lockCta.classList.remove('hidden');
+
         document.body.classList.add('locked');
-        lockScreen.classList.remove('hidden');
+        lockScreen.classList.remove('hidden','unlocking');
         if(animate){lockScreen.classList.add('animate-in');lockScreen.addEventListener('animationend',()=>lockScreen.classList.remove('animate-in'),{once:true});}
         updateLockClock();
         if(_lockClockInterval)clearInterval(_lockClockInterval);
         _lockClockInterval=setInterval(updateLockClock,1000);
-        setTimeout(()=>{if(needPassword)lockPassword.focus();},100);
       }
 
       async function tryUnlock(){
@@ -3268,8 +4358,16 @@ function shellInit(kernel){
         const storedPwd=secPwd||userPwd;
         /* Si hay contraseña configurada y el flag está activo, validar */
         if(requirePwd&&storedPwd){
+          if(!_lockLoginMode){ goLockLogin(); return; }
           const pw=lockPassword.value;
-          if(pw!==storedPwd){
+          if(!pw){
+            lockHint.textContent='Introduce tu contraseña';
+            lockHint.style.color='var(--red,#ff4466)';
+            return;
+          }
+          const legacyMatch=!kernel.security.looksHashed(storedPwd)&&storedPwd===pw;
+          const hashedMatch=storedPwd===await kernel.security.hashPassword(pw);
+          if(!legacyMatch&&!hashedMatch){
             lockPassword.classList.add('lock-error');
             lockHint.textContent='Contraseña incorrecta';
             lockHint.style.color='var(--red,#ff4466)';
@@ -3278,35 +4376,62 @@ function shellInit(kernel){
             lockPassword.focus();
             return;
           }
+          if(legacyMatch){
+            try{ await kernel.users.setPassword(pw); }catch(e){}
+          }
         }
         /* Sin contraseña o validación correcta = desbloquear */
-        lockScreen.classList.add('hidden');
-        document.body.classList.remove('locked');
-        if(_lockClockInterval){clearInterval(_lockClockInterval);_lockClockInterval=null;}
-        Toast.show('Sesión desbloqueada','ok','LOCK');
-        /* Inicializar el escritorio solo después de autenticarse */
-        initDesktop(kernel);
+        await finishUnlock();
       }
 
-      if(lockUnlockBtn)lockUnlockBtn.addEventListener('click',tryUnlock);
-      if(lockPassword)lockPassword.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();tryUnlock();}});
-      /* Cualquier tecla desbloquea cuando NO hay contraseña configurada.
-         Si hay contraseña, solo Enter en el campo la valida. */
-      let _unlocking=false;
+      /* Desvanece la lock screen (sin corte brusco) y arranca el escritorio
+         debajo mientras se desvanece, en vez de ocultarla de golpe. */
+      async function finishUnlock(){
+        if(_unlocking)return;
+        _unlocking=true;
+        document.body.classList.remove('locked');
+        lockScreen.classList.add('unlocking');
+        if(_lockClockInterval){clearInterval(_lockClockInterval);_lockClockInterval=null;}
+        Toast.show('Sesión desbloqueada','ok','LOCK');
+        /* Inicializar el escritorio mientras la lock screen se desvanece */
+        initDesktop(kernel);
+        await new Promise(res=>setTimeout(res,520));
+        lockScreen.classList.add('hidden');
+        lockScreen.classList.remove('unlocking');
+        _unlocking=false;
+      }
+
+      if(lockUnlockBtn)lockUnlockBtn.addEventListener('click',()=>tryUnlock().catch(()=>{}));
+      if(lockPassword)lockPassword.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();tryUnlock().catch(()=>{});}});
+      if(lockClickHint){
+        lockClickHint.addEventListener('click',e=>{
+          e.stopPropagation();
+          tryUnlock().catch(()=>{});
+        });
+        lockClickHint.addEventListener('keydown',e=>{
+          if(e.key==='Enter'||e.key===' '){
+            e.preventDefault(); e.stopPropagation();
+            tryUnlock().catch(()=>{});
+          }
+        });
+      }
+      /* Cualquier tecla o clic despierta la pantalla: siempre pasa primero
+         por la tarjeta (avatar + nombre). Si no hay contraseña, la tarjeta
+         muestra "clic para iniciar sesión" en vez del campo. */
       document.addEventListener('keydown',async function _lockKeyHandler(e){
         if(!document.body.classList.contains('locked'))return;
         if(_unlocking)return;
         /* Ignorar teclas modificadoras solas y combinaciones de bloqueo */
         if(e.key==='Meta'||e.key==='Control'||e.key==='Alt'||e.key==='Shift')return;
         if((e.metaKey||(e.ctrlKey&&e.altKey))&&e.key.toLowerCase()==='l')return;
-        const requirePwd=await kernel.prefs.get('security.lockPassword')||false;
-        const secPwd=await kernel.prefs.get('security.password')||'';
-        const cur=await kernel.users.current();
-        let userPwd='';
-        if(cur){const user=await kernel.users.get(cur.id);userPwd=user?.password||'';}
-        const storedPwd=secPwd||userPwd;
-        if(requirePwd&&storedPwd){
-          /* Hay contraseña: si el evento viene del campo, Enter ya lo maneja.
+
+        if(!_lockLoginMode){
+          e.preventDefault();
+          goLockLogin();
+          return;
+        }
+        if(_lockNeedPassword){
+          /* Ya en modo login: si el evento viene del campo, Enter ya lo maneja.
              Si viene de fuera, enfocar el campo. */
           if(e.target!==lockPassword){
             e.preventDefault();
@@ -3314,11 +4439,26 @@ function shellInit(kernel){
           }
           return;
         }
-        /* Sin contraseña: cualquier tecla desbloquea */
+        /* Sin contraseña: cualquier tecla, ya en la tarjeta, desbloquea */
         e.preventDefault();
-        _unlocking=true;
         try{ await tryUnlock(); }catch(_){}
-        _unlocking=false;
+      });
+      /* Clic en el fondo (fuera de la tarjeta/CTA) también despierta la pantalla,
+         y si ya está en modo login sin contraseña, desbloquea directamente. */
+      lockScreen.addEventListener('click',e=>{
+        if(!document.body.classList.contains('locked'))return;
+        if(_unlocking)return;
+        if(!_lockLoginMode){
+          const t=e.target;
+          if(t===lockScreen||t.classList.contains('lock-aurora')||t.classList.contains('lock-grain')||
+             t.classList.contains('lock-content')||t.closest('#lock-clock-wrap')){
+            goLockLogin();
+          }
+          return;
+        }
+        if(_lockNeedPassword)return;
+        if(e.target.closest('#lock-back'))return;
+        tryUnlock().catch(()=>{});
       });
 
       /* Botón reiniciar en lock screen — diálogo personalizado (no nativo) */
@@ -3416,14 +4556,166 @@ function shellInit(kernel){
       document.addEventListener('keydown',e=>{
         if(e.ctrlKey&&e.altKey&&e.key.toLowerCase()==='t'){e.preventDefault();window.__wos.launch('terminal',{});}
       });
-      window.addEventListener('message',event=>{
-        if(event.origin!==window.location.origin)return;
-        const{type,url}=event.data||{};
-        if(type==='wos:reboot'&&typeof url==='string'){
-          try{const p=new URL(url);if(p.origin===window.location.origin)window.location.href=url;}
-          catch{console.warn('[shell] wos:reboot: URL inválida ignorada',url);}
+const KernelBridge = {
+  session()       { return kernel.session; },
+  uptime()        { return kernel.uptime; },
+  uptimeSeconds() { return kernel.uptimeSeconds; },
+  version()       { return kernel.version; },
+  safeMode()      { return kernel.safeMode; },
+  isReady()       { return kernel.isReady; },
+  bootComplete()  { return kernel.bootComplete; },
+};
+const CHANNEL_POLICY = {
+  shell         : null,
+  fs            : ['read','stat','readdir','exists','readBlob','readArrayBuffer','readDataURL','isBinary','getMime','write','writeBinary','mkdir','remove','move','createShortcut','touch','normalize','dirname','basename','isProtected'],
+  prefs         : ['get','set','delete','all'],
+  procs         : ['spawn','list','get','getChildren','getTree','ancestry','setCwd','kill'],
+  apps          : ['get','list'],
+  clipboard     : ['copy','cut','get','clear','paste'],
+  windows       : ['list','getState','focus','minimize','close'],
+  scheduler     : null,
+  modules       : ['list','restart'],
+  notifications : ['push','list','unreadCount','markRead','markAllRead','remove','clear'],
+  systemRegistry: ['list','refresh','listProcesses','listModules','listServices','listApis','listComponents','listApps','listWindows','listScheduler','listIPC','getProcess','getModule'],
+  crash         : ['report','list','read','clear'],
+  import        : ['ingest'],
+  multimedia    : ['detectType', 'load', 'listMedia'],
+  db            : ['list'],
+  kernel        : ['session','uptime','uptimeSeconds','version','safeMode','isReady','bootComplete'],
+};
+const FS_WRITE_METHODS = new Set(['write','writeBinary','mkdir','remove','move','createShortcut','touch']);
+const PROTECTED_IPC_PREFIXES = ['/system', '/Modulos'];
+function ipcPathIsProtected(p) {
+  if (typeof p !== 'string' || !p) return false;
+  const norm = Kernel.fs.normalize(p);
+  return PROTECTED_IPC_PREFIXES.some(pre => norm === pre || norm.startsWith(pre + '/'));
+}
+
+const PERM_FOR_CALL = (channel, method) => {
+  const P = Kernel.permissions.PERMS;
+  if (channel === 'fs') {
+    if (['write','writeBinary','mkdir','createShortcut','touch'].includes(method)) return P.FS_WRITE;
+    if (method === 'remove') return P.FS_DELETE;
+    if (method === 'move') return P.FS_WRITE;
+    return P.FS_READ;
+  }
+  // NUEVO: El servicio de importación escribe en el VFS, requiere permiso de escritura
+  if (channel === 'import' && method === 'ingest') return P.FS_WRITE;
+  // Portapapeles global: pegar escribe en el VFS, mismo permiso que fs.write
+  if (channel === 'clipboard' && method === 'paste') return P.FS_WRITE;
+
+  if (channel === 'procs' && method === 'kill') return P.PROC_KILL;
+  if (channel === 'notifications' && method === 'push') return P.NOTIFICATIONS_SEND;
+  return null; 
+};
+async function enforceAppPermission(channel, method, sourceWindow) {
+  const perm = PERM_FOR_CALL(channel, method);
+  if (!perm) return;
+  const caller = _ipcAppByWindow.get(sourceWindow);
+  if (caller && caller.trusted) return; // apps del propio sistema
+  const appId = caller?.appId || null;
+  if (appId && await Kernel.permissions.appHas(appId, perm)) return;
+  if (appId) {
+    await Kernel.permissions.requestAppPermission(appId, perm);
+    Toast.show(`"${appId}" pidió permiso "${perm}" y fue denegado (sin conceder)`,'warn','PERMISOS');
+  }
+  throw new Error(`Permiso denegado: ${channel}.${method} requiere '${perm}'`);
+}
+
+window.addEventListener('message', async event => {
+  if (event.origin !== window.location.origin) return;
+  const msg = event.data || {};
+
+        if (msg.type === 'ide:openHelp' && msg.content) {
+          const proc = Kernel.procs.spawn('ide-help', { title: msg.title || '📖 Ayuda', icon: '📖', parentPid: msg.parentPid || null });
+          const iframe = document.createElement('iframe');
+          iframe.style.cssText = 'width:100%;height:100%;border:none;background:#020c06;';
+
+          iframe.sandbox = 'allow-scripts';
+          iframe.srcdoc = msg.content;
+          WM.createWindow(proc, { title: msg.title || '📖 Ayuda', icon: '📖', width: 900, height: 680, content: iframe });
+          if (event.source) {
+            event.source.postMessage({ type: 'ide:helpWindowOpened', pid: proc.pid }, '*');
+          }
         }
-        if(type==='wos:lock'){window.__wos_lock&&window.__wos_lock();}
+
+if (msg.type === 'wos:call') {
+    const { id, channel, method, args } = msg;
+    try {
+      if (!Object.prototype.hasOwnProperty.call(CHANNEL_POLICY, channel)) {
+        throw new Error(`Canal IPC no permitido: ${channel}`);
+      }
+const allowedMethods = CHANNEL_POLICY[channel];
+      if (Array.isArray(allowedMethods) && !allowedMethods.includes(method)) {
+        throw new Error(`Método IPC no permitido: ${channel}.${method}`);
+      }
+      await enforceAppPermission(channel, method, event.source);
+
+      let target;
+      if (channel === 'shell') target = window.__wos;
+      else if (channel === 'systemRegistry') target = Kernel.systemRegistry;
+      else if (channel === 'fs') target = Kernel.fs;
+      else if (channel === 'prefs') target = Kernel.prefs;
+      else if (channel === 'procs') target = Kernel.procs;
+      else if (channel === 'apps') target = Kernel.apps;
+      else if (channel === 'clipboard') target = Kernel.clipboard;
+      else if (channel === 'windows') target = Kernel.windows;
+      else if (channel === 'scheduler') target = Kernel.scheduler;
+      else if (channel === 'modules') target = Kernel.modules;
+      else if (channel === 'notifications') target = Kernel.notifications;
+      else if (channel === 'crash') target = Kernel.crash;
+      else if (channel === 'import') target = Kernel.import;
+      else if (channel === 'multimedia') target = Kernel.multimedia;
+      else if (channel === 'db') target = Kernel.db;
+      else if (channel === 'kernel') target = KernelBridge;
+      else throw new Error(`Canal IPC desconocido: ${channel}`);
+
+      if (!target || typeof target[method] === 'undefined') {
+        throw new Error(`Propiedad o método IPC no disponible: ${channel}.${method}`);
+      }
+
+      let callArgs = Array.isArray(args) ? args.slice() : [];
+
+      // Ninguna app puede tocar /system o /Modulos vía FS, ni forzar
+      // allowProtected en su propia llamada.
+      if (channel === 'fs' && FS_WRITE_METHODS.has(method)) {
+        const pathsToCheck = method === 'move' ? [callArgs[0], callArgs[1]] : [callArgs[0]];
+        if (pathsToCheck.some(ipcPathIsProtected)) {
+          throw new Error(`FS.${method}: ruta protegida, bloqueada para apps`);
+        }
+        if (method === 'write' && callArgs[2] && typeof callArgs[2] === 'object') {
+          callArgs[2] = { ...callArgs[2], allowProtected: false };
+        }
+        if (method === 'mkdir' && callArgs[1] && typeof callArgs[1] === 'object') {
+          callArgs[1] = { ...callArgs[1], allowProtected: false };
+        }
+      }
+
+      // Ninguna app puede forzar el kill de un proceso protegido.
+      if (channel === 'procs' && method === 'kill' && callArgs[1] && typeof callArgs[1] === 'object') {
+        callArgs[1] = { ...callArgs[1], force: false };
+      }
+
+      const prop = target[method];
+      let result;
+      if (typeof prop === 'function') {
+        result = prop.apply(target, callArgs);
+        if (result instanceof Promise) result = await result;
+      } else {
+        result = prop;
+      }
+      event.source.postMessage({ type: 'wos:response', id, result }, event.origin);
+    } catch (err) {
+      event.source.postMessage({ type: 'wos:response', id, error: err.message }, event.origin);
+    }
+    return;
+  }
+  
+        if (msg.type === 'wos:reboot' && typeof msg.url === 'string'){
+          try{const p=new URL(msg.url);if(p.origin===window.location.origin)window.location.href=msg.url;}
+          catch{console.warn('[shell] wos:reboot: URL inválida ignorada',msg.url);}
+        }
+        if (msg.type === 'wos:lock'){window.__wos_lock&&window.__wos_lock();}
       });
       const startLockBtn=document.getElementById('start-lock');
       if(startLockBtn)startLockBtn.addEventListener('click',()=>{window.__wos_lock&&window.__wos_lock();});
@@ -3475,14 +4767,23 @@ setWindowTitle(pid,text){
         const isSys=p=>typeof p==='string'&&(p.startsWith('/system')||p.startsWith('/sys'));
         launchApp(app, (isSys(filePath)||isSys(startPath)) ? {} : {filePath,startPath});
       });
-      applyShellPrefs(kernel).catch(()=>{Object.entries(DEFAULT_PREFS).forEach(([k,v])=>applyShellPref(k,v));});
-      kernel.on('prefs:change',({key,value})=>applyShellPref(key,value));
+      kernel.on('prefs:change', async ({key,value})=>{
+        if(key==='system.theme' || key==='system.theme.color') {
+           const t = await kernel.prefs.get('system.theme');
+           const c = await kernel.prefs.get('system.theme.color');
+           applyShellPref('system.theme', t, c);
+        } else {
+           applyShellPref(key,value);
+        }
+        if(key==='taskbar.position')TaskbarSort.applyTaskbarSettings().catch(()=>{});
+      });
       kernel.on('prefs:delete',({key})=>{if(Object.prototype.hasOwnProperty.call(DEFAULT_PREFS,key))applyShellPref(key,DEFAULT_PREFS[key]);});
 
       resolveShellApps(kernel).then(renderRegisteredApps).catch(()=>{
         Toast.show('No se pudieron cargar las apps del sistema','error','APPS');
       });
       Desktop.init().catch(()=>{});
+      TaskbarSort.applyTaskbarSettings().catch(()=>{});
       NotificationCenter.init(kernel);
       kernel.on('apps:registered',async()=>{const apps=await resolveShellApps(kernel);renderRegisteredApps(apps);});
       kernel.on('apps:unregistered',async()=>{const apps=await resolveShellApps(kernel);renderRegisteredApps(apps);});
@@ -3501,6 +4802,11 @@ setWindowTitle(pid,text){
         }
         Toast.show('HUEBOS Cyberhacker Glass activa','ok','SISTEMA');
       },400);
+      kernel.prefs.get('boot.migrationBackupNotice',null).then(notice=>{
+        if(!notice)return;
+        kernel.prefs.delete('boot.migrationBackupNotice').catch(()=>{});
+        Toast.show(`Se descargó un backup automático (${notice.fsCount||0} archivos) antes de una migración interna — revisa tus descargas.`,'warn','BACKUP AUTOMÁTICO',9000);
+      });
       setTimeout(()=>{
         if(Kernel.session.firstRun){
           Toast.show('Bienvenido a HUEBOS. Doble clic para apps. Ctrl+Alt+T terminal.','info','BIENVENIDA',7000);
@@ -3528,6 +4834,8 @@ function waitForKernel(){
         });
       }
     }
+
+    installContextMenuGuard(document);
 
     waitForKernel();
   })();

@@ -4,6 +4,11 @@
     "indexador.js",
     "ipc-bridge.js",
     "scheduler.js",
-    "window-registry.js"
+    "import.js",
+    "multimedia.js",
+    "window-registry.js",
+    "Installer.js",
+    "ide-bridge.js",
+    "system-registry.js"
   ]
 }

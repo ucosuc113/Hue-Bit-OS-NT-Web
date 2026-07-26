@@ -1,0 +1,37 @@
+Date : 2026-07-21 20:24:23
+Directory : c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web
+Total : 7 files,  222 codes, 24 comments, 28 blanks, all 274 lines
+
+Languages
++------------+------------+------------+------------+------------+------------+
+| language   | files      | code       | comment    | blank      | total      |
++------------+------------+------------+------------+------------+------------+
+| JavaScript |          2 |        133 |         24 |         11 |        168 |
+| HTML       |          4 |         90 |          0 |         18 |        108 |
+| Markdown   |          1 |         -1 |          0 |         -1 |         -2 |
++------------+------------+------------+------------+------------+------------+
+
+Directories
++----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                   | files      | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                      |          7 |        222 |         24 |         28 |        274 |
+| . (Files)                                                                              |          3 |        205 |         22 |         21 |        248 |
+| Modulos                                                                                |          1 |          3 |          2 |          0 |          5 |
+| Modulos\Servicios                                                                      |          1 |          3 |          2 |          0 |          5 |
+| apps                                                                                   |          3 |         14 |          0 |          7 |         21 |
++----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| filename                                                                               | language   | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Kernel.js                      | JavaScript |        130 |         22 |         11 |        163 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\KernelApiDoc.md                | Markdown   |         -1 |          0 |         -1 |         -2 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\Servicios\Installer.js | JavaScript |          3 |          2 |          0 |          5 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\IDE.html                  | HTML       |         -6 |          0 |          3 |         -3 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\files.html                | HTML       |          8 |          0 |          2 |         10 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\terminal.html             | HTML       |         12 |          0 |          2 |         14 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\shell.html                     | HTML       |         76 |          0 |         11 |         87 |
+| Total                                                                                  |            |        222 |         24 |         28 |        274 |
++----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+

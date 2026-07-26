@@ -8,7 +8,7 @@
   {
     "id":          "config",
     "name":        "Configuración",
-    "version":     "0.1.0",
+    "version":     "1.2.1",
     "icon":        "./apps/public/Config.svg",
     "category":    "system",
     "singleton":   true,
@@ -497,6 +497,156 @@
     .toast.error { background: rgba(255,68,68,0.12);  border-color: rgba(255,68,68,0.4);  color: var(--red-err); }
     .toast.info  { background: rgba(255,179,0,0.10);  border-color: rgba(255,179,0,0.35); color: var(--amber); }
     @keyframes toastIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+    /* ── Wallpaper checkboxes ── */
+    .wp-checkboxes {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+    }
+    .wp-check {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px;
+      background: rgba(0,255,136,0.04);
+      border: 1px solid rgba(0,255,136,0.12);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.68rem;
+      color: var(--green-dim);
+      transition: all 0.15s;
+      letter-spacing: 0.03em;
+    }
+    .wp-check:hover {
+      background: rgba(0,255,136,0.08);
+      border-color: rgba(0,255,136,0.28);
+      color: var(--green);
+    }
+    .wp-check input { display: none; }
+    .wp-check-box {
+      width: 14px; height: 14px;
+      border: 1.5px solid rgba(0,255,136,0.3);
+      border-radius: 3px;
+      flex-shrink: 0;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .wp-check input:checked + .wp-check-box {
+      background: var(--green);
+      border-color: var(--green);
+      box-shadow: var(--glow-sm);
+    }
+    .wp-check input:checked + .wp-check-box::after {
+      content: '✓';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      font-size: 9px;
+      color: var(--bg);
+      font-weight: bold;
+    }
+    .wp-check input:checked ~ .wp-check-label {
+      color: var(--green);
+    }
+    .wp-check-image {
+      grid-column: 1 / -1;
+      border-color: rgba(0,212,255,0.18);
+    }
+    .wp-check-image input:checked + .wp-check-box {
+      background: var(--blue-acc);
+      border-color: var(--blue-acc);
+      box-shadow: 0 0 4px var(--blue-acc);
+    }
+
+    /* ── Image sub-panel ── */
+    .wp-image-panel {
+      margin-top: 6px;
+      padding: 10px 12px;
+      background: rgba(0,255,136,0.03);
+      border: 1px solid rgba(0,255,136,0.10);
+      border-radius: 4px;
+      display: flex; align-items: center; gap: 10px;
+      flex-wrap: wrap;
+    }
+    .wp-image-panel button {
+      font-size: 0.62rem;
+      padding: 5px 12px;
+    }
+    .wp-image-name {
+      font-size: 0.62rem;
+      color: var(--green-dim);
+      letter-spacing: 0.03em;
+      word-break: break-all;
+    }
+    .wp-image-name.has-img { color: var(--green); }
+    .wp-image-dropdown {
+      position: fixed;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 4px;
+      padding: 4px;
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 1000;
+      min-width: 220px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+    }
+    .wp-image-dropdown-item {
+      padding: 7px 10px;
+      cursor: pointer;
+      font-size: 0.65rem;
+      color: var(--green-dim);
+      border-radius: 3px;
+      transition: background 0.1s, color 0.1s;
+      letter-spacing: 0.02em;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .wp-image-dropdown-item:hover {
+      background: rgba(0,255,136,0.10);
+      color: var(--green);
+    }
+    .wp-image-dropdown-empty {
+      padding: 12px 10px;
+      font-size: 0.62rem;
+      color: rgba(0,255,136,0.35);
+      text-align: center;
+    }
+
+    /* ── Theme circles ── */
+    .theme-circles {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 9px;
+      padding: 4px 0;
+    }
+    .theme-circle {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid rgba(0,255,136,0.12);
+      transition: all 0.15s;
+      position: relative;
+    }
+    .theme-circle:hover {
+      transform: scale(1.18);
+      border-color: rgba(0,255,136,0.5);
+      box-shadow: 0 0 8px rgba(0,255,136,0.35);
+    }
+    .theme-circle.active {
+      border-color: var(--green);
+      box-shadow: 0 0 10px rgba(0,255,136,0.5), 0 0 22px rgba(0,255,136,0.18);
+      transform: scale(1.12);
+    }
+    .theme-circle.active::after {
+      content: '✓';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      font-size: 11px;
+      color: #fff;
+      text-shadow: 0 0 4px #000, 0 0 6px #000;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -616,6 +766,9 @@
       </div>
       <div class="nav-sep"></div>
       <div class="nav-group-label">Avanzado</div>
+      <div class="nav-item" data-panel="panel-paths">
+        <span class="ni-icon"><svg class="icon"><use href="#ic-keyboard"></use></svg></span> Rutas (Paths)
+      </div>
       <div class="nav-item" data-panel="panel-seguridad">
         <span class="ni-icon"><svg class="icon"><use href="#ic-shield"></use></svg></span> Seguridad
       </div>
@@ -642,17 +795,39 @@
 
         <div class="cfg-card">
           <div class="cfg-card-header">Escritorio</div>
-          <div class="cfg-row">
+          <div class="cfg-row" style="flex-direction:column;align-items:stretch;gap:6px">
             <div>
               <div class="cfg-label">Fondo de escritorio</div>
-              <div class="cfg-hint">Estilo del fondo animado del escritorio</div>
+              <div class="cfg-hint">Activa los componentes del fondo. "Seleccionar imagen" es excluyente.</div>
             </div>
-            <div class="cfg-control">
-              <select class="cfg-select" id="pref-wallpaper">
-                <option value="default">Estrellas + Aurora</option>
-                <option value="solid">Sólido oscuro</option>
-                <option value="grid">Cuadrícula</option>
-              </select>
+            <div class="wp-checkboxes" id="wp-checkboxes">
+              <label class="wp-check">
+                <input type="checkbox" data-wp="stars" />
+                <span class="wp-check-box"></span>
+                <span class="wp-check-label">Estrellas</span>
+              </label>
+              <label class="wp-check">
+                <input type="checkbox" data-wp="aurora" />
+                <span class="wp-check-box"></span>
+                <span class="wp-check-label">Aurora</span>
+              </label>
+              <label class="wp-check">
+                <input type="checkbox" data-wp="grid" />
+                <span class="wp-check-box"></span>
+                <span class="wp-check-label">Cuadrícula</span>
+              </label>
+              <label class="wp-check wp-check-image">
+                <input type="checkbox" data-wp="image" id="wp-image-toggle" />
+                <span class="wp-check-box"></span>
+                <span class="wp-check-label">Seleccionar imagen (.png del escritorio)</span>
+              </label>
+            </div>
+            <div class="wp-image-panel" id="wp-image-panel" style="display:none">
+              <button class="btn btn-primary" id="wp-image-btn">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a1 1 0 011-1h5l2 2h9a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V7z"/></svg>
+                SELECCIONAR .PNG
+              </button>
+              <span class="wp-image-name" id="wp-image-name">Ninguna seleccionada</span>
             </div>
           </div>
           <div class="cfg-row">
@@ -685,22 +860,15 @@
 
         <div class="cfg-card">
           <div class="cfg-card-header">Tema</div>
-          <div class="cfg-row">
+          <div class="cfg-row" style="flex-direction:column;align-items:stretch;gap:10px">
             <div>
               <div class="cfg-label">Tema del sistema</div>
-              <div class="cfg-hint">Color dominante de la interfaz</div>
+              <div class="cfg-hint">Color dominante de la interfaz — 24 tonos disponibles</div>
             </div>
-            <div class="cfg-control">
-              <select class="cfg-select" id="pref-theme">
-                <option value="dark">Oscuro (Verde)</option>
-                <option value="amber">Ámbar retro</option>
-                <option value="blue">Azul cian</option>
-              </select>
-            </div>
+            <div class="theme-circles" id="theme-circles"></div>
           </div>
         </div>
 
-        <button class="btn btn-primary" id="btn-save-apariencia"><svg class="icon"><use href="#ic-save"></use></svg> GUARDAR CAMBIOS</button>
       </div>
 
       <!-- ── SISTEMA ── -->
@@ -804,15 +972,6 @@
               </div>
             </div>
           </div>
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Bloquear ahora</div>
-              <div class="cfg-hint">Bloquea la pantalla inmediatamente</div>
-            </div>
-            <div class="cfg-control">
-              <button class="btn btn-amber" id="btn-sec-lock-now"><svg class="icon"><use href="#ic-lock"></use></svg> BLOQUEAR</button>
-            </div>
-          </div>
         </div>
 
         <div class="cfg-card">
@@ -839,6 +998,62 @@
         </div>
 
         <button class="btn btn-primary" id="btn-save-security"><svg class="icon"><use href="#ic-save"></use></svg> GUARDAR SEGURIDAD</button>
+      </div>
+
+      <!-- ── RUTAS (PATHS) ── -->
+      <div id="panel-paths" class="panel">
+        <div class="section-title"><svg class="icon"><use href="#ic-keyboard"></use></svg> Rutas del Sistema</div>
+        <div class="section-desc">Define las rutas globales de las librerías y módulos del Kernel.</div>
+
+        <div class="info-box ok">
+          <svg class="icon"><use href="#ic-bulb"></use></svg> El SDK de WOS se inyectará automáticamente en las apps nativas usando esta ruta. ¡Las apps no necesitarán importarlo manualmente!
+        </div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Librerías y SDKs</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">WOS Client SDK</div>
+              <div class="cfg-hint">Ruta del puente de comunicación para aplicaciones</div>
+            </div>
+            <div class="cfg-control">
+              <input type="text" class="cfg-input-num" id="path-wos-client" value="/apps/lib/wos-client.js" style="width:200px; text-align:left;" />
+            </div>
+          </div>
+        </div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">Módulos del Kernel</div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Directorio de Servicios</div>
+              <div class="cfg-hint">Donde se alojan los servicios en segundo plano</div>
+            </div>
+            <div class="cfg-control">
+              <input type="text" class="cfg-input-num" id="path-services" value="/Modulos/Servicios" style="width:200px; text-align:left;" />
+            </div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Directorio de APIs</div>
+              <div class="cfg-hint">Módulos de API expuestos a las apps</div>
+            </div>
+            <div class="cfg-control">
+              <input type="text" class="cfg-input-num" id="path-api" value="/Modulos/API" style="width:200px; text-align:left;" />
+            </div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Directorio de Componentes</div>
+              <div class="cfg-hint">Componentes visuales del sistema</div>
+            </div>
+            <div class="cfg-control">
+              <input type="text" class="cfg-input-num" id="path-components" value="/Modulos/Componentes" style="width:200px; text-align:left;" />
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-save-paths"><svg class="icon"><use href="#ic-save"></use></svg> GUARDAR RUTAS</button>
       </div>
 
       <!-- ── ALMACENAMIENTO ── -->
@@ -1037,7 +1252,11 @@
       const kernelBase = (window.parent && window.parent !== window)
         ? window.parent.location.href
         : window.location.href;
-      $('header-icon').src = new URL(iconPath, kernelBase).href;
+      const iconUrl = new URL(iconPath, kernelBase).href;
+      const el = $('header-icon');
+      el.removeAttribute('src');
+      el.style.webkitMaskImage = `url('${iconUrl}')`;
+      el.style.maskImage = `url('${iconUrl}')`;
     } catch (err) {
       console.error('loadHeaderIcon:', err);
     }
@@ -1154,17 +1373,33 @@
   }
 
   function rebootSystem(delay = 900) {
-    const target = new URL('../index.html', window.location.href);
-    target.searchParams.set('_ts', String(Date.now()));
     setTimeout(() => {
-      // Cannot navigate window.top directly from a sandboxed iframe.
-      // Ask the shell (parent frame) to perform the navigation via postMessage.
-      const msg = { type: 'wos:reboot', url: target.toString() };
+      let baseUrl = window.location.href;
+      try {
+        // Intentamos obtener la URL base de la ventana padre (shell.html)
+        if (window.parent && window.parent !== window && window.parent.location.href) {
+          baseUrl = window.parent.location.href;
+        }
+      } catch(e) {
+        // Si hay restricción de cross-origin, usamos la del iframe
+      }
+
+      // Construimos la URL absoluta de forma segura
+      let rebootUrl;
+      try {
+        const target = new URL('../index.html', baseUrl);
+        target.searchParams.set('_ts', String(Date.now()));
+        rebootUrl = target.href;
+      } catch(e) {
+        // Fallback extremo por si acaso
+        rebootUrl = '/index.html?_ts=' + Date.now();
+      }
+
       if (window.parent && window.parent !== window) {
-        window.parent.postMessage(msg, window.location.origin);
+        // Enviamos la URL absoluta al padre
+        window.parent.postMessage({ type: 'wos:reboot', url: rebootUrl }, '*');
       } else {
-        // Running standalone (outside shell), navigate self.
-        window.location.href = target.toString();
+        window.location.href = rebootUrl;
       }
     }, delay);
   }
@@ -1186,22 +1421,108 @@
   async function loadPrefs() {
     const all = await K.prefs.all();
     // Apariencia
-    if (all['desktop.wallpaper']) $('pref-wallpaper').value = all['desktop.wallpaper'];
+    /* ── Cargar wallpaper (casillas) ── */
+    const wpOptions = all['desktop.wallpaper'];
+    if (Array.isArray(wpOptions)) {
+      document.querySelectorAll('.wp-check input').forEach(cb => {
+        cb.checked = wpOptions.includes(cb.dataset.wp);
+      });
+    } else {
+      /* Compatibilidad con versión anterior (string) */
+      const oldWp = all['desktop.wallpaper'] || 'default';
+      const arr = [];
+      if (oldWp === 'default') arr.push('stars','aurora','grid');
+      else if (oldWp === 'grid') arr.push('stars','grid');
+      
+      document.querySelectorAll('.wp-check input').forEach(cb => {
+        cb.checked = arr.includes(cb.dataset.wp);
+      });
+    }
+    /* Si "image" está activo, mostrar panel y cargar ruta */
+    const imgToggle = document.querySelector('.wp-check input[data-wp="image"]');
+    if (imgToggle && imgToggle.checked) {
+      $('wp-image-panel').style.display = 'flex';
+      const imgPath = all['desktop.wallpaper.image'] || '';
+      const nameEl = $('wp-image-name');
+      if (imgPath) {
+        nameEl.textContent = imgPath.split('/').pop();
+        nameEl.dataset.path = imgPath;
+        nameEl.classList.add('has-img');
+      }
+    }
+
     if (all['desktop.grid'] !== undefined) $('pref-grid').checked = all['desktop.grid'];
     if (all['system.fontSize']) $('pref-fontsize').value = all['system.fontSize'];
-    if (all['system.theme']) $('pref-theme').value = all['system.theme'];
+
+    /* ── Cargar tema (circulitos) ── */
+    const themeVal = all['system.theme'] || 'dark';
+    document.querySelectorAll('.theme-circle').forEach(c => {
+      c.classList.toggle('active', c.dataset.value === themeVal);
+    });
+    /* Si no hay match exacto, intentar por color */
+    if (!document.querySelector('.theme-circle.active') && all['system.theme.color']) {
+      document.querySelectorAll('.theme-circle').forEach(c => {
+        c.classList.toggle('active', c.dataset.color.toLowerCase() === String(all['system.theme.color']).toLowerCase());
+      });
+    }
     // Shell
     if (all['shell.prompt']) $('pref-prompt').value = all['shell.prompt'];
   }
 
-  /* ── Save apariencia ── */
-  $('btn-save-apariencia').addEventListener('click', async () => {
-    await K.prefs.set('desktop.wallpaper', $('pref-wallpaper').value);
+    /* ── Load Paths ── */
+  async function loadPaths() {
+    const paths = await K.prefs.get('system.paths') || {};
+    $('path-wos-client').value = paths.wosClient || '/apps/lib/wos-client.js';
+    $('path-services').value = paths.services || '/Modulos/Servicios';
+    $('path-api').value = paths.api || '/Modulos/API';
+    $('path-components').value = paths.components || '/Modulos/Componentes';
+  }
+
+  /* ── Save Paths ── */
+  $('btn-save-paths').addEventListener('click', async () => {
+    const paths = {
+      wosClient: $('path-wos-client').value.trim(),
+      services: $('path-services').value.trim(),
+      api: $('path-api').value.trim(),
+      components: $('path-components').value.trim()
+    };
+    await K.prefs.set('system.paths', paths);
+    Toast.show('Rutas del sistema guardadas', 'ok');
+  });
+
+  /* ── Guardar apariencia automáticamente ── */
+  async function saveApariencia() {
+    /* ── Guardar wallpaper (casillas) ── */
+    const wpActive = Array.from(document.querySelectorAll('.wp-check input:checked')).map(cb => cb.dataset.wp);
+    await K.prefs.set('desktop.wallpaper', wpActive);
+    
+    if (wpActive.includes('image')) {
+      const imgPath = $('wp-image-name').dataset.path || '';
+      await K.prefs.set('desktop.wallpaper.image', imgPath);
+    }
+
     await K.prefs.set('desktop.grid',      $('pref-grid').checked);
     await K.prefs.set('system.fontSize',   parseInt($('pref-fontsize').value) || 14);
-    await K.prefs.set('system.theme',      $('pref-theme').value);
-    Toast.show('Apariencia guardada', 'ok');
-  });
+
+    /* ── Guardar tema (circulito activo) ── */
+    const activeCircle = document.querySelector('.theme-circle.active');
+    if (activeCircle) {
+      const themeValue = activeCircle.dataset.value;
+      const themeColor = activeCircle.dataset.color;
+      await K.prefs.set('system.theme.color', themeColor);
+      await K.prefs.set('system.theme',      themeValue);
+      /* Sincronizar con localStorage para que el bootloader lo lea instantáneamente */
+      try {
+        localStorage.setItem('huebos_theme', themeValue);
+        localStorage.setItem('huebos_theme_color', themeColor);
+      } catch(e){}
+    }
+
+    Toast.show('Apariencia actualizada', 'ok');
+  }
+
+  $('pref-grid').addEventListener('change', saveApariencia);
+  $('pref-fontsize').addEventListener('input', saveApariencia);
 
   /* ── Save shell ── */
   $('btn-save-shell').addEventListener('click', async () => {
@@ -1575,12 +1896,133 @@ function detectEngine(ua) {
     loadSecurity();
   });
 
-  $('btn-sec-lock-now').addEventListener('click', () => {
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({ type: 'wos:lock' }, window.location.origin);
-      Toast.show('Bloqueando pantalla…', 'info');
-    } else {
-      Toast.show('Bloqueo no disponible fuera del shell', 'error');
+  /* ── 24 colores del tema (en orden espectral) ── */
+  const THEME_COLORS = [
+    { name:'Verde neón',    color:'#00ff88', value:'dark' },
+    { name:'Verde lima',    color:'#baff29', value:'lime' },
+    { name:'Verde bosque',  color:'#008844', value:'forest' },
+    { name:'Cian',          color:'#00ffcc', value:'cyan' },
+    { name:'Turquesa',      color:'#00d4ff', value:'turquoise' },
+    { name:'Azul cian',     color:'#6ee7ff', value:'blue' },
+    { name:'Azul cielo',    color:'#00aaff', value:'sky' },
+    { name:'Azul',          color:'#0066ff', value:'azure' },
+    { name:'Índigo',        color:'#4f7bff', value:'indigo' },
+    { name:'Violeta',       color:'#7b4fff', value:'violet' },
+    { name:'Púrpura',       color:'#9d4edd', value:'purple' },
+    { name:'Magenta',       color:'#ff00ff', value:'magenta' },
+    { name:'Rosa',          color:'#ff2d78', value:'pink' },
+    { name:'Rojo',          color:'#ff4466', value:'red' },
+    { name:'Rojo oscuro',   color:'#cc2244', value:'darkred' },
+    { name:'Naranja',       color:'#ff8800', value:'orange' },
+    { name:'Ámbar',         color:'#ffbf47', value:'amber' },
+    { name:'Amarillo',      color:'#ffeb00', value:'yellow' },
+    { name:'Dorado',        color:'#ffd700', value:'gold' },
+    { name:'Marrón',        color:'#aa6600', value:'brown' },
+    { name:'Gris claro',    color:'#cccccc', value:'lightgray' },
+    { name:'Gris',          color:'#888888', value:'gray' },
+    { name:'Blanco',        color:'#ffffff', value:'white' },
+    { name:'Grafito',       color:'#444444', value:'graphite' },
+  ];
+
+  /* ── Generar circulitos ── */
+  const themeCirclesEl = document.getElementById('theme-circles');
+  if (themeCirclesEl) {
+    THEME_COLORS.forEach(c => {
+      const circle = document.createElement('div');
+      circle.className = 'theme-circle';
+      circle.dataset.value = c.value;
+      circle.dataset.color = c.color;
+      circle.style.background = c.color;
+      circle.title = c.name;
+      circle.addEventListener('click', () => {
+        document.querySelectorAll('.theme-circle').forEach(x => x.classList.remove('active'));
+        circle.classList.add('active');
+        saveApariencia();
+      });
+      themeCirclesEl.appendChild(circle);
+    });
+  }
+
+  /* ── Comportamiento de casillas de wallpaper ── */
+  document.querySelectorAll('.wp-check input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.dataset.wp === 'image') {
+        /* Si se activa "image", desactivar todas las demás */
+        if (cb.checked) {
+          document.querySelectorAll('.wp-check input:not([data-wp="image"])').forEach(other => {
+            other.checked = false;
+          });
+          $('wp-image-panel').style.display = 'flex';
+        } else {
+          $('wp-image-panel').style.display = 'none';
+        }
+      } else {
+        /* Si se activa cualquier otra, desactivar "image" */
+        if (cb.checked) {
+          const imgCb = document.querySelector('.wp-check input[data-wp="image"]');
+          if (imgCb && imgCb.checked) {
+            imgCb.checked = false;
+            $('wp-image-panel').style.display = 'none';
+          }
+        }
+      }
+      saveApariencia();
+    });
+  });
+
+  /* ── Selección de imagen .png del escritorio ── */
+  let _imgDropdown = null;
+  $('wp-image-btn').addEventListener('click', async () => {
+    /* Cerrar dropdown existente */
+    if (_imgDropdown) { _imgDropdown.remove(); _imgDropdown = null; return; }
+
+    try {
+      const files = await K.fs.readdir('/home/desktop');
+      const pngFiles = files.filter(f =>
+        f.type === 'file' && f.name.toLowerCase().endsWith('.png')
+      );
+
+      _imgDropdown = document.createElement('div');
+      _imgDropdown.className = 'wp-image-dropdown';
+
+      if (!pngFiles.length) {
+        _imgDropdown.innerHTML = '<div class="wp-image-dropdown-empty">No hay archivos .png en el escritorio</div>';
+      } else {
+        pngFiles.forEach(f => {
+          const item = document.createElement('div');
+          item.className = 'wp-image-dropdown-item';
+          item.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"/><path d="M21 15l-5-5L5 21"/></svg> ${f.name}`;
+          item.addEventListener('click', () => {
+            const nameEl = $('wp-image-name');
+            nameEl.textContent = f.name;
+            nameEl.dataset.path = f.id;
+            nameEl.classList.add('has-img');
+            _imgDropdown.remove();
+            _imgDropdown = null;
+            saveApariencia();
+          });
+          _imgDropdown.appendChild(item);
+        });
+      }
+
+      const btnRect = $('wp-image-btn').getBoundingClientRect();
+      _imgDropdown.style.top = (btnRect.bottom + 4) + 'px';
+      _imgDropdown.style.left = btnRect.left + 'px';
+      document.body.appendChild(_imgDropdown);
+
+      /* Cerrar al hacer clic fuera */
+      setTimeout(() => {
+        const close = (e) => {
+          if (_imgDropdown && !_imgDropdown.contains(e.target) && e.target !== $('wp-image-btn')) {
+            _imgDropdown.remove();
+            _imgDropdown = null;
+            document.removeEventListener('click', close);
+          }
+        };
+        document.addEventListener('click', close);
+      }, 0);
+    } catch (e) {
+      Toast.show('Error al leer escritorio: ' + e.message, 'error');
     }
   });
 

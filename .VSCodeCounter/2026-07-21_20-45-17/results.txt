@@ -1,0 +1,70 @@
+Date : 2026-07-21 20:45:17
+Directory : c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web
+Total : 33 files,  17316 codes, 460 comments, 1926 blanks, all 19702 lines
+
+Languages
++------------+------------+------------+------------+------------+------------+
+| language   | files      | code       | comment    | blank      | total      |
++------------+------------+------------+------------+------------+------------+
+| HTML       |         12 |     13,350 |         41 |      1,048 |     14,439 |
+| JavaScript |         11 |      2,931 |        417 |        454 |      3,802 |
+| Markdown   |          2 |        944 |          0 |        416 |      1,360 |
+| XML        |          4 |         61 |          2 |          7 |         70 |
+| JSON       |          4 |         30 |          0 |          1 |         31 |
++------------+------------+------------+------------+------------+------------+
+
+Directories
++----------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                         | files      | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                            |         33 |     17,316 |        460 |      1,926 |     19,702 |
+| . (Files)                                                                                    |          9 |      8,490 |        179 |      1,146 |      9,815 |
+| Modulos                                                                                      |         12 |        781 |        248 |        128 |      1,157 |
+| Modulos\API                                                                                  |          2 |         42 |         29 |         12 |         83 |
+| Modulos\Componentes                                                                          |          1 |          3 |          0 |          0 |          3 |
+| Modulos\Servicios                                                                            |          9 |        736 |        219 |        116 |      1,071 |
+| apps                                                                                         |         12 |      8,045 |         33 |        652 |      8,730 |
+| apps (Files)                                                                                 |          7 |      7,926 |         29 |        636 |      8,591 |
+| apps\lib                                                                                     |          1 |         58 |          2 |          9 |         69 |
+| apps\public                                                                                  |          4 |         61 |          2 |          7 |         70 |
++----------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++----------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| filename                                                                                     | language   | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Kernel.js                            | JavaScript |      2,112 |        167 |        317 |      2,596 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\KernelApiDoc.md                      | Markdown   |        831 |          0 |        406 |      1,237 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\API\index.json               | JSON       |          5 |          0 |          0 |          5 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\API\windows-api.js           | JavaScript |         37 |         29 |         12 |         78 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\Componentes\index.json       | JSON       |          3 |          0 |          0 |          3 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\Servicios\Installer.js       | JavaScript |         94 |         14 |         20 |        128 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\Servicios\ide-bridge.js      | JavaScript |         44 |          1 |          9 |         54 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\Servicios\index.json         | JSON       |         12 |          0 |          0 |         12 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\Servicios\indexador.js       | JavaScript |         44 |          0 |          6 |         50 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\Servicios\ipc-bridge.js      | JavaScript |         86 |         36 |         17 |        139 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\Servicios\notificaciones.js  | JavaScript |         35 |          0 |          5 |         40 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\Servicios\scheduler.js       | JavaScript |         95 |         26 |         14 |        135 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\Servicios\system-registry.js | JavaScript |        279 |        106 |         33 |        418 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\Modulos\Servicios\window-registry.js | JavaScript |         47 |         36 |         12 |         95 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\ServiciosPendientes.md               | Markdown   |        113 |          0 |         10 |        123 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\IDE.html                        | HTML       |      1,475 |          1 |        132 |      1,608 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\config.html                     | HTML       |      1,551 |         15 |        115 |      1,681 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\editor.html                     | HTML       |        762 |          6 |         71 |        839 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\files.html                      | HTML       |      1,526 |          0 |        161 |      1,687 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\index.json                      | JSON       |         10 |          0 |          1 |         11 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\lib\wos-client.js               | JavaScript |         58 |          2 |          9 |         69 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\public\Archivos.svg             | XML        |         10 |          0 |          0 |         10 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\public\Config.svg               | XML        |          1 |          0 |          0 |          1 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\public\EditorTexto.svg          | XML        |         26 |          0 |          3 |         29 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\public\TaskManager.svg          | XML        |         24 |          2 |          4 |         30 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\task-manager.html               | HTML       |      1,342 |          7 |        121 |      1,470 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\apps\terminal.html                   | HTML       |      1,260 |          0 |         35 |      1,295 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\diag-apps.html                       | HTML       |         61 |          0 |          4 |         65 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\diag-kernel.html                     | HTML       |         68 |          0 |          4 |         72 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\index.html                           | HTML       |        549 |          8 |         77 |        634 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\repairboot.html                      | HTML       |        848 |          2 |         85 |        935 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\shell.html                           | HTML       |      3,510 |          2 |        209 |      3,721 |
+| c:\Users\Glados Foxy\Desktop\Proyects\Hue-Bit-OS-NT Web\uefi.html                            | HTML       |        398 |          0 |         34 |        432 |
+| Total                                                                                        |            |     17,316 |        460 |      1,926 |     19,702 |
++----------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+

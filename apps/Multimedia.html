@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Multimedia</title>
+<script type="application/json" id="wos-manifest">
+{
+  "id": "multimedia",
+  "name": "Multimedia",
+  "version": "1.1.0",
+  "icon": "./apps/public/multimedia.svg",
+  "category": "media",
+  "singleton": false,
+  "winWidth": 720,
+  "winHeight": 520,
+  "description": "Reproductor de imágenes, audio y video.",
+  "author": "HUEBOS NT"
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --g:#00ff88; --g-dim:#00bb66; --cyan:#00d4ff; --amber:#ffcc44; --red:#ff4466;
+    --bg:#020c06; --glass:rgba(4,20,12,0.60); --border:rgba(0,255,136,0.16); --border-hot:rgba(0,255,136,0.4);
+    --mono:'Share Tech Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width:100%; height:100%; background:var(--bg); color:var(--g); font-family:var(--mono); overflow:hidden; user-select:none; }
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;background:repeating-linear-gradient(0deg,rgba(0,255,136,0.015) 0px,rgba(0,255,136,0.015) 1px,transparent 1px,transparent 3px);mix-blend-mode:overlay;}
+  svg { display:block; }
+
+  .app-shell { display:flex; width:100%; height:100%; background:var(--glass); backdrop-filter:blur(16px); position:relative; z-index:2; }
+
+  .sidebar { width:220px; border-right:1px solid var(--border); background:rgba(0,8,4,0.55); display:flex; flex-direction:column; overflow:hidden; }
+  .sidebar-header {
+    padding:10px 12px; font-size:0.68rem; color:var(--cyan); border-bottom:1px solid var(--border);
+    text-transform:uppercase; letter-spacing:0.12em; display:flex; align-items:center; gap:8px;
+    background:linear-gradient(90deg, rgba(0,212,255,0.05), transparent);
+  }
+  .sidebar-header svg { width:14px; height:14px; flex-shrink:0; }
+
+  .file-list { flex:1; overflow-y:auto; padding:6px; display:flex; flex-direction:column; gap:3px; }
+  .file-list::-webkit-scrollbar { width:5px; }
+  .file-list::-webkit-scrollbar-thumb { background:rgba(0,180,90,0.3); border-radius:3px; }
+  .file-list-empty { color:var(--g-dim); font-size:0.68rem; padding:12px 10px; opacity:0.6; }
+
+  .media-item {
+    display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:6px; cursor:pointer;
+    font-size:0.72rem; color:var(--g-dim); border-left:2px solid transparent; transition:background 0.15s, color 0.15s;
+  }
+  .media-item .mi-icon { width:14px; height:14px; flex-shrink:0; opacity:0.75; }
+  .media-item .mi-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .media-item:hover { background:rgba(0,255,136,0.07); color:var(--g); }
+  .media-item.active { background:rgba(0,255,136,0.13); color:var(--g); border-left-color:var(--g); text-shadow:0 0 6px rgba(0,255,136,0.3); }
+
+  .viewer { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; overflow:hidden; }
+  .viewer-empty { color:var(--g-dim); font-size:0.8rem; opacity:0.55; text-align:center; line-height:1.8; }
+  .viewer-empty svg { width:44px; height:44px; margin:0 auto 14px; color:var(--g-dim); }
+  .viewer-empty.error-state svg { color:var(--red); }
+  .viewer-empty.error-state { color:var(--red); opacity:0.8; }
+
+  .top-bar {
+    position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:0.68rem; color:var(--cyan);
+    background:rgba(0,0,0,0.5); padding:5px 10px; border-radius:5px; max-width:90%; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; z-index:10; text-shadow:0 0 6px rgba(0,212,255,0.35);
+    border:1px solid var(--border);
+  }
+
+  #mediaContainer { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+  #mediaContainer img { max-width:100%; max-height:100%; border-radius:4px; box-shadow:0 0 20px rgba(0,255,136,0.1); }
+  #mediaElement video { max-width:100%; max-height:100%; background:#000; }
+
+  .audio-art {
+    width:180px; height:180px; background:rgba(0,255,136,0.045); border:1px solid var(--border);
+    border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:24px;
+    box-shadow:0 0 30px rgba(0,255,136,0.06) inset;
+  }
+  .audio-art svg { width:64px; height:64px; color:var(--g-dim); opacity:0.8; }
+
+  .custom-controls {
+    position:absolute; bottom:0; left:0; right:0; padding:14px 18px;
+    background:linear-gradient(0deg, rgba(2,12,6,0.95) 0%, rgba(2,12,6,0.6) 70%, transparent 100%);
+    display:flex; flex-direction:column; gap:10px; z-index:10;
+  }
+  .progress-bar { width:100%; height:5px; background:rgba(0,255,136,0.15); border-radius:3px; cursor:pointer; position:relative; overflow:hidden; }
+  .progress-fill { height:100%; background:var(--g); width:0%; border-radius:3px; box-shadow:0 0 8px var(--g); transition:width 0.1s linear; }
+
+  .controls-row { display:flex; align-items:center; gap:6px; color:var(--g); }
+  .ctrl-btn {
+    background:none; border:none; color:var(--g); cursor:pointer; display:flex; align-items:center;
+    justify-content:center; width:30px; height:30px; border-radius:6px; transition:background 0.15s, color 0.15s;
+  }
+  .ctrl-btn svg { width:16px; height:16px; filter:drop-shadow(0 0 5px rgba(0,255,136,0.4)); }
+  .ctrl-btn:hover { background:rgba(0,255,136,0.08); color:var(--cyan); }
+  .ctrl-btn:hover svg { filter:drop-shadow(0 0 6px rgba(0,212,255,0.5)); }
+
+  .time-display { font-size:0.72rem; color:var(--g-dim); letter-spacing:0.05em; min-width:100px; }
+  .volume-wrap { display:flex; align-items:center; gap:6px; margin-left:auto; }
+  .volume-slider {
+    width:80px; height:4px; -webkit-appearance:none; appearance:none; background:rgba(0,255,136,0.2);
+    border-radius:2px; outline:none; cursor:pointer;
+  }
+  .volume-slider::-webkit-slider-thumb {
+    -webkit-appearance:none; appearance:none; width:12px; height:12px; background:var(--g);
+    border-radius:50%; cursor:pointer; box-shadow:0 0 5px var(--g);
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h4.5a2 2 0 0 1 1.4.6L13.4 5H18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5z"/></svg>
+        Recientes
+      </div>
+      <div class="file-list" id="fileList">
+        <div class="file-list-empty">Cargando…</div>
+      </div>
+    </aside>
+    <main class="viewer">
+      <div class="top-bar" id="fileInfo" style="display:none;"></div>
+      <div class="viewer-empty" id="viewerEmpty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round">
+          <rect x="3" y="5" width="18" height="14" rx="2"/>
+          <path d="M3 9h18M7 5v4M13 5v4" />
+          <path d="M10 12.5l5 2.7-5 2.7z" fill="currentColor" stroke="none"/>
+        </svg>
+        Selecciona un archivo reciente<br>o ábrelo desde Archivos/Escritorio
+      </div>
+
+      <div id="mediaContainer"></div>
+
+      <div class="custom-controls" id="customControls" style="display: none;">
+        <div class="progress-bar" id="progressTrack">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="controls-row">
+          <button class="ctrl-btn" id="playPauseBtn" title="Reproducir/Pausar"></button>
+          <button class="ctrl-btn" id="stopBtn" title="Detener"></button>
+          <span class="time-display"><span id="currentTime">0:00</span> / <span id="duration">0:00</span></span>
+          <div class="volume-wrap">
+            <button class="ctrl-btn" id="muteBtn" title="Silenciar"></button>
+            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.05" value="1">
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    const Icons = {
+      play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>',
+      pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1"/><rect x="13.5" y="5" width="4" height="14" rx="1"/></svg>',
+      stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>',
+      volume: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M4 9.5v5h3.5l5 4v-13l-5 4z"/><path d="M16.5 9.2a5 5 0 0 1 0 5.6M19.3 6.8a9 9 0 0 1 0 10.4"/></svg>',
+      mute: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M4 9.5v5h3.5l5 4v-13l-5 4z"/><line x1="15.5" y1="9.5" x2="20.5" y2="14.5"/><line x1="20.5" y1="9.5" x2="15.5" y2="14.5"/></svg>',
+      musicNote: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5.5l10-2v12.5"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/></svg>',
+      warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 21.5 20h-19z"/><line x1="12" y1="9.5" x2="12" y2="14"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/></svg>',
+      image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="8.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/><path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.1 0L4 19"/></svg>',
+      video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="2.5" y="5.5" width="14" height="13" rx="1.5"/><path d="M16.5 10l5-3v10l-5-3z"/></svg>',
+      audio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 14v-4M8 17v-10M12 19v-14M16 17v-10M20 14v-4"/></svg>',
+      generic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M6.5 2.5h7l4 4v14a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z"/><path d="M13.5 2.5V7h4"/></svg>'
+    };
+
+    function iconForFile(name) {
+      const ext = name.split('.').pop().toLowerCase();
+      if (['png','jpg','jpeg','gif','webp','bmp'].includes(ext)) return Icons.image;
+      if (['mp4','mov','webm','mkv','avi'].includes(ext)) return Icons.video;
+      if (['mp3','wav','ogg','flac','m4a'].includes(ext)) return Icons.audio;
+      return Icons.generic;
+    }
+
+    function waitForWOS(cb) { if (window.WOS && window.WOS.fs) cb(); else setTimeout(() => waitForWOS(cb), 100); }
+
+    waitForWOS(async () => {
+      const fileList = document.getElementById('fileList');
+      const viewerEmpty = document.getElementById('viewerEmpty');
+      const mediaContainer = document.getElementById('mediaContainer');
+      const fileInfo = document.getElementById('fileInfo');
+      const customControls = document.getElementById('customControls');
+
+      const progressTrack = document.getElementById('progressTrack');
+      const progressFill = document.getElementById('progressFill');
+      const playPauseBtn = document.getElementById('playPauseBtn');
+      const stopBtn = document.getElementById('stopBtn');
+      const muteBtn = document.getElementById('muteBtn');
+      const volumeSlider = document.getElementById('volumeSlider');
+      const currentTimeEl = document.getElementById('currentTime');
+      const durationEl = document.getElementById('duration');
+
+      playPauseBtn.innerHTML = Icons.play;
+      stopBtn.innerHTML = Icons.stop;
+      muteBtn.innerHTML = Icons.volume;
+
+      let currentUrl = null;
+      let currentMedia = null;
+
+      function formatTime(s) {
+        if (isNaN(s)) return '0:00';
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60);
+        return `${m}:${sec < 10 ? '0' : ''}${sec}`;
+      }
+
+      async function loadRecents() {
+        const recents = await WOS.prefs.get('multimedia.recents', []);
+        if (recents.length === 0) {
+          fileList.innerHTML = '<div class="file-list-empty">Sin recientes.</div>';
+          return;
+        }
+        fileList.innerHTML = '';
+        recents.forEach(path => {
+          const name = path.split('/').pop();
+          const item = document.createElement('div');
+          item.className = 'media-item';
+          item.title = path;
+          item.dataset.path = path;
+          item.innerHTML = `<span class="mi-icon">${iconForFile(name)}</span><span class="mi-name">${name}</span>`;
+          item.addEventListener('click', () => playMedia(path, item));
+          fileList.appendChild(item);
+        });
+      }
+
+      async function playMedia(path, el) {
+        document.querySelectorAll('.media-item').forEach(e => e.classList.remove('active'));
+        if (el) el.classList.add('active');
+
+        if (currentUrl) URL.revokeObjectURL(currentUrl);
+        if (currentMedia) currentMedia.pause();
+
+        mediaContainer.innerHTML = '';
+        viewerEmpty.style.display = 'none';
+        viewerEmpty.classList.remove('error-state');
+        fileInfo.style.display = 'block';
+        customControls.style.display = 'none';
+        fileInfo.textContent = 'Cargando…';
+
+        try {
+          const media = await WOS.multimedia.load(path);
+          currentUrl = media.url;
+          fileInfo.textContent = `${media.name} (${media.type})`;
+
+          if (media.type === 'image') {
+            const img = document.createElement('img');
+            img.src = media.url;
+            mediaContainer.appendChild(img);
+          } else if (media.type === 'video' || media.type === 'audio') {
+            customControls.style.display = 'flex';
+
+            if (media.type === 'audio') {
+              const art = document.createElement('div');
+              art.className = 'audio-art';
+              art.innerHTML = Icons.musicNote;
+              mediaContainer.appendChild(art);
+            }
+
+            const vid = document.createElement('video');
+            vid.src = media.url;
+            mediaContainer.appendChild(vid);
+            currentMedia = vid;
+
+            vid.volume = parseFloat(volumeSlider.value);
+            vid.muted = muteBtn.dataset.muted === '1';
+
+            vid.addEventListener('loadedmetadata', () => {
+              durationEl.textContent = formatTime(vid.duration);
+              if (media.type === 'video') vid.play();
+            });
+
+            vid.addEventListener('timeupdate', () => {
+              currentTimeEl.textContent = formatTime(vid.currentTime);
+              const percent = (vid.currentTime / vid.duration) * 100;
+              progressFill.style.width = `${percent}%`;
+            });
+
+            vid.addEventListener('play', () => playPauseBtn.innerHTML = Icons.pause);
+            vid.addEventListener('pause', () => playPauseBtn.innerHTML = Icons.play);
+            vid.addEventListener('ended', () => playPauseBtn.innerHTML = Icons.play);
+          }
+
+          let recents = await WOS.prefs.get('multimedia.recents', []);
+          recents = recents.filter(p => p !== path);
+          recents.unshift(path);
+          recents = recents.slice(0, 10);
+          await WOS.prefs.set('multimedia.recents', recents);
+          await loadRecents();
+        } catch(err) {
+          fileInfo.textContent = 'Error';
+          viewerEmpty.style.display = 'block';
+          viewerEmpty.classList.add('error-state');
+          viewerEmpty.innerHTML = `${Icons.warning}${err.message}`;
+        }
+      }
+
+      playPauseBtn.addEventListener('click', () => {
+        if (!currentMedia) return;
+        if (currentMedia.paused) currentMedia.play();
+        else currentMedia.pause();
+      });
+
+      stopBtn.addEventListener('click', () => {
+        if (!currentMedia) return;
+        currentMedia.pause();
+        currentMedia.currentTime = 0;
+      });
+
+      progressTrack.addEventListener('click', (e) => {
+        if (!currentMedia) return;
+        const rect = progressTrack.getBoundingClientRect();
+        const ratio = (e.clientX - rect.left) / rect.width;
+        currentMedia.currentTime = ratio * currentMedia.duration;
+      });
+
+      volumeSlider.addEventListener('input', (e) => {
+        const v = parseFloat(e.target.value);
+        if (currentMedia) currentMedia.volume = v;
+        const isMuted = v === 0;
+        muteBtn.dataset.muted = isMuted ? '1' : '0';
+        muteBtn.innerHTML = isMuted ? Icons.mute : Icons.volume;
+      });
+
+      muteBtn.addEventListener('click', () => {
+        if (!currentMedia) return;
+        currentMedia.muted = !currentMedia.muted;
+        muteBtn.dataset.muted = currentMedia.muted ? '1' : '0';
+        muteBtn.innerHTML = currentMedia.muted ? Icons.mute : Icons.volume;
+      });
+
+      await loadRecents();
+
+      if (window.__APP_OPTS && window.__APP_OPTS.filePath) {
+        playMedia(window.__APP_OPTS.filePath);
+      } else {
+        window.addEventListener('message', (e) => {
+          if (e.data && e.data.type === 'app:init' && e.data.opts && e.data.opts.filePath) {
+            playMedia(e.data.opts.filePath);
+          }
+        });
+      }
+    });
+  })();
+  </script>
+</body>
+</html>

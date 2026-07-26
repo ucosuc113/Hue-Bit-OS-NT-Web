@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024"
+    height="1024" viewBox="190 220 655 585">
+    <mask id="ide-cut" maskUnits="userSpaceOnUse" x="190" y="220" width="655" height="585">
+        <rect x="190" y="220" width="655" height="585" fill="#fff" />
+        <rect x="235" y="355" width="580" height="26" fill="#000" />
+        <circle cx="270" cy="315" r="16" fill="#000" />
+        <circle cx="316" cy="315" r="16" fill="#000" />
+        <circle cx="362" cy="315" r="16" fill="#000" />
+        <path fill="#000"
+            d="M410 470 L480 540 L410 610 L378 610 L378 588 L436 540 L378 492 L378 470 Z" />
+        <rect x="520" y="588" width="200" height="26" fill="#000" />
+    </mask>
+    <path fill="#00FF88" mask="url(#ide-cut)"
+        d="M310 250 L725 250
+           C767 250 800 283 800 325
+           L800 700
+           C800 742 767 775 725 775
+           L310 775
+           C268 775 235 742 235 700
+           L235 325
+           C235 283 268 250 310 250 Z" />
+</svg>
