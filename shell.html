@@ -2905,22 +2905,30 @@ const pidRef={pid};
         const startX=e.clientX,startY=e.clientY;
         const rect=tbApp.getBoundingClientRect();
         const offsetX=startX-rect.left;
+        const offsetY=startY-rect.top;
         let dragging=false,ghost=null,placeholder=null;
 
-        function railY(){
+        const tbPos=document.body.dataset.tbPos||'bottom';
+        const vertical=tbPos==='left'||tbPos==='right';
+
+        function railCenter(){
           const r=tbApps.getBoundingClientRect();
-          return r.top+r.height/2;
+          return vertical
+            ? r.left+r.width/2
+            : r.top+r.height/2;
         }
-        function clampX(x){
+        function clampPos(p){
           const r=tbApps.getBoundingClientRect();
-          return Math.min(Math.max(x,r.left),r.right-rect.width);
+          if(vertical) return Math.min(Math.max(p,r.top),r.bottom-rect.height);
+          return Math.min(Math.max(p,r.left),r.right-rect.width);
         }
-        function reorder(clientX){
+        function reorder(clientCoord){
           const siblings=Array.from(tbApps.querySelectorAll('.tb-app:not(.tb-closing)'));
           let target=null;
           for(const sib of siblings){
             const r=sib.getBoundingClientRect();
-            if(clientX<r.left+r.width/2){ target=sib; break; }
+            const mid=vertical?(r.top+r.height/2):(r.left+r.width/2);
+            if(clientCoord<mid){ target=sib; break; }
           }
           if(target) tbApps.insertBefore(placeholder,target);
           else tbApps.appendChild(placeholder);
@@ -2944,10 +2952,17 @@ const pidRef={pid};
             document.body.appendChild(ghost);
             document.body.style.cursor='grabbing';
           }
-          const nx=clampX(ev.clientX-offsetX);
-          ghost.style.left=nx+'px';
-          ghost.style.top=(railY()-rect.height/2)+'px';
-          reorder(ev.clientX);
+          if(vertical){
+            const ny=clampPos(ev.clientY-offsetY);
+            ghost.style.left=(railCenter()-rect.width/2)+'px';
+            ghost.style.top=ny+'px';
+            reorder(ev.clientY);
+          } else {
+            const nx=clampPos(ev.clientX-offsetX);
+            ghost.style.left=nx+'px';
+            ghost.style.top=(railCenter()-rect.height/2)+'px';
+            reorder(ev.clientX);
+          }
         }
         function onUp(){
           document.removeEventListener('mousemove',onMove);

@@ -174,12 +174,32 @@
       flex: 1;
       overflow-y: auto;
       padding: 18px 20px;
+    }
+    /* Scrollbar global estilo HuebOS */
+    * {
       scrollbar-width: thin;
       scrollbar-color: var(--green-dim) transparent;
     }
-    #content::-webkit-scrollbar       { width: 5px; }
-    #content::-webkit-scrollbar-track { background: transparent; }
-    #content::-webkit-scrollbar-thumb { background: var(--green-dim); border-radius: 3px; }
+    *::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    *::-webkit-scrollbar-track {
+      background: rgba(0, 255, 136, 0.03);
+      border-radius: 3px;
+    }
+    *::-webkit-scrollbar-thumb {
+      background: var(--green-dim);
+      border-radius: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+    }
+    *::-webkit-scrollbar-thumb:hover {
+      background: var(--green);
+      box-shadow: 0 0 6px rgba(0, 255, 136, 0.6);
+    }
+    *::-webkit-scrollbar-corner {
+      background: transparent;
+    }
 
     /* Panels */
     .panel { display: none; }
@@ -1243,9 +1263,6 @@
     try {
       const manifest = JSON.parse($('wos-manifest').textContent);
       const iconPath = manifest.icon || './apps/public/Config.svg';
-      // El path del manifest es relativo a la ventana del Kernel (el padre),
-      // no a este documento (que vive en su propio iframe). Se resuelve
-      // contra la ubicación del padre para que apunte al asset real.
       const kernelBase = (window.parent && window.parent !== window)
         ? window.parent.location.href
         : window.location.href;
@@ -1302,9 +1319,6 @@
   });
   $('confirm-ok').addEventListener('click', () => {
     $('confirm-modal').classList.remove('visible');
-    // Guardar referencia antes de ejecutar: el callback puede anidar
-    // otro Confirm.show (doble confirmación) que reasigna _confirmCb.
-    // Si hiciéramos _confirmCb=null después, borraríamos el callback anidado.
     const cb = _confirmCb;
     _confirmCb = null;
     if (cb) cb();
@@ -1664,14 +1678,8 @@ $('btn-clear-tmp').addEventListener('click', () => {
       for (const store of storeNames) {
         try { await K.db.clear(store); } catch (_) {}
       }
-
-      // IMPORTANTE: cerrar la conexión antes de deleteDatabase.
-      // Si la conexión permanece abierta el browser dispara onblocked
-      // en lugar de onsuccess y la base de datos nunca se elimina.
       K.db.close();
 
-      // Pequeño delay para que el navegador procese el cierre de la conexión
-      // antes de intentar deleteDatabase (evita onblocked por race condition).
       await new Promise(r => setTimeout(r, 300));
 
       // Intentar deleteDatabase con reintentos automáticos si queda bloqueado.
@@ -1797,8 +1805,6 @@ function detectEngine(ua) {
     $('sec-session-count').textContent = String(sessionCount);
   }
 
-  // Mostrar/ocultar campo de contraseña al cambiar el toggle
-  // Si se DESACTIVA y ya hay contraseña, pedir verificación antes de permitir
   $('sec-lock-password').addEventListener('change', async () => {
     const checked = $('sec-lock-password').checked;
     if (!checked) {
@@ -1848,9 +1854,6 @@ function detectEngine(ua) {
     }
     $('sec-new-username').value = '';
 
-    // Si el toggle está desactivado y no hay nueva contraseña, asegurar
-    // que cualquier contraseña residual se borre (fix: la contraseña debía
-    // borrarse al desactivar, pero por seguridad lo reforzamos al guardar).
     const lockEnabled = $('sec-lock-password').checked;
     const newPwd = $('sec-new-password').value;
     if (!lockEnabled && !newPwd) {
@@ -1860,8 +1863,6 @@ function detectEngine(ua) {
       }
     }
 
-    // Establecer contraseña (sincroniza user.password y security.password)
-    // Si ya hay contraseña y se quiere cambiar, pedir verificación primero
     if (newPwd) {
       const existingPwd = await K.prefs.get('security.password') || '';
       if (existingPwd) {

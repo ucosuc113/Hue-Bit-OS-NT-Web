@@ -1,9 +1,7 @@
+// muchas... gracias.... por ver esto.... y... muchas gracias... por yo lanzar la 1.0.... yeyy............
 ;(function (global) {
   'use strict';
 
-  /* ═══════════════════════════════════════════════════
-     CONSTANTES
-  ═══════════════════════════════════════════════════ */
   const DB_NAME    = 'huebos_db';
   const DB_VERSION = 4;
   const KERNEL_VERSION = '0.5.2';
@@ -1580,15 +1578,16 @@ const ModuleLoader = (() => {
     }
 
     async function syncKindFromReal(kindDef) {
-      let manifest;
-      try {
-        const res = await fetch(`.${kindDef.dir}/index.json`, { cache: 'no-store' });
-        if (!res.ok) throw new Error(`No se encontró ${kindDef.dir}/index.json`);
-        manifest = await res.json();
-      } catch (err) {
-        console.info(`[Kernel:modules] sin manifiesto real para ${kindDef.dir} (${err.message}) — se omite sincronización`);
-        return;
-      }
+  let manifest;
+  try {
+    const res = await fetch(`.${kindDef.dir}/index.json`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`No se encontró ${kindDef.dir}/index.json`);
+    manifest = await res.json();
+  } catch (err) {
+    // CAMBIO CLAVE AQUÍ:
+    console.info(`[Kernel:modules] sin manifiesto real para ${kindDef.dir} (${err.message}) — se omite sincronización`);
+    return;
+  }
       const files = manifest[kindDef.manifestKey] || manifest.files || [];
       for (const file of files) {
         const realUrl = `.${kindDef.dir}/${file}`;

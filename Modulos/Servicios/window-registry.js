@@ -19,6 +19,8 @@ function registerService(Kernel) {
     _driver = null;
   }
 
+  // olvidalo, (novia === true) paso a ser false... pipipipo
+
   function _requireDriver() {
     if (!_driver) throw new Error('windows: no hay driver de ventanas registrado (¿el shell ya inició?)');
     return _driver;
