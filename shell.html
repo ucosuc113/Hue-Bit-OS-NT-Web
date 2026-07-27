@@ -4661,26 +4661,26 @@ window.addEventListener('message', async event => {
   if (event.origin !== window.location.origin) return;
   const msg = event.data || {};
 
-        if (msg.type === 'ide:openHelp' && msg.content) {
-          const proc = Kernel.procs.spawn('ide-help', { title: msg.title || '📖 Ayuda', icon: '📖', parentPid: msg.parentPid || null });
-          const iframe = document.createElement('iframe');
-          iframe.style.cssText = 'width:100%;height:100%;border:none;background:#020c06;';
+  if (msg.type === 'ide:openHelp' && msg.content) {
+    const proc = Kernel.procs.spawn('ide-help', { title: msg.title || '📖 Ayuda', icon: '📖', parentPid: msg.parentPid || null });
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width:100%;height:100%;border:none;background:#020c06;';
 
-          iframe.sandbox = 'allow-scripts';
-          iframe.srcdoc = msg.content;
-          WM.createWindow(proc, { title: msg.title || '📖 Ayuda', icon: '📖', width: 900, height: 680, content: iframe });
-          if (event.source) {
-            event.source.postMessage({ type: 'ide:helpWindowOpened', pid: proc.pid }, '*');
-          }
-        }
+    iframe.sandbox = 'allow-scripts';
+    iframe.srcdoc = msg.content;
+    WM.createWindow(proc, { title: msg.title || '📖 Ayuda', icon: '📖', width: 900, height: 680, content: iframe });
+    if (event.source) {
+      event.source.postMessage({ type: 'ide:helpWindowOpened', pid: proc.pid }, '*');
+    }
+  }
 
-if (msg.type === 'wos:call') {
+  if (msg.type === 'wos:call') {
     const { id, channel, method, args } = msg;
     try {
       if (!Object.prototype.hasOwnProperty.call(CHANNEL_POLICY, channel)) {
         throw new Error(`Canal IPC no permitido: ${channel}`);
       }
-const allowedMethods = CHANNEL_POLICY[channel];
+      const allowedMethods = CHANNEL_POLICY[channel];
       if (Array.isArray(allowedMethods) && !allowedMethods.includes(method)) {
         throw new Error(`Método IPC no permitido: ${channel}.${method}`);
       }
@@ -4745,78 +4745,93 @@ const allowedMethods = CHANNEL_POLICY[channel];
     }
     return;
   }
-  
-        if (msg.type === 'wos:reboot' && typeof msg.url === 'string'){
-          try{const p=new URL(msg.url);if(p.origin===window.location.origin)window.location.href=msg.url;}
-          catch{console.warn('[shell] wos:reboot: URL inválida ignorada',msg.url);}
-        }
-        if (msg.type === 'wos:lock'){window.__wos_lock&&window.__wos_lock();}
-      });
-      const startLockBtn=document.getElementById('start-lock');
-      if(startLockBtn)startLockBtn.addEventListener('click',()=>{window.__wos_lock&&window.__wos_lock();});
-window.__wos={
 
+  if (msg.type === 'wos:reboot' && typeof msg.url === 'string') {
+    try {
+      // Resolver la URL relativa contra la ubicación actual del Shell.
+      // Esto soluciona el bug en GitHub Pages donde '/index.html' 
+      // redirigía a la raíz del dominio en vez del subdirectorio correcto.
+      const resolved = new URL(msg.url, window.location.href);
+      if (resolved.origin === window.location.origin) {
+        window.location.href = resolved.href;
+      }
+    } catch (e) {
+      console.warn('[shell] wos:reboot: URL inválida ignorada', msg.url);
+    }
+  }
 
-        restart(pid, appId){
-          /* Matar proceso inmediatamente */
-          if(window.Kernel)Kernel.procs.kill(pid);
-          /* Cerrar ventana (animará su salida) */
-          const wd=WM.getWindow(pid);
-          if(wd)WM.close(pid);
-          /* Limpiar singleton */
-          if(_singletons[appId])delete _singletons[appId];
-          /* Esperar limpieza y relanzar */
-          setTimeout(()=>{
-            const app=_runtimeApps.get(appId);
-            if(app){launchApp(app,{});}
-            else{
-              kernel.apps.get(appId).then(app=>{
-                if(app)launchApp(app,{});
-              }).catch(()=>{});
-            }
-          },400);
-          return true;
-        },
+  if (msg.type === 'wos:lock') {
+    window.__wos_lock && window.__wos_lock();
+  }
+});
+
+const startLockBtn = document.getElementById('start-lock');
+if (startLockBtn) startLockBtn.addEventListener('click', () => {
+  window.__wos_lock && window.__wos_lock();
+});
+
+window.__wos = {
+  restart(pid, appId) {
+    /* Matar proceso inmediatamente */
+    if (window.Kernel) Kernel.procs.kill(pid);
+    /* Cerrar ventana (animará su salida) */
+    const wd = WM.getWindow(pid);
+    if (wd) WM.close(pid);
+    /* Limpiar singleton */
+    if (_singletons[appId]) delete _singletons[appId];
+    /* Esperar limpieza y relanzar */
+    setTimeout(() => {
+      const app = _runtimeApps.get(appId);
+      if (app) {
+        launchApp(app, {});
+      } else {
+        kernel.apps.get(appId).then(app => {
+          if (app) launchApp(app, {});
+        }).catch(() => {});
+      }
+    }, 400);
+    return true;
+  },
   confirm: (msg, opts) => Dialog.confirm(msg, opts),
-prompt:  (msg, opts) => Dialog.prompt(msg, opts),
-        launch(appId,opts={}){
-          Promise.resolve(_runtimeApps.get(appId)).then(app=>app||kernel.apps.get(appId)).then(app=>{
-            if(!app){Toast.show(`App "${appId}" no encontrada`,'error');return;} launchApp(app,opts);
-          });
-        },
-        toast:Toast.show.bind(Toast),
-        /* ── Puente para apps en iframe (como la nueva Terminal) que
-           necesitan tocar el chrome de ventana del shell. WM/Toast solo
-           existen en este scope, así que exponemos lo mínimo necesario. ── */
-           
+  prompt:  (msg, opts) => Dialog.prompt(msg, opts),
+  launch(appId, opts = {}) {
+    Promise.resolve(_runtimeApps.get(appId)).then(app => app || kernel.apps.get(appId)).then(app => {
+      if (!app) { Toast.show(`App "${appId}" no encontrada`, 'error'); return; }
+      launchApp(app, opts);
+    });
+  },
+  toast: Toast.show.bind(Toast),
+  /* ── Puente para apps en iframe (como la nueva Terminal) que
+     necesitan tocar el chrome de ventana del shell. WM/Toast solo
+     existen en este scope, así que exponemos lo mínimo necesario. ── */
 
-closeWindow(pid){
-          const wd=WM.getWindow(pid);
-          if(wd){WM.close(pid);return true;}
-          kernel.procs.kill(pid);
-          return false;
-        },
-        minimizeWindow(pid){
-          const wd=WM.getWindow(pid);
-          if(!wd)return false;
-          if(!wd.minimized)WM.minimize(pid);
-          return true;
-        },
-        focusWindow(pid){
-          const wd=WM.getWindow(pid);
-          if(!wd)return false;
-          WM.focus(pid);
-          return true;
-        },
-setWindowTitle(pid,text){
-          const wd=WM.getWindow(pid);
-          if(wd){const titleEl=wd.el?.querySelector('.win-title');if(titleEl)titleEl.textContent=text;}
-          const tb=document.querySelector(`.tb-app[data-pid="${pid}"] .tb-label`);
-          if(tb)tb.textContent=text;
-          kernel.procs.update?.(pid,{title:text});
-          return !!wd;
-        },
-      };
+  closeWindow(pid) {
+    const wd = WM.getWindow(pid);
+    if (wd) { WM.close(pid); return true; }
+    kernel.procs.kill(pid);
+    return false;
+  },
+  minimizeWindow(pid) {
+    const wd = WM.getWindow(pid);
+    if (!wd) return false;
+    if (!wd.minimized) WM.minimize(pid);
+    return true;
+  },
+  focusWindow(pid) {
+    const wd = WM.getWindow(pid);
+    if (!wd) return false;
+    WM.focus(pid);
+    return true;
+  },
+  setWindowTitle(pid, text) {
+    const wd = WM.getWindow(pid);
+    if (wd) { const titleEl = wd.el?.querySelector('.win-title'); if (titleEl) titleEl.textContent = text; }
+    const tb = document.querySelector(`.tb-app[data-pid="${pid}"] .tb-label`);
+    if (tb) tb.textContent = text;
+    kernel.procs.update?.(pid, { title: text });
+    return !!wd;
+  },
+};
       kernel.on('shell:launch',async({appId,filePath,startPath})=>{
         const app=_runtimeApps.get(appId)||await kernel.apps.get(appId);
         if(!app){Toast.show(`App "${appId}" no encontrada`,'error');return;}

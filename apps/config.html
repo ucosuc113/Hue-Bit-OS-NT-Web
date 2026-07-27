@@ -1385,32 +1385,12 @@
 
   function rebootSystem(delay = 900) {
     setTimeout(() => {
-      let baseUrl = window.location.href;
-      try {
-        // Intentamos obtener la URL base de la ventana padre (shell.html)
-        if (window.parent && window.parent !== window && window.parent.location.href) {
-          baseUrl = window.parent.location.href;
-        }
-      } catch(e) {
-        // Si hay restricción de cross-origin, usamos la del iframe
-      }
-
-      // Construimos la URL absoluta de forma segura
-      let rebootUrl;
-      try {
-        const target = new URL('../index.html', baseUrl);
-        target.searchParams.set('_ts', String(Date.now()));
-        rebootUrl = target.href;
-      } catch(e) {
-        // Fallback extremo por si acaso
-        rebootUrl = '/index.html?_ts=' + Date.now();
-      }
-
+      const target = './index.html?_ts=' + Date.now();
+      
       if (window.parent && window.parent !== window) {
-        // Enviamos la URL absoluta al padre
-        window.parent.postMessage({ type: 'wos:reboot', url: rebootUrl }, '*');
+        window.parent.postMessage({ type: 'wos:reboot', url: target }, '*');
       } else {
-        window.location.href = rebootUrl;
+        window.location.href = target;
       }
     }, delay);
   }
