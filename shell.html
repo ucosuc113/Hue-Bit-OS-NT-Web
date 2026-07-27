@@ -2601,7 +2601,14 @@ function closeProcessTree(pid){
             document.removeEventListener('mousemove',w.dragHandlers.onMove);
             document.removeEventListener('mouseup',w.dragHandlers.onUp);
           }
-          w.el.remove();delete _windows[pid];removeTaskbarItem(pid);if(window.Kernel)Kernel.procs.kill(pid);
+          w.el.remove();delete _windows[pid];removeTaskbarItem(pid);
+          if(window.Kernel)Kernel.procs.kill(pid);
+          /* NUEVO: limpiar singleton para que la app pueda relanzarse */
+          if(typeof _singletons!=='undefined'){
+            for(const aId in _singletons){
+              if(_singletons[aId]===pid){delete _singletons[aId];break;}
+            }
+          }
         },200);
       }
       function updateTaskbarItem(pid){
@@ -3545,7 +3552,7 @@ function applyLayoutMode(mode){
               if (isImg) {
                 getKernel().fs.readDataURL(item.id).then(dataUrl => {
                   if (wrapEl) {
-                    wrapEl.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:contain;padding:4px;box-sizing:border-box;" alt="" />`;
+                    wrapEl.innerHTML = `<img src="${dataUrl}" draggable="false" style="width:100%;height:100%;object-fit:contain;padding:4px;box-sizing:border-box;pointer-events:none;" alt="" />`;
                     ic.dataset.thumbLoaded = 'true';
                   }
                 }).catch(()=>{});
@@ -3579,6 +3586,15 @@ function applyLayoutMode(mode){
 
           // Eventos (solo asignar si es nuevo)
           if (!existingIcons.has(item.id)) {
+            const wrapEl = ic.querySelector('.icon-wrap');
+            if (wrapEl) {
+              wrapEl.addEventListener('dragstart', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+              });
+            }
+            
             ic.addEventListener('click',e=>{
               e.stopPropagation();
               if(e.ctrlKey||e.metaKey){ toggleSelection(item.id); }
@@ -3624,6 +3640,8 @@ function applyLayoutMode(mode){
             ic.draggable = true;
             ic.addEventListener('dragstart', e => {
               if (e.target.classList.contains('label-input')) { e.preventDefault(); return; }
+              /* NUEVO: prevenir interferencia de img nativas */
+              e.stopPropagation();
               const paths = (_selected.has(item.id) && _selected.size > 1) ? getSelectedPaths() : [item.id];
               const rect = ic.getBoundingClientRect();
               e.dataTransfer.setData('text/x-huebos-paths', JSON.stringify(paths));
@@ -3631,6 +3649,8 @@ function applyLayoutMode(mode){
               e.dataTransfer.setData('text/x-huebos-desktop-origin', '1');
               e.dataTransfer.setData('text/x-huebos-anchor-path', item.id);
               e.dataTransfer.effectAllowed = 'move';
+              /* NUEVO: usar el icono como drag image en vez de la imagen nativa */
+              e.dataTransfer.setDragImage(ic, rect.width/2, rect.height/2);
               ic.classList.add('dragging');
             });
             ic.addEventListener('dragend', () => ic.classList.remove('dragging'));
@@ -4736,6 +4756,27 @@ const allowedMethods = CHANNEL_POLICY[channel];
       if(startLockBtn)startLockBtn.addEventListener('click',()=>{window.__wos_lock&&window.__wos_lock();});
 window.__wos={
 
+
+        restart(pid, appId){
+          /* Matar proceso inmediatamente */
+          if(window.Kernel)Kernel.procs.kill(pid);
+          /* Cerrar ventana (animará su salida) */
+          const wd=WM.getWindow(pid);
+          if(wd)WM.close(pid);
+          /* Limpiar singleton */
+          if(_singletons[appId])delete _singletons[appId];
+          /* Esperar limpieza y relanzar */
+          setTimeout(()=>{
+            const app=_runtimeApps.get(appId);
+            if(app){launchApp(app,{});}
+            else{
+              kernel.apps.get(appId).then(app=>{
+                if(app)launchApp(app,{});
+              }).catch(()=>{});
+            }
+          },400);
+          return true;
+        },
   confirm: (msg, opts) => Dialog.confirm(msg, opts),
 prompt:  (msg, opts) => Dialog.prompt(msg, opts),
         launch(appId,opts={}){

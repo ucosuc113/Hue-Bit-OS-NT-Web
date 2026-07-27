@@ -1,4 +1,3 @@
-// apps/lib/wos-client.js
 ;(function (global) {
   'use strict';
 

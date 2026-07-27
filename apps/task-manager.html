@@ -813,21 +813,23 @@ ${r.depth > 0 ? '<span class="tree-branch">↳</span>' : ''}<span class="proc-ic
         await WOS.modules.restart(path);
         toast(`Módulo ${path} reiniciado`, 'ok');
       } else {
-        if (WOS && WOS.closeWindow) WOS.closeWindow(pid);
-        else if (WOS && WOS.procs) WOS.procs.kill(pid);
-        // esperamos a que termine la animación de cierre (200ms en el shell)
-        // antes de relanzar, para que un app singleton no crea que la
-        // ventana vieja (a medio cerrar) sigue abierta.
-        await new Promise(r => setTimeout(r, 260));
-        if (WOS && WOS.launch) await WOS.launch(appId, {});
+        /* Usar el canal 'shell' para invocar el método restart correctamente */
+        if (WOS && WOS.shell && WOS.shell.restart) {
+          await WOS.shell.restart(pid, appId);
+        } else {
+          /* Fallback por si el cliente no soporta el canal */
+          if (WOS && WOS.procs) await WOS.procs.kill(pid);
+          if (WOS && WOS.closeWindow) WOS.closeWindow(pid);
+          await new Promise(r => setTimeout(r, 450));
+          if (WOS && WOS.launch) await WOS.launch(appId, {});
+        }
         toast(`"${appId}" reiniciado`, 'ok');
       }
     } catch (err) {
       toast(`Error al reiniciar: ${err.message}`, 'error');
     }
-    setTimeout(refresh, 500);
+    setTimeout(refresh, 600);
   });
-
   /* ── Finalizar proceso (con confirmación inline de un clic) ── */
   tbody.addEventListener('click', async e => {
     const btn = e.target.closest('.btn-kill');
@@ -918,7 +920,7 @@ ${r.depth > 0 ? '<span class="tree-branch">↳</span>' : ''}<span class="proc-ic
 
   /* ── Modal: nuevo proceso ── */
 async function openModal(){
-  openGenericModal(`<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/></svg> PROCESO #${String(pid).padStart(4,'0')}`, `
+  openGenericModal(`<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/></svg> INICIAR NUEVO PROCESO`, `
     <div class="np-form">
       <label class="np-label">ID DE APP O RUTA DE MÓDULO</label>
       <input id="new-proc-input" type="text" placeholder="ej: notes   ó   /Modulos/Servicios/watcher.js" autocomplete="off" spellcheck="false" class="np-input" />
