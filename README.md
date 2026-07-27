@@ -86,6 +86,10 @@ HuebOs-NT
 <img width="1920" height="992" alt="image" src="https://github.com/user-attachments/assets/c8aaaba3-7cd9-4ce0-87e2-7506bbc05f99" />
 <img width="1920" height="988" alt="image" src="https://github.com/user-attachments/assets/8415bf9c-6243-415a-86cc-bd2588de9e69" />
 
+</div>
+
+HuebOS-NT es la segunda generacion del concepto HuebOs, si quieres probar el proyecto original, [aca esta](https://ucosuc113.github.io/Hue-Bit-OS-Web/)
+
 Modelos usados: Sonnet 4.6, Sonnet 5, GLM: 5.2
 
 Este proyecto utiliza la licencia MIT
