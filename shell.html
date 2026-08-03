@@ -1722,24 +1722,15 @@
       font-family: var(--mono); font-size:0.68rem; font-weight:400;
       color: var(--g-dim); letter-spacing:.06em; cursor:pointer;
       padding:11px 14px; border-radius:9px;
-      background: rgba(var(--g-rgb),0.05);
-      border:1px solid rgba(var(--g-rgb),0.20);
       transition: all 0.2s;
-    }
-    .lock-hint-btn:hover,
-    .lock-hint-btn:focus-visible {
-      background: rgba(var(--g-rgb),0.13);
-      border-color: rgba(var(--g-rgb),0.44);
-      color: var(--g);
-      box-shadow: var(--glow-sm);
       outline: none;
+      border: 1px solid transparent;
     }
-    .lock-hint-btn:active { transform:scale(0.98); }
-
-    .lock-hint {
-      font-family: var(--mono); font-size:0.66rem; font-weight:400;
-      color: var(--red); min-height:14px; text-align:center;
-      letter-spacing:0.04em; position:relative; z-index:1;
+    
+    .lock-hint-btn:hover,
+    .lock-hint-btn:focus {
+      background: rgba(var(--g-rgb),0.08);
+      color: var(--g);
     }
 
     .lock-safe-badge {
@@ -1749,14 +1740,16 @@
       font-family: var(--mono); position:relative; z-index:1;
     }
 
-    .lock-back {
-      font-family: var(--mono); font-size:0.62rem; font-weight:400;
-      color: var(--g-dim); cursor:pointer;
-      letter-spacing:.16em; text-transform:uppercase;
-      margin-top:10px; padding:4px 0;
-      background:none; border:none;
-      opacity:0; transition:opacity .45s ease .15s, color .2s;
-    }
+.lock-back {
+  font-family: 'Outfit', sans-serif;
+  font-size: 11px; font-weight: 300;
+  color: var(--g-dim); cursor: pointer;
+  letter-spacing: .12em; text-transform: uppercase;
+  margin-top: 10px; padding: 4px 0;
+  background: none; border: none;
+  opacity: 0;
+  transition: opacity .45s ease .15s, color .2s;
+}
     .lock-back.visible { opacity:1; }
     .lock-back:hover { color: var(--g); text-shadow: var(--glow-sm); }
 
@@ -4483,6 +4476,7 @@ function shellInit(kernel){
       lockScreen.addEventListener('click',e=>{
         if(!document.body.classList.contains('locked'))return;
         if(_unlocking)return;
+        if(e.target.closest('.lock-bottom')||e.target.closest('.lock-confirm-overlay'))return;
         if(!_lockLoginMode){
           const t=e.target;
           if(t===lockScreen||t.classList.contains('lock-aurora')||t.classList.contains('lock-grain')||
@@ -4501,22 +4495,26 @@ function shellInit(kernel){
       const lockConfirmOverlay=document.getElementById('lock-confirm-overlay');
       const lockConfirmCancel=document.getElementById('lock-confirm-cancel');
       const lockConfirmYes=document.getElementById('lock-confirm-yes');
-      if(lockRebootBtn)lockRebootBtn.addEventListener('click',()=>{
+      if(lockRebootBtn)lockRebootBtn.addEventListener('click',e=>{
+        e.stopPropagation();
         if(lockConfirmOverlay){
           lockConfirmOverlay.style.display='flex';
           requestAnimationFrame(()=>lockConfirmOverlay.classList.add('show'));
         }
       });
-      if(lockConfirmCancel)lockConfirmCancel.addEventListener('click',()=>{
+      if(lockConfirmCancel)lockConfirmCancel.addEventListener('click',e=>{
+        e.stopPropagation();
         lockConfirmOverlay.classList.remove('show');
         setTimeout(()=>{lockConfirmOverlay.style.display='none';},250);
       });
-      if(lockConfirmYes)lockConfirmYes.addEventListener('click',()=>{
+      if(lockConfirmYes)lockConfirmYes.addEventListener('click',e=>{
+        e.stopPropagation();
         lockConfirmOverlay.classList.remove('show');
         setTimeout(()=>{window.location.href='./index.html';},300);
       });
       /* Escape cierra el diálogo */
       if(lockConfirmOverlay)lockConfirmOverlay.addEventListener('click',e=>{
+        e.stopPropagation();
         if(e.target===lockConfirmOverlay){
           lockConfirmOverlay.classList.remove('show');
           setTimeout(()=>{lockConfirmOverlay.style.display='none';},250);
