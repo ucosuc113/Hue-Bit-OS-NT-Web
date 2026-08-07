@@ -2,81 +2,80 @@
 
 # HuebOS-NT
 
-Huebos nt es una simulacion de sistema operativo, simulando de manera similar como funciona un kernel, una terminal, apis, servicios
+Huebos nt is a simulation of an operating system, simulating in a similar way how a kernel, a terminal, apis, services work
 
-### Funciones:
+### Functions:
 
-- Sistema FS
-- Ventanas dinamicas globales
-- Crear apps, con el formato de kernel
+* FS System
+* Global dynamic windows
+* Create apps, with the kernel format
 
 </div>
-  
-(no se crear un buen readme)
+
+(I dont know how to make a good readme)
 
 <div align="center">
 
-### Tecnologias usadas:
+### Technologies used:
 
-- JS
-- HTML
-- CSS
+* JS
+* HTML
+* CSS
 
+### :0 How to run:
 
-### :0 Como correr:
-
-#### [ingresa aca papu](https://ucosuc113.github.io/Hue-Bit-OS-NT-Web)
+#### [enter here papu](https://ucosuc113.github.io/Hue-Bit-OS-NT-Web)
 
 </div>
 
-Estructura del proyecto.... (vere como mostrar esto :v)
+Project structure.... (I will see how to show this :v)
 
 <pre>
 ------------------------------------------------------------------------------
 HuebOs-NT
 |
 |-Index.html (bootloader)
-|-Kernel.js (es el kernel :D)
-|-Shell.html (shell grafica del sistema)
-|-Uefi.html (la uefi XD, donde se configura como carga el sistema, y config base antes del mismo sistema)
-|-RepairBoot.html (si algo muere, y el sistema no quiere iniciar, eres enviado aca, el purgatorio donde restableces el sistema de alguna u otra manera)
+|-Kernel.js (it is the kernel :D)
+|-Shell.html (graphic shell of the system)
+|-Uefi.html (the uefi XD, where you configure how the system loads, and base config before the system itself)
+|-RepairBoot.html (if something dies, and the system doesnt want to start, you are sent here, the purgatory where you restore the system in some way or another)
 |
-|-diag-apps (diagnostica apps)
-|-diag-kernel (este diagnostica el kernel :0)
+|-diag-apps (diagnoses apps)
+|-diag-kernel (this diagnoses the kernel :0)
 |
 |/apps
-|  |- termina.html (la unica e inigualable terminal)
-|  |- files.html (el explorador de archivos :3)
-|  |- config.html (app de configuracion preinstalada)
-|  |- task-manager.html (el... administrador de tareas...)
-|  |- IDE.html (el entorno de desarrollo para... desarrollar)
-|  |- Imports.html (importa archivos multimedia desde tu dispositivo)
-|  |- Multimedia.html (la app que corre todo archivo multimedia compatible)
+|  |- termina.html (the one and only terminal)
+|  |- files.html (the file explorer :3)
+|  |- config.html (preinstalled configuration app)
+|  |- task-manager.html (the... task manager...)
+|  |- IDE.html (the development environment for... developing)
+|  |- Imports.html (imports multimedia files from your device)
+|  |- Multimedia.html (the app that runs every compatible multimedia file)
 |  |
 |  |/public
-|  |  |- (todos los iconos de las apps en svg)
+|  |  |- (all the app icons in svg)
 |  |
 |  |/lib
-|    |- wos-client.js (esta es la libreria que usan las apps para poder usar el intercomunicador de ipc-bridge)
+|    |- wos-client.js (this is the library that apps use to be able to use the ipc-bridge intercomunicator)
 |
 |/Modulos
 |  |/Servicios
-|  |  |- ide-bridge.js (es un puente entre el ide y la terminal)
-|  |  |- import.js (el servicio encargado en poder importar archivos y meterlos al indexedDB)
-|  |  |- indexador.js (el indexador de archivos)
-|  |  |- installer.js (el encargado en instalar un paquete .hpkg en una app ejecutable)
-|  |  |- ipc-bridge.js (el puente entre las apps, y el shell/kernel)
-|  |  |- multimedia.js (el servicio encargado en correr los archivos multimedia y binarios correctamente yeyyy)
-|  |  |- notifiaciones.js (el servicio encargado en que las apps puedan tener acceso a las notificaciones del sistema)
-|  |  |- scheduler.js (el servicio que ejecuta todas las tareas automaticas periodicas)
-|  |  |- system-registry.js (este we hace que las apps puedan consultar el estado de algun proceso o sistema)
-|  |  |- window-registry.js (es el servicio que se encarga en manejar las ventanas de manera independiente de como opere cada una)
+|  |  |- ide-bridge.js (it is a bridge between the ide and the terminal)
+|  |  |- import.js (the service in charge of being able to import files and put them into indexedDB)
+|  |  |- indexador.js (the file indexer)
+|  |  |- installer.js (the one in charge of installing a .hpkg package into an executable app)
+|  |  |- ipc-bridge.js (the bridge between the apps, and the shell/kernel)
+|  |  |- multimedia.js (the service in charge of running multimedia and binary files correctly yeyyy)
+|  |  |- notifiaciones.js (the service in charge of making apps able to have access to system notifications)
+|  |  |- scheduler.js (the service that executes all the automatic periodic tasks)
+|  |  |- system-registry.js (this dude makes it so apps can check the status of some process or system)
+|  |  |- window-registry.js (it is the service in charge of managing the windows independently of how each one operates)
 |  |
 |  |/API
-|     |- windows-api.js (expone window-registry a las apps mediante el ipc, y controla sus permisos)
+|     |- windows-api.js (exposes window-registry to the apps through ipc, and controls their permissions)
 |
 |/public
-  |- (lamentable, una sola carpeta para un .png de icono del sistema XD)
+|  |- (unfortunately, a single folder for one .png of a system icon XD)
 ------------------------------------------------------------------------------
 </pre>
 
@@ -88,8 +87,8 @@ HuebOs-NT
 
 </div>
 
-HuebOS-NT es la segunda generacion del concepto HuebOs, si quieres probar el proyecto original, [aca esta](https://ucosuc113.github.io/Hue-Bit-OS-Web/)
+HuebOS-NT is the second generation of the HuebOs concept, if you want to try the original project, [here it is](https://ucosuc113.github.io/Hue-Bit-OS-Web/)
 
-Modelos usados: Sonnet 4.6, Sonnet 5, GLM: 5.2
+Models used: Sonnet 4.6, Sonnet 5, GLM: 5.2
 
-Este proyecto utiliza la licencia MIT
+This project uses the MIT license
