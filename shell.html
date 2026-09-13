@@ -4144,16 +4144,22 @@ htmlPromise.then(async (html) => {
             console.warn('[Shell] No se pudo inyectar wos-client.js', e);
           }
           // --------------------------------------------------------
+          const trusted = !!(app.meta && app.meta.systemApp);
           const iframe = document.createElement('iframe');
           iframe.style.cssText = 'width:100%;height:100%;border:none;background:transparent;';
-          iframe.sandbox = 'allow-scripts allow-same-origin allow-forms allow-modals';
+          /* Solo las apps del propio sistema comparten origen con el shell.
+             Una app de terceros corre con origen opaco: sin IndexedDB, sin
+             window.parent.Kernel — todo lo que haga pasa por el IPC de WOS. */
+          iframe.sandbox = trusted
+            ? 'allow-scripts allow-same-origin allow-forms allow-modals'
+            : 'allow-scripts allow-forms allow-modals';
           iframe.srcdoc = html;
-          
+
           const wdata = WM.createWindow(proc, { ...winOpts, content: iframe });
           _ipcAppByWindow.set(iframe.contentWindow, {
             appId: app.id,
             pid: proc.pid,
-            trusted: !!(app.meta && app.meta.systemApp),
+            trusted,
           });
           
           iframe.addEventListener('load',()=>{ 
@@ -4641,10 +4647,26 @@ const PERM_FOR_CALL = (channel, method) => {
   if (channel === 'notifications' && method === 'push') return P.NOTIFICATIONS_SEND;
   return null; 
 };
+/* Quién hace una llamada IPC. Un frame anidado dentro de la ventana de una
+   app (p. ej. la vista previa del IDE) nunca hereda la confianza de esa app:
+   se trata como app externa con su propio id de permisos. */
+function resolveIpcCaller(sourceWindow) {
+  let w = sourceWindow;
+  for (let depth = 0; w && depth < 8; depth++) {
+    const caller = _ipcAppByWindow.get(w);
+    if (caller) {
+      return w === sourceWindow ? caller : { appId: `${caller.appId}:embedded`, pid: caller.pid, trusted: false };
+    }
+    if (w === w.parent) break;
+    w = w.parent;
+  }
+  return null;
+}
+
 async function enforceAppPermission(channel, method, sourceWindow) {
   const perm = PERM_FOR_CALL(channel, method);
   if (!perm) return;
-  const caller = _ipcAppByWindow.get(sourceWindow);
+  const caller = resolveIpcCaller(sourceWindow);
   if (caller && caller.trusted) return; // apps del propio sistema
   const appId = caller?.appId || null;
   if (appId && await Kernel.permissions.appHas(appId, perm)) return;
@@ -4656,8 +4678,13 @@ async function enforceAppPermission(channel, method, sourceWindow) {
 }
 
 window.addEventListener('message', async event => {
-  if (event.origin !== window.location.origin) return;
   const msg = event.data || {};
+  const sameOrigin = event.origin === window.location.origin;
+  // Apps con origen opaco llegan como 'null': solo se aceptan sus llamadas WOS
+  // y solo si el frame pertenece a una ventana de app abierta por este shell.
+  const opaqueApp = event.origin === 'null' && msg.type === 'wos:call' && !!resolveIpcCaller(event.source);
+  if (!sameOrigin && !opaqueApp) return;
+  const replyOrigin = sameOrigin ? event.origin : '*';
 
   if (msg.type === 'ide:openHelp' && msg.content) {
     const proc = Kernel.procs.spawn('ide-help', { title: msg.title || '📖 Ayuda', icon: '📖', parentPid: msg.parentPid || null });
@@ -4737,9 +4764,9 @@ window.addEventListener('message', async event => {
       } else {
         result = prop;
       }
-      event.source.postMessage({ type: 'wos:response', id, result }, event.origin);
+      event.source.postMessage({ type: 'wos:response', id, result }, replyOrigin);
     } catch (err) {
-      event.source.postMessage({ type: 'wos:response', id, error: err.message }, event.origin);
+      event.source.postMessage({ type: 'wos:response', id, error: err.message }, replyOrigin);
     }
     return;
   }

@@ -1641,7 +1641,7 @@ else toast(`${ids.length} elemento(s) eliminado(s)`, 'ok');
     $('#btn-shortcut').disabled = n === 0 || ![...tab.selection].some(id => !isSysItem(tab.rawItems.find(i => i.id === id)));
     $('#btn-back').disabled = tab.historyIndex <= 0;
     $('#btn-forward').disabled = tab.historyIndex >= tab.history.length - 1;
-    $('#btn-up').disabled = tab.cwd === '/';
+    $('#btn-up').disabled = !tab.cwd.startsWith('/device/');
     const isPinned = pinned.includes(tab.cwd);
     $('#btn-pin').innerHTML = isPinned ? Icon.starFilled : Icon.star;
     $('#btn-pin').classList.toggle('active', isPinned);
@@ -1653,8 +1653,8 @@ else toast(`${ids.length} elemento(s) eliminado(s)`, 'ok');
   $('#btn-forward').addEventListener('click', goForward);
   $('#btn-up').addEventListener('click', () => {
     const tab = activeTab();
-    const p = K.fs.dirname(tab.cwd);
-    navigate((p && p !== tab.cwd) ? p : '/');
+    if (!tab.cwd.startsWith('/device/')) return; // /device es la raíz máxima
+    navigate(K.fs.dirname(tab.cwd));
   });
   $('#btn-home').addEventListener('click', () => navigate('/device'));
   $('#btn-refresh').addEventListener('click', refresh);
@@ -1823,7 +1823,7 @@ function handleAppMessage(data) {
     btn.addEventListener('click', async () => {
       const tab = activeTab();
       const path = tab.cwd;
-      const outputPath = targetFile || '/temp/ide_picker_result.txt';
+      const outputPath = targetFile || '/device/temp/ide_picker_result.txt';
       console.log('[FILES] Botón clickeado. Guardando ruta en:', outputPath, '| Ruta:', path);
       try {
         await K.fs.write(outputPath, path);

@@ -1,8 +1,18 @@
 ;(function (global) {
   'use strict';
 
-  const TARGET = window.parent;
   const ORIGIN = window.location.origin === 'null' ? '*' : window.location.origin;
+
+  /* El shell no siempre es el padre directo (p. ej. la vista previa del IDE
+     vive dentro de la ventana del IDE). Solo el shell atiende 'wos:call' y
+     responde directo a este frame; el resto de ancestros lo ignora. */
+  function postToAncestors(msg) {
+    let w = window;
+    while (w.parent && w.parent !== w) {
+      w = w.parent;
+      try { w.postMessage(msg, ORIGIN); } catch (_) {}
+    }
+  }
   const TIMEOUT = 5000;
 
   const _pending = new Map();
@@ -34,13 +44,13 @@
 
       _pending.set(id, { resolve, reject, timer });
 
-      TARGET.postMessage({
+      postToAncestors({
         type: 'wos:call',
         id,
         channel,
         method,
         args
-      }, ORIGIN);
+      });
     });
   }
 

@@ -307,7 +307,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9998;
       <div id="ide-content">
         <div id="code-editor-container"><textarea id="code-editor" spellcheck="false"></textarea></div>
         <div id="manifest-editor"></div>
-        <iframe id="ide-preview" sandbox="allow-scripts allow-same-origin allow-forms allow-modals"></iframe>
+        <iframe id="ide-preview" sandbox="allow-scripts allow-forms allow-modals"></iframe>
       </div>
     </div>
   </div>
@@ -801,6 +801,31 @@ renderNode(node, depth){
 
   // DEBERIA DEJAR DE HACER ESTO, ESTOY CANSADISIMO XDDDDD, mejor me compro un camello
 
+  /* La vista previa corre código del usuario con origen opaco (sin
+     allow-same-origin): no puede tocar IndexedDB ni window.parent.Kernel.
+     Por eso los recursos se inyectan inline (un blob: del IDE no es cargable
+     desde otro origen) y recibe su propio wos-client para hablar con el shell. */
+  function inlineStylesheet(link, css) {
+    const style = link.ownerDocument.createElement('style');
+    style.textContent = css;
+    link.replaceWith(style);
+  }
+  function inlineScript(script, code) {
+    script.removeAttribute('src');
+    script.textContent = String(code).replace(/<\/script/gi, '<\\/script');
+  }
+  let _wosClientCode = null;
+  async function injectWosClient(doc) {
+    if (_wosClientCode === null) {
+      _wosClientCode = await fetch('./apps/lib/wos-client.js', { cache: 'no-store' })
+        .then(r => (r.ok ? r.text() : '')).catch(() => '');
+    }
+    if (!_wosClientCode) return;
+    const s = doc.createElement('script');
+    s.textContent = _wosClientCode;
+    doc.head.insertBefore(s, doc.head.firstChild);
+  }
+
   const Preview = {
     blobUrls: [],
     async run(){
@@ -819,10 +844,7 @@ renderNode(node, depth){
           const href = link.getAttribute('href');
           if(!/^(https?:)?\/\//i.test(href) && !href.startsWith('data:')){
              const content = await WOS.fs.read(`${ProjectManager.root}/${href.replace(/^\.\//, '').replace(/^\//, '')}`);
-             const blob = new Blob([content], {type: 'text/css'});
-             const url = URL.createObjectURL(blob);
-             this.blobUrls.push(url);
-             link.setAttribute('href', url);
+             inlineStylesheet(link, content);
           }
         }
         const scripts = doc.querySelectorAll('script[src]');
@@ -830,10 +852,7 @@ renderNode(node, depth){
           const src = script.getAttribute('src');
           if(!/^(https?:)?\/\//i.test(src) && !src.startsWith('data:')){
              const content = await WOS.fs.read(`${ProjectManager.root}/${src.replace(/^\.\//, '').replace(/^\//, '')}`);
-             const blob = new Blob([content], {type: 'application/javascript'});
-             const url = URL.createObjectURL(blob);
-             this.blobUrls.push(url);
-             script.setAttribute('src', url);
+             inlineScript(script, content);
           }
         }
         
@@ -859,8 +878,9 @@ renderNode(node, depth){
           console.error = (...args) => { sendLog('error', args); origErr(...args); };
           window.onerror = (msg, src, line, col) => sendLog('error', [\`Error: \${msg} at \${line}:\${col}\`]);
         `;
+        await injectWosClient(doc);
         doc.head.insertBefore(shim, doc.head.firstChild);
-        
+
         const finalHtml = '<!DOCTYPE html>' + doc.documentElement.outerHTML;
         const iframe = document.getElementById('ide-preview');
         iframe.srcdoc = finalHtml;
@@ -1110,8 +1130,7 @@ const ProjectTools = {
           const href = link.getAttribute('href');
           if(!/^(https?:)?\/\//i.test(href) && !href.startsWith('data:')){
              const content = await WOS.fs.read(`${this.tempPath}/${href.replace(/^\.\//, '').replace(/^\//, '')}`).catch(()=>'');
-             const blob = new Blob([content], {type: 'text/css'});
-             link.setAttribute('href', URL.createObjectURL(blob));
+             inlineStylesheet(link, content);
           }
         }
         const scripts = doc.querySelectorAll('script[src]');
@@ -1119,8 +1138,7 @@ const ProjectTools = {
           const src = script.getAttribute('src');
           if(!/^(https?:)?\/\//i.test(src) && !src.startsWith('data:')){
              const content = await WOS.fs.read(`${this.tempPath}/${src.replace(/^\.\//, '').replace(/^\//, '')}`).catch(()=>'');
-             const blob = new Blob([content], {type: 'application/javascript'});
-             script.setAttribute('src', URL.createObjectURL(blob));
+             inlineScript(script, content);
           }
         }
         const imgs = doc.querySelectorAll('img[src]');
@@ -1144,6 +1162,7 @@ const ProjectTools = {
           window.onerror=(m,s,l,c)=>sl('error',[\`Error: \${m} at \${l}:\${c}\`]);
           window.addEventListener('beforeunload',()=>window.parent.postMessage({type:'ide:serverClosed'},'*'));
         `;
+        await injectWosClient(doc);
         doc.head.insertBefore(shim, doc.head.firstChild);
         
         this.servedHtml = '<!DOCTYPE html>' + doc.documentElement.outerHTML;
@@ -1388,7 +1407,7 @@ _st:{sidebar:true,diag:true,log:true,console:true,output:true,terminal:true},
       '<div class="method"><h3>WOS.fs.read()</h3><h4>¿Qué hace?</h4><p>Lee el contenido de un archivo de texto.</p><h4>Sintaxis</h4><pre><code>WOS.fs.read(path)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>path</td><td>String</td><td>Sí</td><td>Ruta absoluta del archivo.</td></tr></table><h4>Devuelve</h4><table><tr><th>Tipo</th><th>Descripción</th></tr><tr><td>Promise&lt;String&gt;</td><td>El contenido de texto del archivo.</td></tr></table><h4>Ejemplo</h4><pre><code>const configText = await WOS.fs.read("/device/config.json");</code></pre></div>',
       '<div class="method"><h3>WOS.fs.write()</h3><h4>¿Qué hace?</h4><p>Escribe contenido de texto en un archivo. Si no existe, lo crea.</p><h4>Sintaxis</h4><pre><code>WOS.fs.write(path, content)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>path</td><td>String</td><td>Sí</td><td>Ruta absoluta del archivo.</td></tr><tr><td>content</td><td>String</td><td>Sí</td><td>Texto a escribir.</td></tr></table><h4>Ejemplo</h4><pre><code>await WOS.fs.write("/device/nota.txt", "Hola mundo");</code></pre></div>',
       '<div class="method"><h3>WOS.fs.readdir()</h3><h4>¿Qué hace?</h4><p>Lista el contenido (archivos y subcarpetas) de un directorio.</p><h4>Sintaxis</h4><pre><code>WOS.fs.readdir(path)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>path</td><td>String</td><td>Sí</td><td>Ruta absoluta del directorio.</td></tr></table><h4>Devuelve</h4><table><tr><th>Tipo</th><th>Descripción</th></tr><tr><td>Promise&lt;Array&gt;</td><td>Arreglo de objetos <code>{ id, name, type, size }</code>.</td></tr></table><h4>Ejemplo</h4><pre><code>const items = await WOS.fs.readdir("/device");</code></pre></div>',
-      '<div class="method"><h3>WOS.fs.remove()</h3><h4>¿Qué hace?</h4><p>Elimina un archivo o directorio (de forma recursiva si se indica).</p><h4>Sintaxis</h4><pre><code>WOS.fs.remove(path, opts)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>path</td><td>String</td><td>Sí</td><td>Ruta a eliminar.</td></tr><tr><td>opts</td><td>Object</td><td>No</td><td>Opciones, ej: <code>{ recursive: true }</code>.</td></tr></table><h4>Ejemplo</h4><pre><code>await WOS.fs.remove("/temp/basura.log");</code></pre></div>',
+      '<div class="method"><h3>WOS.fs.remove()</h3><h4>¿Qué hace?</h4><p>Elimina un archivo o directorio (de forma recursiva si se indica).</p><h4>Sintaxis</h4><pre><code>WOS.fs.remove(path, opts)</code></pre><h4>Parámetros</h4><table><tr><th>Parámetro</th><th>Tipo</th><th>Obligatorio</th><th>Descripción</th></tr><tr><td>path</td><td>String</td><td>Sí</td><td>Ruta a eliminar.</td></tr><tr><td>opts</td><td>Object</td><td>No</td><td>Opciones, ej: <code>{ recursive: true }</code>.</td></tr></table><h4>Ejemplo</h4><pre><code>await WOS.fs.remove("/device/temp/basura.log");</code></pre></div>',
       '<h2>📄 Resumen</h2><table><tr><th>Quiero...</th><th>Uso...</th></tr><tr><td>Leer texto</td><td><code>WOS.fs.read()</code></td></tr><tr><td>Guardar texto</td><td><code>WOS.fs.write()</code></td></tr><tr><td>Ver carpeta</td><td><code>WOS.fs.readdir()</code></td></tr><tr><td>Borrar archivo</td><td><code>WOS.fs.remove()</code></td></tr></table>',
       '<hr>',
       '<h1>WOS.notifications</h1>',
@@ -1482,7 +1501,7 @@ _st:{sidebar:true,diag:true,log:true,console:true,output:true,terminal:true},
 
   async function launchPicker() {
     const pickerId = 'picker_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-    const PICKER_FILE = `/temp/ide_picker_${pickerId}.txt`;
+    const PICKER_FILE = `/device/temp/ide_picker_${pickerId}.txt`;
     
     // Limpiamos por si acaso ya existía usando WOS (IPC)
     try { 

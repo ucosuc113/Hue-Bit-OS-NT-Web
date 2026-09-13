@@ -433,7 +433,8 @@ console.log('%c[DEBUG-TERM] <script> de terminal.html ejecutándose', 'backgroun
         if(!p||p==='~')return'/device';if(p.startsWith('~/'))return'/device/'+p.slice(2);
         if(p.startsWith('/'))return p.replace(/\/+/g,'/').replace(/\/$/,'')||'/';
         const parts=(this._cwd+'/'+p).split('/').filter(Boolean);const stack=[];
-        for(const pt of parts){if(pt==='.')continue;if(pt==='..')stack.pop();else stack.push(pt);}
+        // '..' se detiene en /device: es la raíz máxima del usuario.
+        for(const pt of parts){if(pt==='.')continue;if(pt==='..'){if(!(stack.length===1&&stack[0]==='device'))stack.pop();}else stack.push(pt);}
         return'/'+stack.join('/')||'/';
       }
       _makeCtx(){
@@ -630,6 +631,7 @@ console.log('%c[DEBUG-TERM] <script> de terminal.html ejecutándose', 'backgroun
         {name:'cd',description:'Cambiar directorio',usage:'cd [ruta]',
           async execute(ctx){
             const pa=ctx.args[0];const target=pa?resolvePath(pa):'/device';
+            if(target!=='/device'&&!target.startsWith('/device/')){ctx.print(`cd: ${target}: acceso denegado (la raíz del usuario es /device)`,'nt-err');return{exitCode:1};}
             const node=await K.fs.stat(target);
             if(!node){ctx.print(`cd: ${target}: No existe`,'nt-err');return{exitCode:1};}
             if(node.type!=='dir'){ctx.print(`cd: ${target}: No es un directorio`,'nt-err');return{exitCode:1};}

@@ -597,7 +597,7 @@
       });
     } catch (_) {
       try {
-        const all = await WOS.fs.readdir('/');
+        const all = await WOS.fs.readdir('/device');
         fileListEl.innerHTML = all.map(e =>
           `<div class="dialog-file-item">
             <span class="fi-icon">${e.type === 'dir' ? Icon.folder : Icon.file}</span>

@@ -1634,8 +1634,8 @@ $('btn-clear-tmp').addEventListener('click', () => {
   $('btn-format-all').addEventListener('click', () => {
     Confirm.show(
       'FORMATEAR SISTEMA COMPLETO',
-      'ACCIÓN IRREVERSIBLE: Se eliminará toda la base de datos Huebos_db de IndexedDB. ' +
-      'Perderás TODOS tus archivos, preferencias y datos guardados. ' +
+      'ACCIÓN IRREVERSIBLE: Se borrará todo /device y los datos del sistema ' +
+      '(preferencias, apps registradas, notificaciones, fallos). ' +
       'El sistema arrancará limpio al recargar. ¿Estás completamente seguro?',
       () => {
         // Segundo confirm de seguridad
@@ -1653,43 +1653,13 @@ $('btn-clear-tmp').addEventListener('click', () => {
   async function performFullFormat() {
     Toast.show('Formateando sistema…', 'error', 5000);
     try {
-      // Limpiar todos los stores mientras la conexión sigue abierta
-      const storeNames = Object.values(K.STORES);
-      for (const store of storeNames) {
+      /* La IndexedDB es compartida con el bootloader: nunca se borra entera
+         desde el OS. Kernel.db.clear('fs') solo limpia /device. */
+      for (const store of Object.values(K.STORES)) {
         try { await K.db.clear(store); } catch (_) {}
       }
-      K.db.close();
-
-      await new Promise(r => setTimeout(r, 300));
-
-      // Intentar deleteDatabase con reintentos automáticos si queda bloqueado.
-      let sawInstanceLock = false;
-      const tryDeleteDB = (attempt = 0) => new Promise((resolve) => {
-        const req = indexedDB.deleteDatabase('huebos_db');
-        req.onsuccess = () => resolve(true);
-        req.onerror = () => resolve(false);
-        req.onblocked = () => {
-          if (!sawInstanceLock) {
-            sawInstanceLock = true;
-            Toast.show('Solo puede haber una instancia de HUEBOS abierta. Cierra otras pestañas para completar el formateo…', 'info', 4000, 'lock');
-          }
-          if (attempt < 5) {
-            setTimeout(() => resolve(tryDeleteDB(attempt + 1)), 500);
-          } else {
-            resolve(false);
-          }
-        };
-      });
-
-      const deleted = await tryDeleteDB();
-      if (deleted) {
-        Toast.show('Base de datos eliminada. Reiniciando sistema…', 'ok', 2000);
-      } else if (sawInstanceLock) {
-        Toast.show('Sigue bloqueada por otra instancia. Reiniciando de todos modos…', 'info', 3000, 'lock');
-      } else {
-        Toast.show('DB bloqueada. Reiniciando forzado…', 'error', 3000);
-      }
-      rebootSystem(deleted ? 1200 : 2000);
+      Toast.show('Sistema formateado. Reiniciando…', 'ok', 2000);
+      rebootSystem(1200);
     } catch (err) {
       Toast.show(`Error: ${err.message}`, 'error', 4000);
     }
@@ -1699,11 +1669,11 @@ $('btn-clear-tmp').addEventListener('click', () => {
 $('btn-format-fs').addEventListener('click', () => {
     Confirm.show(
       'BORRAR SISTEMA DE ARCHIVOS',
-      'Se eliminarán todos los archivos del store "fs" y sus datos binarios asociados. Las preferencias y apps se conservan. El Kernel recreará el FS base al recargar.',
+      'Se eliminarán todos los archivos de /device y sus datos binarios asociados. Las preferencias y apps se conservan. El Kernel recreará el FS base al recargar.',
       async () => {
         await K.db.clear(K.STORES.FS);
         await K.db.clear(K.STORES.BINARY_BLOBS);
-        K.emit('fs:remove', { path: '/' });
+        K.emit('fs:remove', { path: '/device' });
         Toast.show('Sistema de archivos borrado. Reiniciando sistema…', 'info', 2500);
         rebootSystem(1400);
       },

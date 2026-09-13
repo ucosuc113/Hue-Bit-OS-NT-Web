@@ -255,6 +255,7 @@
 
     const BOOT_FAILURE_KEY = 'huebos_boot_failure';
     const DB_NAME = 'huebos_db';
+    const SHARED_DB_NAME = 'HuebOS';
 
     /* ════════════════════════════════════════════
        ACCESO DIRECTO A INDEXEDDB (SIN window.Kernel)
@@ -564,31 +565,33 @@
       term('▶ Iniciando: Restablecer de fábrica', 'info');
       showToast('Formateando sistema…');
       try {
-        let dbNames = [DB_NAME];
-        try {
-          if (indexedDB.databases){
-            term('$ indexedDB.databases()', 'exec');
-            const all = await indexedDB.databases();
-            term('→ Bases de datos en este origen: [' + all.map(d=>d.name).join(', ') + ']', 'info');
-            const matches = all.map(d => d.name).filter(n => n && /huebos|wos/i.test(n));
-            if (matches.length) dbNames = matches;
-          } else {
-            term('indexedDB.databases() no soportado en este navegador — solo se borrará "'+DB_NAME+'"', 'warn');
-          }
-        } catch (e) {
-          term('✗ Fallo al enumerar bases de datos: ' + e.message + ' — se continúa solo con "'+DB_NAME+'"', 'warn');
-        }
-
-        let blockedShown = false;
-        for (const name of dbNames){
-          const result = await deleteDatabaseSafely(name, 6000, () => {
-            if(!blockedShown){
-              blockedShown = true;
-              showToast('🔒 Cierra otras pestañas de HUEBOS para completar el formateo…');
+        /* 'HuebOS' es la IndexedDB compartida con el bootloader (kernel.js,
+           boot.json, OS instalados). Nunca se borra entera desde el OS: solo
+           se limpian /device y los stores propios de este sistema. */
+        term('$ HuebOS: limpiar /device/** y stores del sistema', 'exec');
+        await new Promise((resolve) => {
+          const req = indexedDB.open(SHARED_DB_NAME);
+          req.onupgradeneeded = (e) => { e.target.transaction.abort(); };
+          req.onerror = () => { term('✗ No se pudo abrir ' + SHARED_DB_NAME, 'error'); resolve(); };
+          req.onsuccess = () => {
+            const db = req.result;
+            const stores = ['fs', 'prefs', 'apps_meta', 'crashes', 'binary_blobs', 'notifications', 'social']
+              .filter(n => db.objectStoreNames.contains(n));
+            const tx = db.transaction(stores, 'readwrite');
+            stores.filter(n => n !== 'fs').forEach(n => tx.objectStore(n).clear());
+            if (stores.includes('fs')) {
+              const fs = tx.objectStore('fs');
+              const keysReq = fs.getAllKeys();
+              keysReq.onsuccess = () => {
+                const own = keysReq.result.filter(k => typeof k === 'string' && k.startsWith('/device/'));
+                own.forEach(k => fs.delete(k));
+                term('✓ ' + own.length + ' nodo(s) de /device eliminados', 'ok');
+              };
             }
-          });
-          if (result !== 'eliminada') showToast('⚠ ' + name + ': ' + result);
-        }
+            tx.oncomplete = () => { db.close(); resolve(); };
+            tx.onerror = () => { term('✗ ' + (tx.error && tx.error.message), 'error'); db.close(); resolve(); };
+          };
+        });
 
         try {
           const sKeys = Object.keys(sessionStorage).filter(k => /huebos|wos_/i.test(k));
@@ -602,13 +605,7 @@
           term('localStorage: ' + lKeys.length + ' clave(s) relacionadas eliminadas', lKeys.length ? 'ok' : 'info');
         } catch (e) { term('✗ No se pudo limpiar localStorage: ' + e.message, 'error'); }
 
-        try {
-          if ('serviceWorker' in navigator){
-            const regs = await navigator.serviceWorker.getRegistrations();
-            term('Service Workers registrados: ' + regs.length, regs.length ? 'warn' : 'info');
-            for (const r of regs){ await r.unregister(); term('✓ Service Worker desregistrado: ' + r.scope, 'ok'); }
-          }
-        } catch (e) { term('✗ Error gestionando Service Workers: ' + e.message, 'error'); }
+        // Sin desregistrar Service Workers: sw.js del bootloader sirve este OS.
 
         try {
           if (window.caches){
