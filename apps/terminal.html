@@ -403,7 +403,7 @@ console.log('%c[DEBUG-TERM] <script> de terminal.html ejecutándose', 'backgroun
         this.alias=new Alias(this.kernel);
         this.history=new History(this.kernel);
         this.exitCode=0;
-        this._cwd=opts.termProc?.cwd||'/home';
+        this._cwd=opts.termProc?.cwd||'/device';
         this.promptStyle='default';
       }
       async init(){
@@ -417,7 +417,7 @@ console.log('%c[DEBUG-TERM] <script> de terminal.html ejecutándose', 'backgroun
         arrow:{html:cwd=>`<span class="nt-pid nt-ph">${cwd}</span> <span class="nt-pp">➜</span>`,text:cwd=>`${cwd} ➜`},
         full:{html:cwd=>`<span class="nt-pp">[</span><span class="nt-ph">huebos@local</span> <span class="nt-pid nt-ph">${cwd}</span><span class="nt-pp">]$</span>`,text:cwd=>`[huebos@local ${cwd}]$`},
       };
-      _currentCwdDisplay(){return this._cwd==='/home'?'~':this._cwd.replace(/^\/home/,'~');}
+      _currentCwdDisplay(){return this._cwd==='/device'?'~':this._cwd.replace(/^\/device/,'~');}
       _applyPromptStyle(){
         const style=TerminalCore.PROMPT_STYLES[this.promptStyle]||TerminalCore.PROMPT_STYLES.default;
         if(this.promptEl)this.promptEl.innerHTML=style.html(this._currentCwdDisplay());
@@ -430,7 +430,7 @@ console.log('%c[DEBUG-TERM] <script> de terminal.html ejecutándose', 'backgroun
       get cwd(){return this._cwd;}
       setCwd(p){this._cwd=p;this._applyPromptStyle();if(this.cwdDisplay)this.cwdDisplay.textContent=this._currentCwdDisplay();this.kernel.procs.setCwd(this.termProc.pid,p);}
       resolvePath(p){
-        if(!p||p==='~')return'/home';if(p.startsWith('~/'))return'/home/'+p.slice(2);
+        if(!p||p==='~')return'/device';if(p.startsWith('~/'))return'/device/'+p.slice(2);
         if(p.startsWith('/'))return p.replace(/\/+/g,'/').replace(/\/$/,'')||'/';
         const parts=(this._cwd+'/'+p).split('/').filter(Boolean);const stack=[];
         for(const pt of parts){if(pt==='.')continue;if(pt==='..')stack.pop();else stack.push(pt);}
@@ -629,7 +629,7 @@ console.log('%c[DEBUG-TERM] <script> de terminal.html ejecutándose', 'backgroun
         },
         {name:'cd',description:'Cambiar directorio',usage:'cd [ruta]',
           async execute(ctx){
-            const pa=ctx.args[0];const target=pa?resolvePath(pa):'/home';
+            const pa=ctx.args[0];const target=pa?resolvePath(pa):'/device';
             const node=await K.fs.stat(target);
             if(!node){ctx.print(`cd: ${target}: No existe`,'nt-err');return{exitCode:1};}
             if(node.type!=='dir'){ctx.print(`cd: ${target}: No es un directorio`,'nt-err');return{exitCode:1};}
@@ -1133,7 +1133,7 @@ console.log('%c[DEBUG-TERM] <script> de terminal.html ejecutándose', 'backgroun
         },
         {name:'path',description:'Mostrar ruta de búsqueda',usage:'path',
           async execute(ctx){
-            const p=await K.env.get('PATH')||'/system/bin:/home/bin';
+            const p=await K.env.get('PATH')||'/system/bin:/device/bin';
             p.split(':').forEach(d=>ctx.print(d,'nt-out'));
             return{exitCode:0};
           }
@@ -1231,7 +1231,7 @@ console.log('%c[DEBUG-TERM] <script> de terminal.html ejecutándose', 'backgroun
 
       core.init().then(() => {
         renderer.print('HUEBOS Terminal — escribe "help" para ver los comandos disponibles.', 'nt-success');
-        core.setCwd(termProc.cwd || '/home');
+        core.setCwd(termProc.cwd || '/device');
         document.getElementById('nt-cmd-input').focus();
         console.debug('[DEBUG-TERM] enviando ide:terminalReady | pid:', pid, '| window.parent.IDEBridge existe ya?:', !!window.parent.IDEBridge);
         window.parent.postMessage({ type: 'ide:terminalReady', pid }, '*');

@@ -1,7 +1,7 @@
 function registerService(Kernel) {
   let _timer = null;
   let _debounce = null;
-  const ROOTS = ['/home'];
+  const ROOTS = ['/device'];
 
   async function walk(path, out) {
     let entries = [];

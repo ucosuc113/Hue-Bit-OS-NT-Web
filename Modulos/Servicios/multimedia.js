@@ -47,7 +47,7 @@ function registerService(Kernel) {
       return { type, url, mime, name: node.name, path };
     },
 
-    async listMedia(dirPath = '/home/media') {
+    async listMedia(dirPath = '/device/media') {
       try {
         const entries = await fs.readdir(dirPath);
         return entries.filter(e => this.detectType(e.name) !== 'unknown');

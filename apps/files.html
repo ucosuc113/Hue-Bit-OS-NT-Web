@@ -303,7 +303,7 @@
 </div>
 
 <div id="statusbar">
-  <span id="status-path">/home</span>
+  <span id="status-path">/device</span>
   <span id="status-count">0 elementos</span>
   <span id="status-sel"></span>
 </div>
@@ -419,11 +419,11 @@ function escapeHtml(str) {
   let panelToken = 0;
 
   const QUICK_LOCATIONS = [
-    { path: '/home',           name: 'Inicio',      icon: Icon.home },
-    { path: '/home/desktop',   name: 'Escritorio',  icon: Icon.desktop },
-    { path: '/home/docs',      name: 'Documentos',  icon: Icon.file },
-    { path: '/home/media',     name: 'Multimedia',  icon: Icon.fileVideo },
-    { path: '/home/downloads', name: 'Descargas',   icon: Icon.download },
+    { path: '/device',           name: 'Inicio',      icon: Icon.home },
+    { path: '/device/desktop',   name: 'Escritorio',  icon: Icon.desktop },
+    { path: '/device/docs',      name: 'Documentos',  icon: Icon.file },
+    { path: '/device/media',     name: 'Multimedia',  icon: Icon.fileVideo },
+    { path: '/device/downloads', name: 'Descargas',   icon: Icon.download },
     { path: '/temp',           name: 'Temporal',    icon: Icon.trash },
     { path: '/system',         name: 'Sistema',     icon: Icon.shield },
     { path: '/',                name: 'Raíz',        icon: '╱' },
@@ -508,7 +508,7 @@ function escapeHtml(str) {
   /* ═══════════════════════ TABS ═══════════════════════ */
 
   function addTab(path) {
-    const norm = K.fs.normalize(path || '/home') || '/home';
+    const norm = K.fs.normalize(path || '/device') || '/device';
     const t = createTab(norm);
     tabs.push(t);
     activeTabId = t.id;
@@ -537,7 +537,7 @@ function escapeHtml(str) {
     tabs.forEach(t => {
       const chip = document.createElement('div');
       chip.className = 'tab-chip' + (t.id === activeTabId ? ' active' : '');
-      const label = t.cwd === '/home' ? 'Inicio' : (K.fs.basename(t.cwd) || t.cwd);
+      const label = t.cwd === '/device' ? 'Inicio' : (K.fs.basename(t.cwd) || t.cwd);
       chip.innerHTML = `<span class="tab-name">${escapeHtml(label)}</span><span class="tab-close" title="Cerrar pestaña">✕</span>`;
       chip.addEventListener('click', () => switchTab(t.id));
       chip.querySelector('.tab-close').addEventListener('click', e => { e.stopPropagation(); closeTab(t.id); });
@@ -694,10 +694,10 @@ function escapeHtml(str) {
     const tab = activeTab();
     try {
       const stat = await K.fs.stat(tab.cwd);
-      if (!stat || stat.type !== 'dir') tab.cwd = '/home';
+      if (!stat || stat.type !== 'dir') tab.cwd = '/device';
       tab.rawItems = await K.fs.readdir(tab.cwd);
     } catch {
-      tab.cwd = '/home';
+      tab.cwd = '/device';
       try { tab.rawItems = await K.fs.readdir(tab.cwd); }
       catch { tab.rawItems = []; }
     }
@@ -1185,7 +1185,7 @@ else if (moved) toast(`${moved} elemento(s) movidos`, 'ok');
   }
 
   async function createDesktopShortcuts(ids) {
-    const count = await createShortcutsAt(ids, '/home/desktop');
+    const count = await createShortcutsAt(ids, '/device/desktop');
     if (count) toast(`${count} acceso(s) directo(s) creado(s) en el escritorio`, 'ok');
   }
 
@@ -1654,7 +1654,7 @@ else toast(`${ids.length} elemento(s) eliminado(s)`, 'ok');
     const p = K.fs.dirname(tab.cwd);
     navigate((p && p !== tab.cwd) ? p : '/');
   });
-  $('#btn-home').addEventListener('click', () => navigate('/home'));
+  $('#btn-home').addEventListener('click', () => navigate('/device'));
   $('#btn-refresh').addEventListener('click', refresh);
   $('#btn-newdir').addEventListener('click', () => startCreate('dir'));
   $('#btn-newfile').addEventListener('click', () => startCreate('file'));
@@ -1705,7 +1705,7 @@ else toast(`${ids.length} elemento(s) eliminado(s)`, 'ok');
     renderSidebar();
   });
   $('#btn-panel').addEventListener('click', togglePanel);
-  $('#btn-newtab').addEventListener('click', () => addTab('/home'));
+  $('#btn-newtab').addEventListener('click', () => addTab('/device'));
 
   /* ═══════════════════════ KEYBOARD SHORTCUTS ═══════════════════════ */
 
@@ -1734,7 +1734,7 @@ else toast(`${ids.length} elemento(s) eliminado(s)`, 'ok');
     else if (mod && key === 'v') { pasteClipboard(); }
     else if (mod && key === 'd') { e.preventDefault(); duplicateSelection(); }
     else if (mod && key === 'f') { e.preventDefault(); searchInput.focus(); }
-    else if (mod && key === 't') { e.preventDefault(); addTab('/home'); }
+    else if (mod && key === 't') { e.preventDefault(); addTab('/device'); }
     else if (mod && key === 'w') { e.preventDefault(); closeTab(activeTabId); }
     else if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); goBack(); }
     else if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); goForward(); }
@@ -1849,7 +1849,7 @@ waitForKernel(kernel => {
       await loadPinned();
       await cleanupPendingShortcutTemp();
       const startPath = getStartPath();
-      const initial = startPath ? (K.fs.normalize(startPath) || '/home') : '/home';
+      const initial = startPath ? (K.fs.normalize(startPath) || '/device') : '/device';
       tabs = [createTab(initial)];
       activeTabId = tabs[0].id;
       bindKernelEvents();

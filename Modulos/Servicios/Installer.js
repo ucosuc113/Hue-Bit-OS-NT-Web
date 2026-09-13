@@ -23,7 +23,7 @@ function registerService(Kernel) {
             }
             
             const appId = pkg.manifest.id;
-            const appDir = `/home/apps/${appId}`;
+            const appDir = `/device/apps/${appId}`;
             
             // 1. Extraer archivos originales
             await FS.mkdir(appDir);
@@ -93,7 +93,7 @@ function registerService(Kernel) {
             await Apps.register(appRecord);
             
             // 4. Crear el .exe en el Escritorio
-            const exePath = `/home/desktop/${appId}.exe`;
+            const exePath = `/device/desktop/${appId}.exe`;
             await FS.write(exePath, `USER EXECUTABLE ${appId}`, {
               meta: {
                 protected: false,

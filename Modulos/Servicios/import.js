@@ -32,14 +32,14 @@ function registerService(Kernel) {
 
       const name = file.name || `import_${Date.now()}`;
       const ext = '.' + (name.split('.').pop() || '').toLowerCase();
-      let targetDir = '/home/downloads';
+      let targetDir = '/device/downloads';
       let category = 'binary';
 
       // 1. Detección automática de tipo
-      if (IMG_EXTS.includes(ext)) { targetDir = '/home/media'; category = 'image'; }
-      else if (VID_EXTS.includes(ext)) { targetDir = '/home/media'; category = 'video'; }
-      else if (AUD_EXTS.includes(ext)) { targetDir = '/home/media'; category = 'audio'; }
-      else if (TEXT_EXTS.includes(ext)) { targetDir = '/home/docs'; category = 'text'; }
+      if (IMG_EXTS.includes(ext)) { targetDir = '/device/media'; category = 'image'; }
+      else if (VID_EXTS.includes(ext)) { targetDir = '/device/media'; category = 'video'; }
+      else if (AUD_EXTS.includes(ext)) { targetDir = '/device/media'; category = 'audio'; }
+      else if (TEXT_EXTS.includes(ext)) { targetDir = '/device/docs'; category = 'text'; }
 
       // 2. Adaptación de metadatos internos
       const meta = {

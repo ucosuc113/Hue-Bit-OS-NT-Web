@@ -341,7 +341,7 @@
 <div id="open-dialog">
   <div class="dialog-box">
     <h3><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M3 7.5V6a1 1 0 0 1 1-1h4l2 2h9a1 1 0 0 1 1 1v1"/><path d="M3.3 7.5h17a1 1 0 0 1 .97 1.24l-1.5 6.5A1 1 0 0 1 18.8 16H4.7a1 1 0 0 1-.97-.76l-1.5-6.5a1 1 0 0 1 .1-.24z"/></svg> ABRIR ARCHIVO</h3>
-    <input type="text" class="dialog-input" id="open-path-input" placeholder="/home/docs/readme.txt" />
+    <input type="text" class="dialog-input" id="open-path-input" placeholder="/device/docs/readme.txt" />
     <div class="dialog-file-list" id="dialog-file-list"></div>
     <div class="dialog-actions">
       <button class="tb-btn" id="dlg-cancel">CANCELAR</button>
@@ -353,7 +353,7 @@
 <div id="saveas-dialog" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;">
   <div class="dialog-box">
     <h3><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M4 4a1 1 0 0 1 1-1h10.6a1 1 0 0 1 .7.3l2.4 2.4a1 1 0 0 1 .3.7V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4z"/><path d="M7.5 3v5h7V3"/><path d="M7 21v-6.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1V21"/></svg> GUARDAR COMO</h3>
-    <input type="text" class="dialog-input" id="saveas-path-input" placeholder="/home/docs/mi-archivo.txt" />
+    <input type="text" class="dialog-input" id="saveas-path-input" placeholder="/device/docs/mi-archivo.txt" />
     <div class="dialog-actions">
       <button class="tb-btn" id="saveas-cancel">CANCELAR</button>
       <button class="tb-btn accent" id="saveas-confirm">GUARDAR</button>
@@ -556,11 +556,11 @@
   const fileListEl  = $('dialog-file-list');
 
   async function showOpenDialog() {
-    openInput.value = filePath || '/home/docs/';
+    openInput.value = filePath || '/device/docs/';
     openDialog.classList.add('visible');
     openInput.focus();
     openInput.select();
-    await populateFileList('/home/docs');
+    await populateFileList('/device/docs');
   }
 
   async function populateFileList(dir) {
@@ -632,7 +632,7 @@
   const saveAsInput  = $('saveas-path-input');
 
   function showSaveAsDialog() {
-    saveAsInput.value = filePath || '/home/docs/nuevo.txt';
+    saveAsInput.value = filePath || '/device/docs/nuevo.txt';
     saveAsDialog.style.display = 'flex';
     saveAsInput.focus();
     saveAsInput.select();

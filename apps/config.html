@@ -1955,7 +1955,7 @@ function detectEngine(ua) {
     if (_imgDropdown) { _imgDropdown.remove(); _imgDropdown = null; return; }
 
     try {
-      const files = await K.fs.readdir('/home/desktop');
+      const files = await K.fs.readdir('/device/desktop');
       const pngFiles = files.filter(f =>
         f.type === 'file' && f.name.toLowerCase().endsWith('.png')
       );

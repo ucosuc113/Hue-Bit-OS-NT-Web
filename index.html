@@ -362,6 +362,19 @@
 
   <!-- Kernel -->
 
+  <!--
+    Este repo se instalará tal cual (sin bundlear) bajo /system/OS/Hue-Bit-OS-NT/
+    dentro del IndexedDB de HuebOS. Sus fetch()/rutas relativas (./apps/index.json,
+    Kernel.js, etc.) ya son portables porque nunca asumen la raíz del dominio;
+    quedarán correctas el día que un Service Worker resuelva esas rutas virtuales.
+    Todas las rutas de FS que antes usaban '/home' como raíz del usuario ahora
+    usan '/device' (nueva convención del bootloader raíz) — '/system', '/sys' y
+    '/temp' quedaron intactos porque son namespaces internos propios de este
+    Kernel, no la misma cosa que el '/system' del nuevo bootloader.
+    La carga de Kernel.js sigue rota/pendiente a propósito (el archivo se movió
+    al repo standalone Hueb-OS-Kernel): aún no se conecta este OS al nuevo
+    bootloader.
+  -->
   <!-- Kernel Release 1.0.0 — cargado como módulo externo -->
   <script src="Kernel.js"></script>
 
@@ -591,7 +604,7 @@ Kernel.on('boot:step', ({ step, detail }) => {
   }
 
   addLog('OK', `Kernel v${version} · sesión #${sessionCount ?? '?'}`);
-  addLog('OK', `FS montado · /home /temp /sys /sys/crashes`);
+  addLog('OK', `FS montado · /device /temp /sys /sys/crashes`);
       addLog('OK', `FS Binario activo · Blob/ArrayBuffer habilitado`);
       if (recoveredBoot) addLog('OK', 'CrashReporter activo · boot anterior recuperado');
       else               addLog('OK', 'CrashReporter instalado · /sys/crashes/ listo');

@@ -3351,14 +3351,14 @@ function applyLayoutMode(mode){
         const K=getKernel(); if(!K)return;
         let moved=0,errors=0;
         for(const p of paths){
-          if(K.fs.dirname(p)==='/home/desktop')continue;
+          if(K.fs.dirname(p)==='/device/desktop')continue;
           const name=K.fs.basename(p);
-          let target=`/home/desktop/${name}`;
+          let target=`/device/desktop/${name}`;
           try{
             if(await K.fs.exists(target)){
               let n=2;
-              while(await K.fs.exists(`/home/desktop/${name} (${n})`))n++;
-              target=`/home/desktop/${name} (${n})`;
+              while(await K.fs.exists(`/device/desktop/${name} (${n})`))n++;
+              target=`/device/desktop/${name} (${n})`;
             }
             await K.fs.move(p,target);
             moved++;
@@ -3451,7 +3451,7 @@ function applyLayoutMode(mode){
       async function pasteFromClipboard(){
         const K=getKernel(); if(!K)return;
         if(!getClipboardPaths().length){ Toast.show('Portapapeles vacío','info'); return; }
-        const {count}=await K.clipboard.paste('/home/desktop');
+        const {count}=await K.clipboard.paste('/device/desktop');
         if(count)Toast.show(`${count} elemento(s) pegado(s)`,'ok');
         else Toast.show('No se pegó ningún elemento (¿ya existía?)','warn');
         await refreshDesktop();
@@ -3703,7 +3703,7 @@ function applyLayoutMode(mode){
           const paths=JSON.parse(raw);
           const K=getKernel();
           const isDesktopOrigin=e.dataTransfer.getData('text/x-huebos-desktop-origin')==='1';
-          const allAlreadyOnDesktop=K&&paths.every(p=>K.fs.dirname(p)==='/home/desktop');
+          const allAlreadyOnDesktop=K&&paths.every(p=>K.fs.dirname(p)==='/device/desktop');
           if(isDesktopOrigin&&allAlreadyOnDesktop){
             await repositionIcons(paths,e.clientX,e.clientY,e.dataTransfer.getData('text/x-huebos-grab-offset'),e.dataTransfer.getData('text/x-huebos-anchor-path'));
           } else {
@@ -3823,9 +3823,9 @@ const isShortcutCtx=item.type==='shortcut'||item.meta?.isDesktopShortcut;
               appId=resolved.handler; filePath=p;
             }
             if(!appId){ Toast.show(`No se pudo crear acceso a "${name}"`,'warn'); continue; }
-            let target=`/home/desktop/${name} - acceso directo`;
+            let target=`/device/desktop/${name} - acceso directo`;
             let n=1;
-            while(await K.fs.exists(target)){ target=`/home/desktop/${name} - acceso directo (${++n})`; }
+            while(await K.fs.exists(target)){ target=`/device/desktop/${name} - acceso directo (${++n})`; }
             await K.fs.createShortcut(target,{
               appId, name, icon, entry,
               metadata:{isDesktopShortcut:true,protected:false,systemApp:false,filePath,startPath},
@@ -3945,7 +3945,7 @@ const isShortcutCtx=item.type==='shortcut'||item.meta?.isDesktopShortcut;
           {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a1 1 0 011-1h5l2 2h9a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V7z"/></svg>',text:'Nueva carpeta',action:async()=>{
             const name=await Dialog.prompt('Nombre de la carpeta:',{placeholder:'mi_carpeta',title:'Nueva carpeta'});
             if(!name)return;
-            const target=`/home/desktop/${name.replace(/[/\\]/g,'')}`;
+            const target=`/device/desktop/${name.replace(/[/\\]/g,'')}`;
             try{
               if(await Kernel.fs.exists(target)){Toast.show(`Ya existe "${name}" en el escritorio`,'warn');return;}
               await Kernel.fs.mkdir(target); Toast.show('Carpeta creada en el escritorio','ok');
@@ -3955,7 +3955,7 @@ const isShortcutCtx=item.type==='shortcut'||item.meta?.isDesktopShortcut;
           {icon:'<svg viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.15em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2.5h7l4 4V21a.5.5 0 01-.5.5h-11A.5.5 0 016 21V3a.5.5 0 011-.5z"/><path d="M14 2.5V7h4.5"/></svg>',text:'Nuevo archivo',action:async()=>{
             const name=await Dialog.prompt('Nombre del archivo:',{placeholder:'documento.txt',title:'Nuevo archivo'});
             if(!name)return;
-            const target=`/home/desktop/${name.replace(/[/\\]/g,'')}`;
+            const target=`/device/desktop/${name.replace(/[/\\]/g,'')}`;
             try{
               await Kernel.fs.write(target,''); Toast.show('Archivo creado en el escritorio','ok');
             }
@@ -4039,7 +4039,7 @@ const isShortcutCtx=item.type==='shortcut'||item.meta?.isDesktopShortcut;
           else return; // Desktop.init() aún no arrancó; nada que dibujar todavía
         }
         try{
-          const items=await getKernel().fs.readdir('/home/desktop');
+          const items=await getKernel().fs.readdir('/device/desktop');
           renderFromFs(items);
         }catch(err){
           console.warn('[shell:desktop] no se pudo actualizar',err);
@@ -4108,7 +4108,7 @@ let _singletons={};
         const ep=_singletons[app.id]; const wd=WM.getWindow(ep);
         if(wd){if(wd.minimized)WM.minimize(ep);WM.focus(ep);Toast.show(`${app.name} ya está abierta`,'info');return;}
       }
-      const proc=Kernel.procs.spawn(app.id,{title:app.name,icon:app.icon,parentPid:opts.parentPid??null,cwd:opts.cwd||'/home'});
+      const proc=Kernel.procs.spawn(app.id,{title:app.name,icon:app.icon,parentPid:opts.parentPid??null,cwd:opts.cwd||'/device'});
       if(app.singleton)_singletons[app.id]=proc.pid;
       
       const winOpts={title:app.name,icon:app.icon,width:app.meta?.winWidth||660,height:app.meta?.winHeight||480};
