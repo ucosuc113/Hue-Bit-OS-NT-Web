@@ -397,15 +397,8 @@
           );
           console.log('[Boot] Cache API borrada correctamente.');
         }
-
-        // 2. Desregistrar todos los Service Workers
-        if ('serviceWorker' in navigator) {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(
-            registrations.map(registration => registration.unregister())
-          );
-          console.log('[Boot] Service Workers desregistrados.');
-        }
+        // No desregistrar Service Workers: sw.js del bootloader es quien sirve
+        // este OS desde IndexedDB; sin él, la próxima carga da 404.
       } catch (err) {
         console.warn('[Boot] Error al limpiar caché:', err);
       }
