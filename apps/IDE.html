@@ -1076,7 +1076,7 @@ const ProjectTools = {
     async cleanupDebug() { if(this._debugTempPath){ try{await WOS.fs.remove(this._debugTempPath,{recursive:true}); logConsole(`Debug limpiado: ${this._debugTempPath}`, 'info');}catch{} this._debugTempPath=null; } },
     async copyProjectToTemp(s,d) { const items=await WOS.fs.readdir(s); for(const i of items){ if(i.name.endsWith('.hpkg'))continue; if(i.type==='dir'){ await WOS.fs.mkdir(`${d}/${i.name}`); await this.copyProjectToTemp(i.id,`${d}/${i.name}`); } else { const b=await WOS.fs.isBinary(i.id); if(b){ const bl=await WOS.fs.readBlob(i.id); const m=await WOS.fs.getMime(i.id); await WOS.fs.writeBinary(`${d}/${i.name}`,bl,m); } else { const c=await WOS.fs.read(i.id); await WOS.fs.write(`${d}/${i.name}`,c); } } } },
     async rebuildManifest() { if(!ProjectManager.manifest){WOS.toast('No hay proyecto','warn');return;} ManifestEditor.save(); await WOS.fs.write(`${ProjectManager.root}/manifest.json`, JSON.stringify(ProjectManager.manifest,null,2)); WOS.toast('manifest.json reconstruido','ok'); await ProjectManager.loadManifest(); this.updateHierarchy(); },
-    async clearBuildCache() { try{ const t=await WOS.fs.readdir('/temp').catch(()=>[]); let c=0; for(const i of t){ if(i.name.startsWith('ide_debug_')){ await WOS.fs.remove(i.id,{recursive:true}).catch(()=>{}); c++; } } WOS.toast(`Cache limpiado: ${c} elem.`, 'ok'); } catch(e){ WOS.toast(`Error: ${e.message}`, 'error'); } },
+    async clearBuildCache() { try{ const t=await WOS.fs.readdir('/device/temp').catch(()=>[]); let c=0; for(const i of t){ if(i.name.startsWith('ide_debug_')){ await WOS.fs.remove(i.id,{recursive:true}).catch(()=>{}); c++; } } WOS.toast(`Cache limpiado: ${c} elem.`, 'ok'); } catch(e){ WOS.toast(`Error: ${e.message}`, 'error'); } },
     
     updateHierarchy() {
       const panel=document.getElementById('hierarchy-panel'); if(!panel)return;
@@ -1097,7 +1097,7 @@ const ProjectTools = {
     async start() {
       this.stop();
       logConsole('Iniciando servidor local...', 'info');
-      this.tempPath = `/temp/ide_debug_${Date.now()}`;
+      this.tempPath = `/device/temp/ide_debug_${Date.now()}`;
       try {
         await WOS.fs.mkdir(this.tempPath);
         await ProjectTools.copyProjectToTemp(ProjectManager.root, this.tempPath);

@@ -1133,7 +1133,7 @@ console.log('%c[DEBUG-TERM] <script> de terminal.html ejecutándose', 'backgroun
         },
         {name:'path',description:'Mostrar ruta de búsqueda',usage:'path',
           async execute(ctx){
-            const p=await K.env.get('PATH')||'/system/bin:/device/bin';
+            const p=await K.env.get('PATH')||'/device/system/bin:/device/bin';
             p.split(':').forEach(d=>ctx.print(d,'nt-out'));
             return{exitCode:0};
           }
@@ -1152,7 +1152,7 @@ console.log('%c[DEBUG-TERM] <script> de terminal.html ejecutándose', 'backgroun
             const attrs=[];
             if(node.type==='dir')attrs.push('D');
             if(node.encoding==='binary')attrs.push('B');
-            if(node.meta?.protected||node.meta?.systemApp||target.startsWith('/system'))attrs.push('S');
+            if(node.meta?.protected||node.meta?.systemApp||target.startsWith('/device/system'))attrs.push('S');
             ctx.print(`  ${attrs.join('')||'---'}  ${target}`,'nt-out');
             return{exitCode:0};
           }

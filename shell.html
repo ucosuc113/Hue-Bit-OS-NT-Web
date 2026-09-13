@@ -3099,7 +3099,7 @@ let _selected=new Set();       // paths seleccionados
 
       /* ── Utilidades ── */
       function getKernel(){return window.Kernel;}
-      function isProtected(path){return path==='/system'||path.startsWith('/system/');}
+      function isProtected(path){return path==='/device/system'||path.startsWith('/device/system/');}
       function getClipboardPaths(){return getKernel()?.clipboard.get().paths||[];}
 
       function setSelection(paths,activePath=null){
@@ -4617,7 +4617,7 @@ const CHANNEL_POLICY = {
   kernel        : ['session','uptime','uptimeSeconds','version','safeMode','isReady','bootComplete'],
 };
 const FS_WRITE_METHODS = new Set(['write','writeBinary','mkdir','remove','move','createShortcut','touch']);
-const PROTECTED_IPC_PREFIXES = ['/system', '/Modulos'];
+const PROTECTED_IPC_PREFIXES = ['/device/system']; // /Modulos vive anidado ahí (/device/system/Modulos)
 function ipcPathIsProtected(p) {
   if (typeof p !== 'string' || !p) return false;
   const norm = Kernel.fs.normalize(p);
@@ -4833,7 +4833,7 @@ window.__wos = {
       kernel.on('shell:launch',async({appId,filePath,startPath})=>{
         const app=_runtimeApps.get(appId)||await kernel.apps.get(appId);
         if(!app){Toast.show(`App "${appId}" no encontrada`,'error');return;}
-        const isSys=p=>typeof p==='string'&&(p.startsWith('/system')||p.startsWith('/sys'));
+        const isSys=p=>typeof p==='string'&&(p.startsWith('/device/system'));
         launchApp(app, (isSys(filePath)||isSys(startPath)) ? {} : {filePath,startPath});
       });
       kernel.on('prefs:change', async ({key,value})=>{

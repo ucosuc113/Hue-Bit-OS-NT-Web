@@ -386,14 +386,14 @@
         const node = {
           id: dirPath, type: 'directory', name: basenameOf(dirPath),
           parent: dirnameOf(dirPath), ctime: now, mtime: now,
-          meta: (dirPath === '/system' || dirPath.startsWith('/system/')) ? { protected:true } : {}
+          meta: (dirPath === '/device/system' || dirPath.startsWith('/device/system/')) ? { protected:true } : {}
         };
         byId.set(dirPath, node);
         toPut.push(node);
       });
     }
 
-    const REQUIRED_DIRS = ['/device','/device/desktop','/device/docs','/device/media','/device/downloads','/system','/sys','/sys/crashes','/temp'];
+    const REQUIRED_DIRS = ['/device','/device/desktop','/device/docs','/device/media','/device/downloads','/device/system','/device/system/sys','/device/system/sys/crashes','/device/temp'];
 
     const viewMain   = document.getElementById('view-main');
     const viewRepair = document.getElementById('view-repair');
@@ -656,7 +656,7 @@
         const toPutFs = [];
         let protectedFixed = 0;
         fsNodes.forEach(n => {
-          if (n.id === '/system' || (typeof n.id === 'string' && n.id.startsWith('/system/'))){
+          if (n.id === '/device/system' || (typeof n.id === 'string' && n.id.startsWith('/device/system/'))){
             const meta = n.meta || {};
             if (!meta.protected && !meta.systemApp){
               n.meta = Object.assign({}, meta, { protected: true });
@@ -804,7 +804,7 @@
             const node = {
               id: p, type: 'directory', name: basenameOf(p), parent: dirnameOf(p),
               ctime: now, mtime: now,
-              meta: p.startsWith('/system') ? { protected:true } : {}
+              meta: p.startsWith('/device/system') ? { protected:true } : {}
             };
             byId.set(p, node);
             toPut.push(node);

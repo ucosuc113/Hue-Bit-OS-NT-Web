@@ -424,10 +424,12 @@ function escapeHtml(str) {
     { path: '/device/docs',      name: 'Documentos',  icon: Icon.file },
     { path: '/device/media',     name: 'Multimedia',  icon: Icon.fileVideo },
     { path: '/device/downloads', name: 'Descargas',   icon: Icon.download },
-    { path: '/temp',           name: 'Temporal',    icon: Icon.trash },
-    { path: '/system',         name: 'Sistema',     icon: Icon.shield },
-    { path: '/',                name: 'Raíz',        icon: '╱' },
+    { path: '/device/temp',    name: 'Temporal',    icon: Icon.trash },
+    { path: '/device/system',  name: 'Sistema',     icon: Icon.shield },
   ];
+  /* Sin acceso directo a '/': por encima de /device vive el bootloader
+     compartido (kernel.js, boot.json, otros OS instalados en /system/OS/**)
+     — /device es la raíz máxima que este OS expone al usuario. */
 
   function createTab(path) {
     tabCounter++;
@@ -977,7 +979,7 @@ if (app) {
   function copySelection() {
     const tab = activeTab();
     if (!tab.selection.size) return;
-    const isProtectedId = id => id === '/system' || id.startsWith('/system/');
+    const isProtectedId = id => id === '/device/system' || id.startsWith('/device/system/');
     const ids = [...tab.selection];
     const blocked = ids.filter(isProtectedId);
     const allowed = ids.filter(id => !isProtectedId(id));
@@ -1216,7 +1218,7 @@ else if (moved) toast(`${moved} elemento(s) movidos`, 'ok');
     const validIds = (ids || []).filter(Boolean);
     if (!validIds.length) return;
     await cleanupPendingShortcutTemp();
-    const tempDir = '/temp';
+    const tempDir = '/device/temp';
     try { if (!(await K.fs.exists(tempDir))) await K.fs.mkdir(tempDir); } catch (e) {}
 
     const tempPaths = [];
@@ -1381,7 +1383,7 @@ if (collision) {
     const tab = activeTab();
     if (!tab.selection.size) return;
     const ids = [...tab.selection];
-    const isProtected = id => id === '/system' || id.startsWith('/system/');
+    const isProtected = id => id === '/device/system' || id.startsWith('/device/system/');
 if (ids.some(isProtected)) {
   toast('Uno o más elementos están protegidos por el sistema y no se pueden eliminar.', 'warn');
   return;
@@ -1435,7 +1437,7 @@ else toast(`${ids.length} elemento(s) eliminado(s)`, 'ok');
   function showCtx(x, y, item) {
     const tab = activeTab();
     const multi = tab.selection.size > 1;
-    const isProtected = item.id === '/system' || item.id.startsWith('/system/');
+    const isProtected = item.id === '/device/system' || item.id.startsWith('/device/system/');
     const menuItems = [];
 
     if (!multi) {
@@ -1634,7 +1636,7 @@ else toast(`${ids.length} elemento(s) eliminado(s)`, 'ok');
     $('#btn-rename').disabled = n !== 1;
     $('#btn-delete').disabled = n === 0;
     $('#btn-cut').disabled = n === 0;
-    $('#btn-copy').disabled = n === 0 || ![...tab.selection].some(id => !(id === '/system' || id.startsWith('/system/')));
+    $('#btn-copy').disabled = n === 0 || ![...tab.selection].some(id => !(id === '/device/system' || id.startsWith('/device/system/')));
     $('#btn-paste').disabled = !K.clipboard.get().paths.length;
     $('#btn-shortcut').disabled = n === 0 || ![...tab.selection].some(id => !isSysItem(tab.rawItems.find(i => i.id === id)));
     $('#btn-back').disabled = tab.historyIndex <= 0;

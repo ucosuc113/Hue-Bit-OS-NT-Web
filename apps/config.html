@@ -1050,7 +1050,7 @@
               <div class="cfg-hint">Donde se alojan los servicios en segundo plano</div>
             </div>
             <div class="cfg-control">
-              <input type="text" class="cfg-input-num" id="path-services" value="/Modulos/Servicios" style="width:200px; text-align:left;" />
+              <input type="text" class="cfg-input-num" id="path-services" value="/device/system/Modulos/Servicios" style="width:200px; text-align:left;" />
             </div>
           </div>
           <div class="cfg-row">
@@ -1059,7 +1059,7 @@
               <div class="cfg-hint">Módulos de API expuestos a las apps</div>
             </div>
             <div class="cfg-control">
-              <input type="text" class="cfg-input-num" id="path-api" value="/Modulos/API" style="width:200px; text-align:left;" />
+              <input type="text" class="cfg-input-num" id="path-api" value="/device/system/Modulos/API" style="width:200px; text-align:left;" />
             </div>
           </div>
           <div class="cfg-row">
@@ -1068,7 +1068,7 @@
               <div class="cfg-hint">Componentes visuales del sistema</div>
             </div>
             <div class="cfg-control">
-              <input type="text" class="cfg-input-num" id="path-components" value="/Modulos/Componentes" style="width:200px; text-align:left;" />
+              <input type="text" class="cfg-input-num" id="path-components" value="/device/system/Modulos/Componentes" style="width:200px; text-align:left;" />
             </div>
           </div>
         </div>
@@ -1464,9 +1464,9 @@
   async function loadPaths() {
     const paths = await K.prefs.get('system.paths') || {};
     $('path-wos-client').value = paths.wosClient || '/apps/lib/wos-client.js';
-    $('path-services').value = paths.services || '/Modulos/Servicios';
-    $('path-api').value = paths.api || '/Modulos/API';
-    $('path-components').value = paths.components || '/Modulos/Componentes';
+    $('path-services').value = paths.services || '/device/system/Modulos/Servicios';
+    $('path-api').value = paths.api || '/device/system/Modulos/API';
+    $('path-components').value = paths.components || '/device/system/Modulos/Componentes';
   }
 
   /* ── Save Paths ── */
@@ -1584,16 +1584,16 @@
     );
   });
 
-  /* ── Clear /temp ── */
+  /* ── Clear /device/temp ── */
 $('btn-clear-tmp').addEventListener('click', () => {
     Confirm.show(
-      'LIMPIAR /temp',
-      'Se borrarán todos los archivos en /temp.',
+      'LIMPIAR /device/temp',
+      'Se borrarán todos los archivos en /device/temp.',
       async () => {
         try {
-          await K.fs.remove('/temp', { recursive: true });
-          await K.fs.mkdir('/temp');
-          Toast.show('/temp limpiado', 'ok');
+          await K.fs.remove('/device/temp', { recursive: true });
+          await K.fs.mkdir('/device/temp');
+          Toast.show('/device/temp limpiado', 'ok');
           loadStorageStats();
         } catch (e) {
           Toast.show(`Error: ${e.message}`, 'error');
